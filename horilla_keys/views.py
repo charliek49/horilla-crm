@@ -142,7 +142,7 @@ class ShortKeyFormView(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_title = _("Short Key")
     full_width_fields = ["page"]
-    hidden_fields = ["is_active", "user"]
+    hidden_fields = ["is_active", "user", "company"]
 
     @cached_property
     def form_url(self):

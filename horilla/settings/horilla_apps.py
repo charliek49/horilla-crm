@@ -10,7 +10,6 @@ INSTALLED_APPS.extend(
         "horilla_crm.timeline",
         "horilla_crm.activity",
         "horilla_crm.reports",
-        "horilla_crm.dashboards",
         "horilla_crm.forecast",
     ]
 )

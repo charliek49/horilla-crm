@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     # Horilla apps
     "horilla_core",
     "horilla_generics",
+    "horilla_dashboard",
     "horilla_utils",
     "horilla_notifications",
     "horilla_mail",
@@ -343,7 +344,7 @@ AUTH_USER_MODEL = "horilla_core.HorillaUser"
 # -----------------------------------------------------------------------------
 EMAIL_BACKEND = "horilla_mail.horilla_backends.HorillaDefaultMailBackend"
 
-DEFAULT_HOME_REDIRECT = "/my-profile-view/"
+DEFAULT_HOME_REDIRECT = "/dashboard/?section=home"
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://127.0.0.1:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://127.0.0.1:6379/0")
