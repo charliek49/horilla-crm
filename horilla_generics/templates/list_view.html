@@ -12,7 +12,15 @@
     .htmx-request.htmx-indicator{
         display:inline;
     }
-
+    .pagination-indicator{
+        display:none;
+    }
+    .htmx-request .pagination-indicator{
+        display:none;
+    }
+    .htmx-request.pagination-indicator{
+        display:inline;
+    }
 
 </style>
 <div id="{{ view_id|safe }}">
@@ -330,7 +338,7 @@
                         {% include "partials/list_view_rows.html" %}
                     </tbody>
                 </table>
-                <div id="loadingIndicator" class="htmx-indicator">
+                <div id="loadingIndicator" class="pagination-indicator">
                     <div class="flex justify-center items-center p-4">
                         <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#e54f38]"></div>
                     </div>

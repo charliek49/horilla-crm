@@ -66,7 +66,7 @@ class UserNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
-        if self.request.user.has_perm("horilla_core.create_horillauser"):
+        if self.request.user.has_perm("horilla_core.add_horillauser"):
             return {
                 "url": f"""{ reverse_lazy('horilla_core:user_create_form')}?new=true""",
                 "attrs": {"id": "user-create"},
@@ -276,21 +276,6 @@ class UserFormView(LoginRequiredMixin, HorillaMultiStepFormView):
         if pk:
             return reverse_lazy("horilla_core:user_edit_form", kwargs={"pk": pk})
         return reverse_lazy("horilla_core:user_create_form")
-
-    def get(self, request, *args, **kwargs):
-        pk = kwargs.get("pk")
-        if pk:
-            try:
-                self.model.objects.get(pk=pk)
-            except self.model.DoesNotExist:
-                messages.error(request, "The requested user does not exist.")
-                return HttpResponse("<script>$('reloadButton').click();</script>")
-        if self.request.user.pk != self.kwargs.get(
-            "pk"
-        ) and not self.request.user.has_perm("horilla_core.add_horillauser"):
-            return render(self.request, "error/403.html")
-
-        return super().get(request, *args, **kwargs)
 
 
 @method_decorator(htmx_required, name="dispatch")

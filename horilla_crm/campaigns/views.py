@@ -379,18 +379,21 @@ class CampaignFormView(LoginRequiredMixin, HorillaMultiStepFormView):
         return reverse_lazy("campaigns:campaign_create")
 
     def get(self, request, *args, **kwargs):
+        campaign_id = self.kwargs.get("pk")
+        if campaign_id:
+            try:
+                campaign = get_object_or_404(Campaign, pk=campaign_id)
+            except Exception as e:
+                messages.error(request, e)
+                return HttpResponse("<script>$('#reloadButton').click();</script>")
 
-        campaign_id = request.GET.get("id")
+            if campaign.campaign_owner == request.user:
+                return super().get(request, *args, **kwargs)
+
         if request.user.has_perm("campaigns.change_campaign") or request.user.has_perm(
             "campaigns.add_campaign"
         ):
             return super().get(request, *args, **kwargs)
-
-        if campaign_id:
-            campaign = get_object_or_404(Campaign, pk=campaign_id)
-            if campaign.campaign_owner == request.user:
-                return super().get(request, *args, **kwargs)
-
         return render(request, "error/403.html")
 
 

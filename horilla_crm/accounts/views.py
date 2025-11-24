@@ -360,37 +360,6 @@ class AccountFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     form_class = AccountFormClass
     model = Account
     fullwidth_fields = ["description"]
-    fields = [
-        "name",
-        "account_source",
-        "account_type",
-        "rating",
-        "phone",
-        "parent_account",
-        "fax",
-        "account_number",
-        "website",
-        "site",
-        "is_active",
-        "is_customer_portal",
-        "is_partner",
-        "billing_city",
-        "billing_state",
-        "billing_district",
-        "billing_zip",
-        "shipping_city",
-        "shipping_state",
-        "shipping_district",
-        "shipping_zip",
-        "customer_priority",
-        "industry",
-        "number_of_employees",
-        "annual_revenue",
-        "ownership",
-        "description",
-        "account_owner",
-        "operating_hours",
-    ]
     total_steps = 4
     step_titles = {
         "1": "Account Information",

@@ -104,6 +104,7 @@ class SignUpFormView(HorillaSingleFormView, ProgressStepsMixin):
     header = False
     modal_height = False
     current_step = 3
+    skip_permission_check = True
     html = """
         {% load i18n static %}
         <div class="flex justify-end pt-5">
@@ -148,6 +149,7 @@ class InitializeCompanyFormView(HorillaSingleFormView, ProgressStepsMixin):
     current_step = 4
     header = False
     modal_height = False
+    skip_permission_check = True
     html = """
         {% load i18n static %}
         <div class="flex justify-end pt-5">

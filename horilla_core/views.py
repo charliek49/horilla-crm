@@ -329,9 +329,6 @@ class ConmpanyInformationView(LoginRequiredMixin, TemplateView):
 
 
 @method_decorator(htmx_required, name="dispatch")
-@method_decorator(
-    permission_required_or_denied("horilla_core.add_company"), name="dispatch"
-)
 class CompanyFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     model = Company
