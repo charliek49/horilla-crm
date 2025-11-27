@@ -91,6 +91,32 @@ function closeContentModal() {
     }, 300);
 }
 
+
+function openCalendarPreviewModal() {
+
+    // Fresh selection each time instead of cached selectors
+    const $calendarPreviewModal = $("#calendarPreviewModal");
+    const $calendarPreviewModalBox = $("#calendarPreviewModalBox");
+
+    $calendarPreviewModal.removeClass("hidden");
+    setTimeout(() => {
+        $calendarPreviewModalBox.removeClass("opacity-0 scale-95")
+            .addClass("opacity-100 scale-100");
+    }, 10);
+}
+
+function closeCalendarPreviewModal() {
+    // Fresh selection each time
+    const $calendarPreviewModal = $("#calendarPreviewModal");
+    const $calendarPreviewModalBox = $("#calendarPreviewModalBox");
+    $calendarPreviewModal.html("");
+    $calendarPreviewModalBox.removeClass("opacity-100 scale-100")
+        .addClass("opacity-0 scale-95");
+    setTimeout(() => {
+        $calendarPreviewModal.addClass("hidden");
+    }, 300);
+}
+
 function openContentModalSecond() {
 
     const $ContentModalSecond = $("#contentModalSecond");

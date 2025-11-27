@@ -13,7 +13,8 @@ body.dark .bg-dark-50,
 body.dark .bg-\[\#f8f8f9\],
 body.dark .module-icon,
 body.dark .bg-\[white\],
-body.dark .tabloading{
+body.dark .tabloading,
+body.dark .bg-\[\#f8fafc\]{
   background-color: black !important;
 }
 body.dark .bg-white {
@@ -58,7 +59,7 @@ body.dark #tab-campaigns button:hover,
 body.dark .progress li .sec::before,
 body.dark input[type="checkbox"],
 body.dark .swal2-popup.swal2-toast.custom-toast,
-body.dark .panel-default>.panel-heading, 
+body.dark .panel-default>.panel-heading,
 body.dark .note-editor.note-frame .note-editing-area .note-editable{
   background-color: #5d5d5d !important;
 }
@@ -108,7 +109,7 @@ body.dark .border-\[\#e5e5e5\],
 body.dark .border-\[\#dddddd\],
 body.dark button,
 body.dark .note-toolbar,
-body.dark .border-\[\#e9e9e9\], 
+body.dark .border-\[\#e9e9e9\],
 body.dark .panel-default>.panel-heading,
 body.dark .module-card{
   border-color: #565656 !important;
@@ -142,7 +143,8 @@ body.dark #exportDropdownButton img,
 body.dark #toggleBtn img ,
 body.dark #nav-actions img,
 body.dark button.absolute img,
-body.dark .dropdown-wrapper .text-gray-600 img {
+body.dark .dropdown-wrapper .text-gray-600 img,
+body.dark .cursor-pointer img {
   filter: brightness(0) invert(1);
 }
 body.dark #settings-sidebar .border-t:first-child {
@@ -186,4 +188,7 @@ body.dark .text-red-500{
 }
 body.dark .bg-\[\#efefef96\] {
   background-color: #5c5c5c96;
+}
+body.dark #calendarPreviewModal .text-primary-600{
+  background-color: black !important;
 }

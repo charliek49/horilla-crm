@@ -12,9 +12,9 @@
       <div class="flex flex-wrap gap-2">
         <button class="text-sm border-[1px] border-[solid]  rounded-[5px] px-4 py-2 text-[#e54f38] flex gap-3 btn-with-icon border-[#e54f38] transition-[.3s]"
             hx-get="{% url 'horilla_core:fiscal_year_calendar' obj.id %}"
-            hx-target="#contentModal"
+            hx-target="#calendarPreviewModal"
             hx-swap="innerHTML"
-            hx-on:click="openContentModal()"
+            hx-on:click="openCalendarPreviewModal()"
             id="preview-calendar-btn">
             {% trans ' Preview Calendar' %}
         </button>
