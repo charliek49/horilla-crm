@@ -354,6 +354,10 @@ class BinPolicyView(LoginRequiredMixin, View):
         days = request.POST.get("days")
         company = request.active_company
 
+        if not request.user.has_perm("horilla_core.change_recyclebinpolicy"):
+            messages.error(request, _("Yo dont have permission to do this change"))
+            return render(request, "error/403.html")
+
         policy, created = RecycleBinPolicy.objects.get_or_create(
             company=company, defaults={"retention_days": days}
         )
