@@ -91,7 +91,7 @@ class UserListView(LoginRequiredMixin, HorillaListView):
     table_width = False
     bulk_delete_enabled = False
     table_height = False
-    table_height_as_class = "h-[500px]"
+    table_height_as_class = "h-[calc(_100vh_-_310px_)]"
 
     def no_record_add_button(self):
         if self.request.user.has_perm("horilla_core.add_horillauser"):

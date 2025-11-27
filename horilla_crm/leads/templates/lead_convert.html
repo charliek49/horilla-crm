@@ -19,28 +19,26 @@
             </div>
         {% endif %}
             <h3 class="text-sm text-color-600 mb-2 font-semibold">{% trans 'Account' %}</h3>
-            <div class="flex items-center gap-3 mb-3">
-                <label class="flex items-center gap-[8px] pb-2 cursor-pointer text-sm text-color-600">
-                    <input type="radio" name="account_action"
+            <div class="radio-group flex gap-6 mb-3">
+                <label class="flex items-center gap-2">
+                    <input hidden type="radio" name="account_action"
                         value="create_new"
                         {% if account_action == 'create_new' %}checked{% endif %}
                         hx-get="{% url 'leads:convert_lead' pk=lead.pk %}?account_action=create_new"
                         hx-target="#account-field" hx-swap="innerHTML"
-                        hx-include="#id_existing_account"
-
-                        class="border border-[#cbcbcb] w-3 h-3 text-[#e54f38] bg-white focus:ring-[#e54f38] cursor-pointer">
-                        {% trans 'Create New' %}
+                        hx-include="#id_existing_account">
+                    <span class="custom-radio"></span>
+                    <span>{% trans 'Create New' %}</span>
                 </label>
-                <label class="flex items-center gap-[8px] pb-2 cursor-pointer text-sm text-color-600">
-                    <input type="radio" name="account_action"
+                <label class="flex items-center gap-2">
+                    <input hidden type="radio" name="account_action"
                         value="select_existing"
                         {% if account_action == 'select_existing' %}checked{% endif %}
                         hx-get="{% url 'leads:convert_lead' pk=lead.pk %}?account_action=select_existing"
                         hx-target="#account-field" hx-swap="innerHTML"
-                        hx-include="#id_existing_account"
-
-                        class="border border-[#cbcbcb] w-3 h-3 text-[#e54f38] bg-white focus:ring-[#e54f38] cursor-pointer">
-                        {% trans 'Select Existing' %}
+                        hx-include="#id_existing_account">
+                    <span class="custom-radio"></span>
+                    <span>{% trans 'Select Existing' %}</span>
                 </label>
             </div>
             <div id="account-field">
@@ -48,25 +46,24 @@
             </div>
 
             <h3 class="text-sm text-color-600 mb-2 font-semibold">{% trans 'Contact' %}</h3>
-            <div class="flex items-center gap-3 mb-3">
-                <label class="flex items-center gap-[8px] pb-2 cursor-pointer text-sm text-color-600">
-                    <input type="radio" name="contact_action"
+            <div class="radio-group flex gap-6 mb-3">
+                <label class="flex items-center gap-2">
+                    <input hidden type="radio" name="contact_action"
                         value="create_new"
                         {% if contact_action == 'create_new' %}checked{% endif %}
                         hx-get="{% url 'leads:convert_lead' pk=lead.pk %}?contact_action=create_new"
-                        hx-target="#contact-field" hx-swap="innerHTML"
-                        class="border border-[#cbcbcb] w-3 h-3 text-[#e54f38] bg-white focus:ring-[#e54f38] cursor-pointer">
-                        {% trans 'Create New' %}
+                        hx-target="#contact-field" hx-swap="innerHTML">
+                    <span class="custom-radio"></span>
+                    <span>{% trans 'Create New' %}</span>
                 </label>
-                <label class="flex items-center gap-[8px] pb-2 cursor-pointer text-sm text-color-600">
-                    <input type="radio" name="contact_action"
+                <label class="flex items-center gap-2">
+                    <input hidden type="radio" name="contact_action"
                         value="select_existing"
                         {% if contact_action == 'select_existing' %}checked{% endif %}
                         hx-get="{% url 'leads:convert_lead' pk=lead.pk %}?contact_action=select_existing"
-                        hx-target="#contact-field" hx-swap="innerHTML"
-
-                        class="border border-[#cbcbcb] w-3 h-3 text-[#e54f38] bg-white focus:ring-[#e54f38] cursor-pointer">
-                        {% trans 'Select Existing' %}
+                        hx-target="#contact-field" hx-swap="innerHTML">
+                    <span class="custom-radio"></span>
+                    <span>{% trans 'Select Existing' %}</span>
                 </label>
             </div>
             <div id="contact-field">
@@ -74,27 +71,27 @@
             </div>
 
             <h3 class="text-sm text-color-600 mb-2 font-semibold">{% trans 'Opportunity' %}</h3>
-            <div id="opportunity_action_button" class="flex items-center gap-3 mb-3">
-                <label class="flex items-center gap-[8px] pb-2 cursor-pointer text-sm text-color-600">
-                    <input type="radio" name="opportunity_action"
+            <div id="opportunity_action_button" class="radio-group flex gap-6 mb-3">
+                <label class="flex items-center gap-2">
+                    <input hidden type="radio" name="opportunity_action"
                         value="create_new"
                         {% if opportunity_action == 'create_new' %}checked{% endif %}
                         hx-get="{% url 'leads:convert_lead' pk=lead.pk %}?opportunity_action=create_new"
-                        hx-target="#opportunity-field" hx-swap="innerHTML"
-                        class="border border-[#cbcbcb] w-3 h-3 text-[#e54f38] bg-white focus:ring-[#e54f38] cursor-pointer">
-                        {% trans 'Create New' %}
+                        hx-target="#opportunity-field" hx-swap="innerHTML">
+                    <span class="custom-radio"></span>
+                    <span>{% trans 'Create New' %}</span>
                 </label>
-                <label class="flex items-center gap-[8px] pb-2 cursor-pointer text-sm text-color-600">
-                    <input type="radio" name="opportunity_action"
+                <label class="flex items-center gap-2">
+                    <input hidden type="radio" name="opportunity_action"
                         value="select_existing"
                         {% if opportunity_action == 'select_existing' %}checked{% endif %}
                         hx-get="{% url 'leads:convert_lead' pk=lead.pk %}?opportunity_action=select_existing"
                         hx-target="#opportunity-field" hx-swap="innerHTML"
                         {% if not account_action == 'create_new'%}
                         hx-include="#id_existing_account"
-                        {% endif %}
-                        class="border border-[#cbcbcb] w-3 h-3 text-[#e54f38] bg-white focus:ring-[#e54f38] cursor-pointer">
-                        {% trans 'Select Existing' %}
+                        {% endif %}>
+                    <span class="custom-radio"></span>
+                    <span>{% trans 'Select Existing' %}</span>
                 </label>
             </div>
             <div id="opportunity-field" >
