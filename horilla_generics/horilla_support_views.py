@@ -891,70 +891,82 @@ class UpdateFieldView(LoginRequiredMixin, View):
         if not field:
             return HttpResponse(status=404)
 
-        value = request.POST.get(field_name)
-
-        if value is not None:
+        if isinstance(field, models.ManyToManyField):
+            values = request.POST.getlist(f"{field_name}[]")  # Get list of selected IDs
             try:
-                # Handle different field types
-                if isinstance(field, models.ForeignKey):
-                    if value == "":
-                        setattr(obj, field_name, None)
-                    else:
-                        related_obj = field.related_model.objects.get(pk=value)
-                        setattr(obj, field_name, related_obj)
-
-                elif isinstance(field, models.BooleanField):
-                    if value == "":
-                        setattr(obj, field_name, None)
-                    else:
-                        setattr(obj, field_name, value == "True")
-
-                elif isinstance(
-                    field,
-                    (
-                        models.IntegerField,
-                        models.BigIntegerField,
-                        models.SmallIntegerField,
-                    ),
-                ):
-                    setattr(obj, field_name, int(value) if value else None)
-
-                elif isinstance(field, models.DecimalField):
-                    if value:
-                        try:
-                            setattr(obj, field_name, Decimal(value))
-                        except InvalidOperation:
-                            return HttpResponse(
-                                f"Invalid decimal value: {value}", status=400
-                            )
-                    else:
-                        setattr(obj, field_name, None)
-
-                elif isinstance(field, models.FloatField):
-                    setattr(obj, field_name, float(value) if value else None)
-
-                elif isinstance(field, (models.DateField, models.DateTimeField)):
-                    if value:
-                        try:
-                            if isinstance(field, models.DateTimeField):
-                                parsed_value = datetime.fromisoformat(value)
-                            else:  # DateField
-                                parsed_value = datetime.fromisoformat(value).date()
-                            setattr(obj, field_name, parsed_value)
-                        except ValueError:
-                            return HttpResponse(
-                                f"Invalid date format: {value}", status=400
-                            )
-                    else:
-                        setattr(obj, field_name, None)
-
-                else:
-                    setattr(obj, field_name, value)
-
-                obj.save()
-
+                # Clear existing relationships and set new ones
+                related_manager = getattr(obj, field_name)
+                related_manager.clear()
+                if values and values != [""]:  # Only add if there are selected values
+                    related_manager.add(*values)
             except Exception as e:
                 return HttpResponse(f"Error updating field: {str(e)}", status=400)
+        else:
+
+            value = request.POST.get(field_name)
+
+            if value is not None:
+                try:
+                    # Handle different field types
+                    if isinstance(field, models.ForeignKey):
+                        if value == "":
+                            setattr(obj, field_name, None)
+                        else:
+                            related_obj = field.related_model.objects.get(pk=value)
+                            setattr(obj, field_name, related_obj)
+
+                    elif isinstance(field, models.BooleanField):
+                        if value == "":
+                            setattr(obj, field_name, None)
+                        else:
+                            setattr(obj, field_name, value == "True")
+
+                    elif isinstance(
+                        field,
+                        (
+                            models.IntegerField,
+                            models.BigIntegerField,
+                            models.SmallIntegerField,
+                        ),
+                    ):
+                        setattr(obj, field_name, int(value) if value else None)
+
+                    elif isinstance(field, models.DecimalField):
+                        if value:
+                            try:
+                                setattr(obj, field_name, Decimal(value))
+                            except InvalidOperation:
+                                return HttpResponse(
+                                    f"Invalid decimal value: {value}", status=400
+                                )
+                        else:
+                            setattr(obj, field_name, None)
+
+                    elif isinstance(field, models.FloatField):
+                        setattr(obj, field_name, float(value) if value else None)
+
+                    elif isinstance(field, (models.DateField, models.DateTimeField)):
+                        if value:
+                            try:
+                                if isinstance(field, models.DateTimeField):
+                                    parsed_value = datetime.fromisoformat(value)
+                                else:  # DateField
+                                    parsed_value = datetime.fromisoformat(value).date()
+                                setattr(obj, field_name, parsed_value)
+                            except ValueError:
+                                return HttpResponse(
+                                    f"Invalid date format: {value}", status=400
+                                )
+                        else:
+                            setattr(obj, field_name, None)
+
+                    else:
+                        setattr(obj, field_name, value)
+
+                    obj.save()
+
+                except Exception as e:
+                    return HttpResponse(f"Error updating field: {str(e)}", status=400)
 
         # Get updated field info for display
         edit_view = EditFieldView()

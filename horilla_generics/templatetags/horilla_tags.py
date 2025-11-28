@@ -856,6 +856,13 @@ def display_field_value(obj, field_name, user):
     if value is None:
         return ""
 
+    # Handle ManyToMany fields
+    if hasattr(value, "all"):
+        related_objects = value.all()
+        if related_objects.exists():
+            return ", ".join(str(item) for item in related_objects)
+        return ""
+
     # Handle choice fields automatically
     try:
         field = obj._meta.get_field(field_name)
