@@ -13,7 +13,12 @@ from auditlog.models import AuditlogHistoryField, LogEntry
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
-from django.contrib.auth.models import AbstractUser, Permission, UserManager
+from django.contrib.auth.models import (
+    AbstractUser,
+    AnonymousUser,
+    Permission,
+    UserManager,
+)
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
@@ -416,13 +421,16 @@ class HorillaCoreModel(models.Model):
         Override save to automatically set created_by, updated_by, created_at,
         updated_at, and company fields.
         """
+        user = None
+        company = None
+
         request = getattr(_thread_local, "request", None)
         if request:
             user = getattr(request, "user", None)
             company = getattr(request, "active_company", None)
         now = timezone.now()
         if not self.pk:
-            if user:
+            if user and not isinstance(user, AnonymousUser):
                 self.created_by = user
                 self.updated_by = user
             self.created_at = now
@@ -430,7 +438,7 @@ class HorillaCoreModel(models.Model):
             if company:
                 self.company = company
         else:
-            if user:
+            if user and not isinstance(user, AnonymousUser):
                 self.updated_by = user
             self.updated_at = now
         super().save(*args, **kwargs)

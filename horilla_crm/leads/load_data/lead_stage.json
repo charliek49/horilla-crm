@@ -10,11 +10,11 @@
             "created_by": 1,
             "updated_at": "2025-06-04T07:44:11Z",
             "updated_by": 1,
-            "name": "Junk lead",
+            "name": "New",
             "order": 1,
             "color": "#f39022",
             "is_final": false,
-            "probability": "20.00"
+            "probability": "10.00"
         }
     },
     {
@@ -28,11 +28,11 @@
             "created_by": 1,
             "updated_at": "2025-06-04T16:49:19Z",
             "updated_by": 1,
-            "name": "Not contacted",
+            "name": "contacted",
             "order": 2,
             "color": "#f39022",
             "is_final": false,
-            "probability": "20.00"
+            "probability": "30.00"
         }
     },
     {
@@ -46,11 +46,11 @@
             "created_by": 1,
             "updated_at": "2025-06-17T05:49:50Z",
             "updated_by": 1,
-            "name": "New",
+            "name": "Qualified",
             "order": 3,
             "color": "#f39022",
             "is_final": false,
-            "probability": "20.00"
+            "probability": "60.00"
         }
     },
     {
@@ -64,16 +64,34 @@
             "created_by": 1,
             "updated_at": "2025-06-17T05:50:39Z",
             "updated_by": 1,
-            "name": "Contacted",
+            "name": "Proposal",
             "order": 4,
             "color": "#f39022",
             "is_final": false,
-            "probability": "20.00"
+            "probability": "80.00"
         }
     },
     {
         "model": "leads.leadstatus",
-        "pk": 4,
+        "pk": 5,
+        "fields": {
+            "is_active": true,
+            "additional_info": null,
+            "company": 1,
+            "created_at": "2025-06-17T05:50:07Z",
+            "created_by": 1,
+            "updated_at": "2025-06-17T05:50:07Z",
+            "updated_by": 1,
+            "name": "Lost",
+            "order": 5,
+            "color": "#f39022",
+            "is_final": false,
+            "probability": "00.00"
+        }
+    },
+    {
+        "model": "leads.leadstatus",
+        "pk": 6,
         "fields": {
             "is_active": true,
             "additional_info": null,
@@ -83,10 +101,10 @@
             "updated_at": "2025-06-17T05:50:07Z",
             "updated_by": 1,
             "name": "Convert",
-            "order": 5,
+            "order": 6,
             "color": "#f39022",
             "is_final": true,
-            "probability": "20.00"
+            "probability": "100.00"
         }
     }
 
