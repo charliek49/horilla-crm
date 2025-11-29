@@ -14,10 +14,10 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import CreateView, TemplateView, UpdateView
+from django.views.generic import CreateView, FormView, TemplateView
 
 from horilla.exceptions import HorillaHttp404
-from horilla_core.decorators import permission_required_or_denied
+from horilla_core.decorators import htmx_required, permission_required_or_denied
 
 from .models import Lead, LeadCaptureForm, LeadStatus
 
@@ -149,10 +149,11 @@ class UpdateFormPreviewView(LoginRequiredMixin, TemplateView):
         return render(request, self.template_name, context)
 
 
+@method_decorator(htmx_required, name="dispatch")
 @method_decorator(
     permission_required_or_denied("leads.add_leadcaptureform"), name="dispatch"
 )
-class SaveLeadFormView(LoginRequiredMixin, UpdateView):
+class SaveLeadFormView(LoginRequiredMixin, FormView):
     """View to save lead capture form configuration - one per company"""
 
     model = LeadCaptureForm
@@ -169,59 +170,89 @@ class SaveLeadFormView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy("leads:form_builder")
     template_name = "web_to_lead/lead_form_builder.html"
 
-    def get_object(self, queryset=None):
-        """Get or create the form for the current company"""
-        obj, created = LeadCaptureForm.objects.get_or_create(
-            company=self.request.active_company,
-            defaults={
-                "created_by": self.request.user,
-                "form_name": "Contact Us",
-                "language": "en",
-                "header_color": "#ffffff",
-            },
-        )
-        return obj
+    def get_form_class(self):
+        """Dynamically create the form class"""
+        from django.forms import ModelForm
+
+        class LeadCaptureFormForm(ModelForm):
+            class Meta:
+                model = LeadCaptureForm
+                fields = self.fields
+
+        return LeadCaptureFormForm
 
     def form_valid(self, form):
-        # Set the instance fields
-        form.instance.created_by = self.request.user
-        form.instance.company = self.request.active_company
-        selected_fields = self.request.POST.getlist("selected_fields[]")
-        form.instance.selected_fields = json.dumps(selected_fields)
-        form.instance.header_color = self.request.POST.get("color")
-        form.instance.lead_owner_id = self.request.POST.get("lead_owner")
+        # Validate lead owner
+        lead_owner = self.request.POST.get("lead_owner")
+        if not lead_owner:
+            form.add_error("lead_owner", "Lead Owner is required.")
+            return self.form_invalid(form)
 
+        # Validate selected fields
+        selected_fields = self.request.POST.getlist("selected_fields[]")
         if not selected_fields:
             form.add_error(None, "Select at least one field.")
             return self.form_invalid(form)
 
+        # Validate return URL requirements
         return_url_enable = self.request.POST.get("return_url_enable") == "on"
-        form.instance.return_url_enable = return_url_enable
 
         if return_url_enable:
-            if not form.instance.return_url:
+            return_url = form.cleaned_data.get("return_url")
+            if not return_url:
                 form.add_error("return_url", "Return URL is required when enabled.")
                 return self.form_invalid(form)
-            form.instance.success_message = None
-            form.instance.success_description = None
         else:
-            if not form.instance.success_message:
+            success_message = form.cleaned_data.get("success_message")
+            success_description = form.cleaned_data.get("success_description")
+            if not success_message:
                 form.add_error("success_message", "Success message is required.")
                 return self.form_invalid(form)
-            if not form.instance.success_description:
+            if not success_description:
                 form.add_error(
                     "success_description", "Success description is required."
                 )
                 return self.form_invalid(form)
-            # Clear return URL
-            form.instance.return_url = None
 
-        selected_language = form.instance.language
+        # Get or create the LeadCaptureForm instance
+        obj, created = LeadCaptureForm.objects.get_or_create(
+            company=self.request.active_company,
+            defaults={
+                "created_by": self.request.user,
+                "lead_owner_id": lead_owner,
+                "form_name": form.cleaned_data.get("form_name", "Contact Us"),
+                "language": form.cleaned_data.get("language", "en"),
+                "header_color": self.request.POST.get("color", "#ffffff"),
+            },
+        )
 
+        # Update the instance with form data
+        obj.form_name = form.cleaned_data.get("form_name")
+        obj.language = form.cleaned_data.get("language")
+        obj.enable_recaptcha = form.cleaned_data.get("enable_recaptcha", False)
+        obj.created_by = self.request.user
+        obj.lead_owner_id = lead_owner
+        obj.selected_fields = json.dumps(selected_fields)
+        obj.header_color = self.request.POST.get("color")
+        obj.return_url_enable = return_url_enable
+
+        if return_url_enable:
+            obj.return_url = form.cleaned_data.get("return_url")
+            obj.success_message = None
+            obj.success_description = None
+        else:
+            obj.success_message = form.cleaned_data.get("success_message")
+            obj.success_description = form.cleaned_data.get("success_description")
+            obj.return_url = None
+
+        # Activate selected language for form generation
+        selected_language = obj.language
         translation.activate(selected_language)
 
-        self.object = form.save()
+        obj.save()
+        self.object = obj
 
+        # Parse selected fields for form generation
         parsed_fields = []
         for field_name in selected_fields:
             try:
@@ -237,6 +268,7 @@ class SaveLeadFormView(LoginRequiredMixin, UpdateView):
             except:
                 pass
 
+        # Generate HTML code
         html_code = render_to_string(
             "web_to_lead/public_lead_form.html",
             {
@@ -252,6 +284,7 @@ class SaveLeadFormView(LoginRequiredMixin, UpdateView):
 
         translation.deactivate()
 
+        # Return response
         if self.request.headers.get("HX-Request"):
             form_url = self.request.build_absolute_uri(
                 reverse("leads:public_lead_form", kwargs={"form_id": self.object.id})
@@ -271,7 +304,7 @@ class SaveLeadFormView(LoginRequiredMixin, UpdateView):
 
     def form_invalid(self, form):
         if self.request.headers.get("HX-Request"):
-            # Get the parent view's context to include lead_fields
+            # Get lead fields for the form builder
             lead_fields = []
             exclude_fields = [
                 "id",
@@ -305,7 +338,7 @@ class SaveLeadFormView(LoginRequiredMixin, UpdateView):
                     }
                     lead_fields.append(field_info)
 
-            # Preserve form data
+            # Preserve form data for re-rendering
             form_data = {
                 "form_name": self.request.POST.get("form_name", "Contact Us"),
                 "return_url_enable": self.request.POST.get("return_url_enable") == "on",
