@@ -5,7 +5,7 @@
 
 {% for item in group.items %}
 
-<div id="item-{{ item.pk }}" draggable="true" ondragstart="drag(event)">
+<div id="item-{{ item.pk }}" {% if item.can_drag %}draggable="true"{% else %}draggable="false"{% endif %} ondragstart="drag(event)">
     <div class="p-[20px] rounded-[5px] text-sm relative bg-white mb-2">
         {% if actions %}
             <button

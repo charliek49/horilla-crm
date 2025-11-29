@@ -2434,6 +2434,38 @@ class HorillaKanbanView(HorillaListView):
 
         return super().dispatch(request, *args, **kwargs)
 
+    def can_user_modify_item(self, item):
+        """
+        Check if the user has permission to modify the item.
+        Returns True if user can modify, False otherwise.
+        """
+        user = self.request.user
+        model = self.model
+        app_label = model._meta.app_label
+        model_name = model._meta.model_name
+
+        # Check if user has global change permission
+        change_perm = f"{app_label}.change_{model_name}"
+        if user.has_perm(change_perm):
+            return True
+
+        # Check for change_own permission
+        change_own_perm = f"{app_label}.change_own_{model_name}"
+        if user.has_perm(change_own_perm):
+            # Get owner fields from model
+            owner_fields = getattr(model, "OWNER_FIELDS", [])
+
+            # Check if user owns this item
+            for owner_field in owner_fields:
+                try:
+                    owner_value = getattr(item, owner_field, None)
+                    if owner_value == user:
+                        return True
+                except AttributeError:
+                    continue
+
+        return False
+
     def post(self, request, *args, **kwargs):
         self.object_list = self.get_queryset()
         if request.POST.get("item_id") and request.POST.get("new_column"):
@@ -2477,6 +2509,12 @@ class HorillaKanbanView(HorillaListView):
             group_by = view.get_group_by_field()
             try:
                 item = view.model.objects.get(pk=item_id)
+                if not view.can_user_modify_item(item):
+                    messages.error(
+                        request, "You don't have permission to modify this item"
+                    )
+                    return HttpResponse("<script>$('#reloadButton').click();</script>")
+
                 field = view.model._meta.get_field(group_by)
 
                 if hasattr(field, "choices") and field.choices:
@@ -2852,6 +2890,7 @@ class HorillaKanbanView(HorillaListView):
             for key, group in paginated_groups.items():
                 group["count"] = len(group["items"])
                 for item in group["items"]:
+                    item.can_drag = self.can_user_modify_item(item)
                     item.display_columns = []
                     for column in display_columns:
                         field_name = column["name"]
@@ -2935,6 +2974,7 @@ class HorillaKanbanView(HorillaListView):
                     display_columns.append({"name": field_name, "label": verbose_name})
 
             for item in page_obj.object_list:
+                item.can_drag = self.can_user_modify_item(item)
                 item.display_columns = []
                 for column in display_columns:
                     field_name = column["name"]
@@ -4521,15 +4561,9 @@ class HorillaNotesAttachementSectionView(DetailView):
         """
         user = self.request.user
 
-        # Superuser always has permission
-        if user.is_superuser:
+        if user.has_perm("horilla_core.add_horillaattachment"):
             return True
 
-        # Check if user has add permission on HorillaAttachment
-        if not user.has_perm("horilla_core.add_horillaattachment"):
-            return False
-
-        # Get the related object
         related_object = self.get_object()
         related_model = related_object.__class__
         model_name = related_model._meta.model_name
@@ -4555,14 +4589,11 @@ class HorillaNotesAttachementSectionView(DetailView):
             except Exception:
                 continue
 
-        # Check appropriate permission on related object
         if is_owner:
-            # Owner needs change_own permission
             change_own_perm = f"{app_label}.change_own_{model_name}"
             if user.has_perm(change_own_perm):
                 return True
 
-        # Check regular add or change permission on related object
         add_perm = f"{app_label}.add_{model_name}"
         change_perm = f"{app_label}.change_{model_name}"
 
@@ -4600,10 +4631,7 @@ class HorillaNotesAttachementSectionView(DetailView):
         list_view.table_width = False
         context = list_view.get_context_data(object_list=queryset)
         context.update(super().get_context_data())
-
-        # Add permission flag to context
         context["can_add_attachment"] = self.check_attachment_add_permission()
-
         return render(request, self.template_name, context)
 
 
