@@ -96,7 +96,7 @@ class LeadStageListView(LoginRequiredMixin, HorillaListView):
     table_width = False
     enable_sorting = False
     table_height = False
-    table_height_as_class = "h-[500px]"
+    table_height_as_class = "h-[calc(_100vh_-_260px_)]"
 
     def get_queryset(self):
         queryset = super().get_queryset()
