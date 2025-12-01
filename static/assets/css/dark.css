@@ -169,7 +169,7 @@ body.dark .fc .fc-daygrid-day.fc-day-today {
   color: #ffffff !important;
 }
 body.dark .bg-\[\#ffefed\],
-.bg-\[\#f3f4f6\] {
+body.dark .bg-\[\#f3f4f6\] {
   background-color: rgb(82 82 82) !important;
 }
 body.dark .probar li .bg-primary-400 {
@@ -195,4 +195,10 @@ body.dark .bg-\[\#efefef96\] {
 }
 body.dark #calendarPreviewModal .text-primary-600{
   background-color: black !important;
+}
+body.dark .bg-\[\#e6fff5\]{
+  background-color: #525252;
+}
+body.dark .bg-\[\#e6fff5\]:hover, body.dark .bg-\[\#ffefed\]:hover{
+  color: #e54f38 !important;
 }
