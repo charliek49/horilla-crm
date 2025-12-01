@@ -12,7 +12,7 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 from horilla_core.mixins import OwnerQuerysetMixin
-from horilla_generics.forms import HorillaMultiStepForm
+from horilla_generics.forms import HorillaModelForm, HorillaMultiStepForm
 
 from .models import Contact
 
@@ -56,6 +56,39 @@ class ContactFormClass(OwnerQuerysetMixin, HorillaMultiStepForm):
             self.fields["created_by"].required = False
             self.fields["updated_by"].required = False
             self.fields["is_primary"].required = False
+
+
+class ContactSingleForm(HorillaModelForm):
+    """
+    Custom form for Contact to add HTMX attributes
+    Inherits from HorillaModelForm to preserve all existing behavior.
+    """
+
+    class Meta:
+        """Meta class for LeadStatusForm"""
+
+        model = Contact
+        fields = [
+            "contact_owner",
+            "title",
+            "first_name",
+            "last_name",
+            "phone",
+            "email",
+            "secondary_phone",
+            "birth_date",
+            "assistant",
+            "assistant_phone",
+            "contact_source",
+            "parent_contact",
+            "is_primary",
+            "address_city",
+            "address_state",
+            "address_country",
+            "address_zip",
+            "languages",
+            "description",
+        ]
 
 
 class ChildContactForm(forms.Form):

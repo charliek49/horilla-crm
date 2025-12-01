@@ -45,7 +45,7 @@ from horilla_generics.views import (
 )
 from horilla_utils.middlewares import _thread_local
 
-from .forms import ChildContactForm, ContactFormClass
+from .forms import ChildContactForm, ContactFormClass, ContactSingleForm
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +349,11 @@ class ContactFormView(LoginRequiredMixin, HorillaMultiStepFormView):
         "3": _("Additional Information"),
     }
 
+    single_step_url_name = {
+        "create": "contacts:contact_single_create_form",
+        "edit": "contacts:contact_single_update_form",
+    }
+
     @cached_property
     def form_url(self):
         """Get the URL for the form, either for creating or editing a contact"""
@@ -357,19 +362,29 @@ class ContactFormView(LoginRequiredMixin, HorillaMultiStepFormView):
             return reverse_lazy("contacts:contact_create_form", kwargs={"pk": pk})
         return reverse_lazy("contacts:contact_update_form")
 
-    def get(self, request, *args, **kwargs):
-        contact_id = self.kwargs.get("pk")
-        if request.user.has_perm("contacts.change_contact") or request.user.has_perm(
-            "contacts.add_contact"
-        ):
-            return super().get(request, *args, **kwargs)
 
-        if contact_id:
-            contact = get_object_or_404(Contact, pk=contact_id)
-            if contact.contact_owner == request.user:
-                return super().get(request, *args, **kwargs)
+@method_decorator(htmx_required, name="dispatch")
+class ContactsSingleFormView(LoginRequiredMixin, HorillaSingleFormView):
+    """Account Create/Update Single Page View"""
 
-        return render(request, "error/403.html")
+    model = Contact
+    form_class = ContactSingleForm
+    full_width_fields = ["description"]
+
+    multi_step_url_name = {
+        "create": "contacts:contact_create_form",
+        "edit": "contacts:contact_update_form",
+    }
+
+    @cached_property
+    def form_url(self):
+        """Form URL for lead"""
+        pk = self.kwargs.get("pk") or self.request.GET.get("id")
+        if pk:
+            return reverse_lazy(
+                "contacts:contact_single_update_form", kwargs={"pk": pk}
+            )
+        return reverse_lazy("contacts:contact_single_create_form")
 
 
 @method_decorator(htmx_required, name="dispatch")

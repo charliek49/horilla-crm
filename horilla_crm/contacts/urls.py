@@ -25,6 +25,11 @@ urlpatterns = [
         name="contact_create_form",
     ),
     path(
+        "contact-single-create-form/",
+        views.ContactsSingleFormView.as_view(),
+        name="contact_single_create_form",
+    ),
+    path(
         "related-account-contact-create-form/",
         views.RelatedContactFormView.as_view(),
         name="related_account_contact_create_form",
@@ -38,6 +43,11 @@ urlpatterns = [
         "contact-update-form/<int:pk>/",
         views.ContactFormView.as_view(),
         name="contact_update_form",
+    ),
+    path(
+        "contact-single-update-form/<int:pk>/",
+        views.ContactsSingleFormView.as_view(),
+        name="contact_single_update_form",
     ),
     path(
         "contact-change-owner/<int:pk>/",
