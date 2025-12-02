@@ -30,6 +30,9 @@
                     <div class="{% if 'fiscal_year_type' in full_width_fields %}col-span-2{% else %}col-span-1{% endif %} flex flex-col">
                         <label for="{{ form.fiscal_year_type.id_for_label }}" class="text-xs text-gray-600 mb-1 font-medium">
                             {{ form.fiscal_year_type.label }}
+                            {% if form.fiscal_year_type.field.required %}
+                                <span class="text-red-500">*</span>
+                            {% endif %}
                         </label>
                         <select name="fiscal_year_type" id="{{ form.fiscal_year_type.id_for_label }}"
                                 class="js-example-basic-single w-full text-sm"

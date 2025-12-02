@@ -9,10 +9,14 @@ from decimal import Decimal
 from django.apps import apps
 from django.db import models
 from django.db.models.signals import post_save, pre_save
-from django.dispatch import receiver
+from django.dispatch import Signal, receiver
+from django.http import HttpResponse
+from django.shortcuts import render
+from django.urls import reverse_lazy
 
 from horilla_core.models import HorillaUser
 from horilla_core.signals import company_currency_changed
+from horilla_crm.leads.signals import lead_stage_created
 from horilla_crm.opportunities.models import (
     Opportunity,
     OpportunityContactRole,
@@ -24,6 +28,49 @@ from horilla_crm.opportunities.models import (
 from horilla_keys.models import ShortcutKey
 
 _thread_locals = threading.local()
+
+opp_stage_created = Signal()
+
+
+@receiver(lead_stage_created)
+def handle_lead_stage_group_created(
+    sender, company, stages, request, view, initialization, **kwargs
+):
+    """
+    Handle post-creation actions for lead stage groups.
+    This returns the appropriate response based on initialization flag.
+    """
+
+    if initialization:
+        context = {
+            "progress_steps": view.get_progress_steps(),
+            "current_step": view.current_step,
+            "company_id": company.id,
+        }
+        return render(
+            request, "opportunity_stage/oppor_stages_initialize.html", context
+        )
+
+    return HttpResponse(
+        """
+        <script>
+            closeModal();
+            $('#reloadButton').click();
+            openContentModal();
+            var div = document.createElement('div');
+            div.setAttribute('hx-get', '%s');
+            div.setAttribute('hx-target', '#contentModalBox');
+            div.setAttribute('hx-trigger', 'load');
+            div.setAttribute('hx-swap', 'innerHTML');
+            document.body.appendChild(div);
+            htmx.process(div);
+        </script>
+        """
+        % reverse_lazy(
+            "opportunities:load_opp_stages", kwargs={"company_id": company.id}
+        ),
+        headers={"X-Debug": "Modal transition in progress"},
+    )
 
 
 @receiver(company_currency_changed)

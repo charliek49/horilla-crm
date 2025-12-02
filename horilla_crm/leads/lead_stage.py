@@ -35,6 +35,8 @@ from horilla_generics.views import (
 )
 from horilla_utils.middlewares import _thread_local
 
+from .signals import lead_stage_created
+
 
 class LeadsStageView(LoginRequiredMixin, HorillaView):
     """
@@ -340,6 +342,7 @@ class UpdateLeadStageOrderView(LoginRequiredMixin, View):
 
 
 @method_decorator(htmx_required(login=False), name="dispatch")
+@method_decorator(htmx_required(login=False), name="dispatch")
 class LoadLeadStagesView(View):
     """View to display the lead stages modal."""
 
@@ -419,24 +422,30 @@ class LoadLeadStagesView(View):
             company_stages[f"group_{group_counter}"] = representative
             group_counter += 1
 
+        # Build context dictionary
+        context = {
+            "default_stages": default_stages,
+            "company_stages": company_stages,
+            "company": company,
+            "initialization": initialization,
+            "hx_target": (
+                "initialize-lead-stages" if initialization else "stage-messages"
+            ),
+            "hx_swap": "outerHTML" if initialization else "innerHTML",
+            "hx_push_url": (
+                reverse_lazy("opportunities:initialiaze_opportunity_stages")
+                if initialization
+                else "false"
+            ),
+        }
+
+        # Only add hx_select when initialization is True
+        if initialization:
+            context["hx_select"] = "#initialize-opportunity-stages"
+
         modal_content = render_to_string(
             "lead_status/lead_stages_modal.html",
-            {
-                "default_stages": default_stages,
-                "company_stages": company_stages,
-                "company": company,
-                "initialization": initialization,
-                "hx_target": (
-                    "initialize-lead-stages" if initialization else "stage-messages"
-                ),
-                "hx_swap": "outerHTML" if initialization else "innerHTML",
-                "hx_push_url": (
-                    reverse_lazy("opportunities:initialiaze_opportunity_stages")
-                    if initialization
-                    else "false"
-                ),
-                "hx_select": "#initialize-opportunity-stages",
-            },
+            context,
             request=request,
         )
         return HttpResponse(modal_content)
@@ -488,24 +497,30 @@ class CustomStagesFormView(View):
             stage_copy["order"] = i
             combined_stages.append(stage_copy)
 
+        # Build context dictionary
+        context = {
+            "company": company,
+            "company_stages": {company_id: combined_stages},
+            "default_stages": combined_stages,
+            "initialization": initialization,
+            "hx_target": (
+                "initialize-lead-stages" if initialization else "stage-messages"
+            ),
+            "hx_swap": "outerHTML" if initialization else "innerHTML",
+            "hx_push_url": (
+                reverse_lazy("opportunities:initialiaze_opportunity_stages")
+                if initialization
+                else "false"
+            ),
+        }
+
+        # Only add hx_select when initialization is True
+        if initialization:
+            context["hx_select"] = "#initialize-opportunity-stages"
+
         modal_content = render_to_string(
             "branches/custom_stages_form.html",
-            {
-                "company": company,
-                "company_stages": {company_id: combined_stages},
-                "default_stages": combined_stages,
-                "initialization": initialization,
-                "hx_target": (
-                    "initialize-lead-stages" if initialization else "stage-messages"
-                ),
-                "hx_swap": "outerHTML" if initialization else "innerHTML",
-                "hx_push_url": (
-                    reverse_lazy("opportunities:initialiaze_opportunity_stages")
-                    if initialization
-                    else "false"
-                ),
-                "hx_select": "#initialize-opportunity-stages",
-            },
+            context,
             request=request,
         )
         return HttpResponse(modal_content)
@@ -517,6 +532,18 @@ class SaveCustomStagesView(View, ProgressStepsMixin):
     """View to handle saving custom lead stages during company creation."""
 
     current_step = 6
+
+    def get_signal_kwargs(self, company, request, initialization):
+        """
+        Extension point: Override this method to pass additional data to signal.
+        Clients can add custom data without modifying source code.
+        """
+        return {
+            "company": company,
+            "request": request,
+            "view": self,
+            "initialization": initialization,
+        }
 
     def post(self, request, company_id):
         """Handle saving custom lead stages during company creation."""
@@ -564,35 +591,17 @@ class SaveCustomStagesView(View, ProgressStepsMixin):
             messages.success(
                 request, f"Successfully created {company} and associated Lead Stages."
             )
-            if initialization:
-                context = {
-                    "progress_steps": self.get_progress_steps(),
-                    "current_step": self.current_step,
-                    "company_id": company.id,
-                }
-                return render(
-                    request, "opportunity_stage/oppor_stages_initialize.html", context
-                )
-            return HttpResponse(
-                """
-                <script>
-                    closeContentModal();
-                    $('#reloadButton').click();
-                     openContentModalSecond();
-                        var div = document.createElement('div');
-                        div.setAttribute('hx-get', '%s');
-                        div.setAttribute('hx-target', '#contentModalBoxSecond');
-                        div.setAttribute('hx-trigger', 'load');
-                        div.setAttribute('hx-swap', 'innerHTML');
-                        document.body.appendChild(div);
-                        htmx.process(div);
-                </script>
-                """
-                % reverse_lazy(
-                    "opportunities:load_opp_stages", kwargs={"company_id": company_id}
-                ),
-                headers={"X-Debug": "Modal transition in progress"},
+            signal_kwargs = self.get_signal_kwargs(
+                company=company, request=request, initialization=initialization
             )
+
+            responses = lead_stage_created.send(sender=self.__class__, **signal_kwargs)
+
+            for receiver, response in responses:
+                if isinstance(response, HttpResponse):
+                    return response
+
+            return None
 
         except:
             return HttpResponse()
@@ -689,6 +698,19 @@ class CreateStageGroupView(View, ProgressStepsMixin):
 
     current_step = 6
 
+    def get_signal_kwargs(self, company, stages, request, initialization):
+        """
+        Extension point: Override this method to pass additional data to signal.
+        Clients can add custom data without modifying source code.
+        """
+        return {
+            "company": company,
+            "stages": stages,
+            "request": request,
+            "view": self,
+            "initialization": initialization,
+        }
+
     def post(self, request, pk):
         """Handle saving custom lead stages during database setup."""
         try:
@@ -749,35 +771,20 @@ class CreateStageGroupView(View, ProgressStepsMixin):
             messages.success(
                 request, f"Successfully created {company} and associated Lead Stages."
             )
-            if initialization:
-                context = {
-                    "progress_steps": self.get_progress_steps(),
-                    "current_step": self.current_step,
-                    "company_id": company.id,
-                }
-                return render(
-                    request, "opportunity_stage/oppor_stages_initialize.html", context
-                )
-            return HttpResponse(
-                """
-                <script>
-                    closeContentModal();
-                    $('#reloadButton').click();
-                     openContentModalSecond();
-                        var div = document.createElement('div');
-                        div.setAttribute('hx-get', '%s');
-                        div.setAttribute('hx-target', '#contentModalBoxSecond');
-                        div.setAttribute('hx-trigger', 'load');
-                        div.setAttribute('hx-swap', 'innerHTML');
-                        document.body.appendChild(div);
-                        htmx.process(div);
-                </script>
-                """
-                % reverse_lazy(
-                    "opportunities:load_opp_stages", kwargs={"company_id": pk}
-                ),
-                headers={"X-Debug": "Modal transition in progress"},
+            signal_kwargs = self.get_signal_kwargs(
+                company=company,
+                stages=created_stages,
+                request=request,
+                initialization=initialization,
             )
+
+            responses = lead_stage_created.send(sender=self.__class__, **signal_kwargs)
+
+            for receiver, response in responses:
+                if isinstance(response, HttpResponse):
+                    return response
+
+            return None
 
         except Exception as e:
             return HttpResponse(

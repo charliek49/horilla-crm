@@ -232,12 +232,13 @@ class FiscalYearFieldsView(LoginRequiredMixin, FormView):
             "display_year_based_on": request.GET.get("display_year_based_on", ""),
             "number_weeks_by": request.GET.get("number_weeks_by", ""),
         }
+
         if fiscal_year_obj:
-            form = FiscalYearForm(
-                instance=fiscal_year_obj, data=form_data if request.GET else None
-            )
+            form = FiscalYearForm(instance=fiscal_year_obj, data=form_data)
         else:
-            form = FiscalYearForm(initial=form_data if fiscal_year_type else {})
+            form = FiscalYearForm(data=form_data if fiscal_year_type else None)
+
+        form.errors.clear()
 
         preview_data = self.calculate_preview_data(
             fiscal_year_type,
@@ -382,13 +383,13 @@ class CalculateWeekStartDayView(LoginRequiredMixin, View):
                     date_obj = datetime(current_year, month, day)
                     day_of_week = date_obj.weekday()
                     day_mapping = {
-                        0: "monday",
-                        1: "tuesday",
-                        2: "wednesday",
-                        3: "thursday",
-                        4: "friday",
-                        5: "saturday",
-                        6: "sunday",
+                        0: "mon",
+                        1: "tue",
+                        2: "wed",
+                        3: "thu",
+                        4: "fri",
+                        5: "sat",
+                        6: "sun",
                     }
                     selected_day = day_mapping.get(day_of_week, "")
 

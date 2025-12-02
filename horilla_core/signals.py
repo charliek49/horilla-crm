@@ -41,6 +41,7 @@ from horilla_keys.models import ShortcutKey
 from horilla_utils.middlewares import _thread_local
 
 company_currency_changed = Signal()
+company_created = Signal()
 
 
 @receiver(post_save, sender="horilla_core.Company")

@@ -4,7 +4,7 @@
         <div id="stage-messages" class="mt-4"></div>
         <div class="flex justify-between items-center p-5 pb-0">
           <h2 class="text-lg font-semibold">{% trans "Select Lead Stages for" %} {{ company.name }}</h2>
-         \
+
         </div>
 
         <div id="custom-stage-collapse" class="p-5 pb-0">
@@ -16,8 +16,8 @@
                         hx-target="#{{hx_target}}"
                         hx-swap="{{hx_swap}}"
                         hx-push-url="{{hx_push_url}}"
-                        {% if hx_select%}
-                        hx-select="{{hx_select}}"
+                        {% if hx_select %}
+                            hx-select="{{hx_select}}"
                         {% endif %}>
                     {% for stage in default_stages %}
                         <input type="hidden" name="stage_name" value="{{ stage.name }}">

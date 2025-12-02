@@ -51,16 +51,41 @@ class FiscalYearForm(HorillaModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Get fiscal_year_type from POST or instance
+
+        # Get fiscal_year_type and format_type from POST or instance
         fiscal_year_type = (
             self.data.get("fiscal_year_type")
             if self.data
             else getattr(self.instance, "fiscal_year_type", None)
         )
 
+        format_type = (
+            self.data.get("format_type")
+            if self.data
+            else getattr(self.instance, "format_type", None)
+        )
+
         if fiscal_year_type == "standard":
+            # For standard type, start_date_day is optional
             self.fields["start_date_day"].required = False
             self.initial["start_date_day"] = None
+
+        elif fiscal_year_type == "custom":
+            self.fields["format_type"].required = True
+            self.fields["start_date_month"].required = True
+            self.fields["display_year_based_on"].required = True
+            self.fields["start_date_day"].required = True
+            self.fields["week_start_day"].required = True
+            self.fields["number_weeks_by"].required = True
+            self.fields["period_display_option"].required = True
+
+            # Based on format_type, require specific format fields
+            if format_type == "year_based":
+                self.fields["year_based_format"].required = True
+                self.fields["quarter_based_format"].required = False
+            elif format_type == "quarter_based":
+                self.fields["quarter_based_format"].required = True
+                self.fields["year_based_format"].required = False
 
 
 class HolidayForm(HorillaModelForm):

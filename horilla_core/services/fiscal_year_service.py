@@ -5,7 +5,7 @@ from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
-from horilla_core.models import FiscalYear
+from horilla_core.models import FiscalYear, Quarter
 
 
 class FiscalYearService:
@@ -108,20 +108,23 @@ class FiscalYearService:
                 # Store the end date for the next iteration
                 previous_end_date = end_date
 
-                # Generate quarters
-                FiscalYearService._generate_quarters(config, fiscal_year)
+                # Generate quarters - PASS periods_info here
+                periods_info = config.get_periods_by_format()
+                FiscalYearService._generate_quarters(config, fiscal_year, periods_info)
 
     @staticmethod
-    def _generate_quarters(config, fiscal_year):
+    def _generate_quarters(config, fiscal_year, periods_info):
         """
         Generate quarters for a fiscal year
         """
         Quarter = apps.get_model("horilla_core", "Quarter")
 
-        periods_info = config.get_periods_by_format()
         quarter_durations = FiscalYearService._calculate_quarter_dates(
             fiscal_year.start_date, fiscal_year.end_date, config, periods_info
         )
+
+        # Track total periods created across all quarters
+        cumulative_period_count = 0
 
         for i, (q_start, q_end) in enumerate(quarter_durations, start=1):
             quarter_name = f"Q{i}"
@@ -144,8 +147,10 @@ class FiscalYearService:
                 quarter.end_date = q_end
                 quarter.save()
 
-            # Generate periods for this quarter
-            FiscalYearService._generate_periods(config, quarter, periods_info)
+            # Generate periods for this quarter and update the cumulative count
+            cumulative_period_count = FiscalYearService._generate_periods(
+                config, quarter, periods_info, cumulative_period_count
+            )
 
     @staticmethod
     def _calculate_quarter_dates(start_date, end_date, config=None, periods_info=None):
@@ -205,12 +210,28 @@ class FiscalYearService:
         return quarters
 
     @staticmethod
-    def _generate_periods(config, quarter, periods_info):
+    def _generate_periods(config, quarter, periods_info, starting_period_number):
         """
-        Generate periods for a quarter based on configuration
+        Generate periods for a quarter based on configuration.
+        Period numbers start from 1 for each fiscal year and increment sequentially.
+
+        Args:
+            config: Fiscal year configuration
+            quarter: Quarter instance
+            periods_info: Period configuration details
+            starting_period_number: The period number to start from (cumulative count from previous quarters)
+
+        Returns:
+            The updated cumulative period count after creating this quarter's periods
         """
         Period = apps.get_model("horilla_core", "Period")
 
+        # Get the number of periods for this quarter based on configuration
+        quarter_periods = FiscalYearService._get_quarter_periods(
+            config, quarter.quarter_number, periods_info
+        )
+
+        # Handle quarter-based formats (4-4-5, 4-5-4, 5-4-4)
         if (
             config.format_type == "quarter_based"
             and "weeks_per_period_pattern" in periods_info
@@ -222,37 +243,45 @@ class FiscalYearService:
                 period_days = weeks * 7
                 current_end = current_start + timedelta(days=period_days - 1)
 
+                # Last period in quarter ends at quarter end date
                 if i == len(weeks_pattern):
                     current_end = quarter.end_date
 
-                period_name = f"P{i}"
+                # Period number within the fiscal year (incremental)
+                fiscal_year_period_number = starting_period_number + i
 
-                period, created = Period.objects.get_or_create(
-                    company=quarter.company,
-                    quarter=quarter,
-                    period_number=i,
-                    defaults={
-                        "name": period_name,
-                        "start_date": current_start,
-                        "end_date": current_end,
-                        "is_active": True,
-                    },
-                )
+                # Name based on fiscal year period number
+                period_name = f"Period {fiscal_year_period_number}"
 
-                if not created:
-                    period.company = quarter.company
+                # Create or update period with explicit period_number
+                try:
+                    period = Period.objects.get(
+                        company=quarter.company,
+                        quarter=quarter,
+                        period_number=fiscal_year_period_number,
+                    )
+                    # Update existing period
+                    period.name = period_name
                     period.start_date = current_start
                     period.end_date = current_end
-                    period.save()
+                    period.save(skip_auto_calculation=True)
+                except Period.DoesNotExist:
+                    # Create new period with explicit save to bypass auto-calculation
+                    period = Period(
+                        company=quarter.company,
+                        quarter=quarter,
+                        period_number=fiscal_year_period_number,
+                        name=period_name,
+                        start_date=current_start,
+                        end_date=current_end,
+                        is_active=True,
+                    )
+                    period.save(skip_auto_calculation=True)
 
                 current_start = current_end + timedelta(days=1)
 
+        # Handle year-based and standard formats
         else:
-            # Year-based or standard: Calculate periods based on format
-            quarter_periods = FiscalYearService._get_quarter_periods(
-                config, quarter.quarter_number, periods_info
-            )
-
             if config.format_type == "year_based":
                 # For year-based, each period is 4 weeks = 28 days
                 period_duration = 28
@@ -267,29 +296,44 @@ class FiscalYearService:
                 if i < quarter_periods:
                     current_end = current_start + timedelta(days=period_duration - 1)
                 else:
+                    # Last period ends at quarter end
                     current_end = quarter.end_date
 
-                period_name = f"P{i}"
+                # Period number within the fiscal year (incremental)
+                fiscal_year_period_number = starting_period_number + i
 
-                period, created = Period.objects.get_or_create(
-                    company=quarter.company,
-                    quarter=quarter,
-                    period_number=i,
-                    defaults={
-                        "name": period_name,
-                        "start_date": current_start,
-                        "end_date": current_end,
-                        "is_active": True,
-                    },
-                )
+                # Name based on fiscal year period number
+                period_name = f"Period {fiscal_year_period_number}"
 
-                if not created:
-                    period.company = quarter.company
+                # Create or update period with explicit period_number
+                try:
+                    period = Period.objects.get(
+                        company=quarter.company,
+                        quarter=quarter,
+                        period_number=fiscal_year_period_number,
+                    )
+                    # Update existing period
+                    period.name = period_name
                     period.start_date = current_start
                     period.end_date = current_end
-                    period.save()
+                    period.save(skip_auto_calculation=True)
+                except Period.DoesNotExist:
+                    # Create new period with explicit save to bypass auto-calculation
+                    period = Period(
+                        company=quarter.company,
+                        quarter=quarter,
+                        period_number=fiscal_year_period_number,
+                        name=period_name,
+                        start_date=current_start,
+                        end_date=current_end,
+                        is_active=True,
+                    )
+                    period.save(skip_auto_calculation=True)
 
                 current_start = current_end + timedelta(days=1)
+
+        # Return the updated cumulative count
+        return starting_period_number + quarter_periods
 
     @staticmethod
     def _get_quarter_periods(config, quarter_number, periods_info):

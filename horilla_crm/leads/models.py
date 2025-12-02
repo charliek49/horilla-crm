@@ -252,7 +252,7 @@ class Lead(HorillaCoreModel):
         LeadStatus,
         on_delete=models.PROTECT,
         related_name="lead",
-        verbose_name=_("Lead Status"),
+        verbose_name=_("Lead Stage"),
     )
     lead_company = models.CharField(max_length=100, verbose_name=_("Company"))
     no_of_employees = models.IntegerField(

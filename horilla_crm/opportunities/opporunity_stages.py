@@ -26,6 +26,7 @@ from horilla_core.progress import ProgressStepsMixin
 from horilla_crm.opportunities.filters import OpportunityStageFilter
 from horilla_crm.opportunities.forms import OpportunityStageForm
 from horilla_crm.opportunities.models import OpportunityStage
+from horilla_crm.opportunities.signals import opp_stage_created
 from horilla_generics.views import (
     HorillaListView,
     HorillaNavView,
@@ -526,24 +527,28 @@ class LoadOpportunityStagesView(View):
             company_stages[f"group_{group_counter}"] = representative
             group_counter += 1
 
+        # Build context dictionary
+        context = {
+            "default_stages": default_stages,
+            "company_stages": company_stages,
+            "company": company,
+            "initialization": initialization,
+            "hx_target": (
+                "initialize-opportunity-stages" if initialization else "stage-messages"
+            ),
+            "hx_swap": "outerHTML" if initialization else "innerHTML",
+            "hx_push_url": (
+                reverse_lazy("horilla_core:login") if initialization else "false"
+            ),
+        }
+
+        # Only add hx_select when initialization is True
+        if initialization:
+            context["hx_select"] = "#sec1"
+
         modal_content = render_to_string(
             "opportunity_stage/opportunity_stages_modal.html",
-            {
-                "default_stages": default_stages,
-                "company_stages": company_stages,
-                "company": company,
-                "initialization": initialization,
-                "hx_target": (
-                    "initialize-opportunity-stages"
-                    if initialization
-                    else "stage-messages"
-                ),
-                "hx_swap": "outerHTML" if initialization else "innerHTML",
-                "hx_push_url": (
-                    reverse_lazy("horilla_core:login") if initialization else "false"
-                ),
-                "hx_select": "#sec1",
-            },
+            context,
             request=request,
         )
         return HttpResponse(modal_content)
@@ -640,24 +645,28 @@ class CustomOppStagesFormView(View):
             stage_copy["order"] = i
             combined_stages.append(stage_copy)
 
+        # Build context dictionary
+        context = {
+            "company": company,
+            "company_stages": {company_id: combined_stages},
+            "default_stages": combined_stages,
+            "initialization": initialization,
+            "hx_target": (
+                "initialize-opportunity-stages" if initialization else "stage-messages"
+            ),
+            "hx_swap": "outerHTML" if initialization else "innerHTML",
+            "hx_push_url": (
+                reverse_lazy("horilla_core:login") if initialization else "false"
+            ),
+        }
+
+        # Only add hx_select when initialization is True
+        if initialization:
+            context["hx_select"] = "#sec1"
+
         modal_content = render_to_string(
             "opportunity_stage/custom_stages_form_opp.html",
-            {
-                "company": company,
-                "company_stages": {company_id: combined_stages},
-                "default_stages": combined_stages,
-                "initialization": initialization,
-                "hx_target": (
-                    "initialize-opportunity-stages"
-                    if initialization
-                    else "stage-messages"
-                ),
-                "hx_swap": "outerHTML" if initialization else "innerHTML",
-                "hx_push_url": (
-                    reverse_lazy("horilla_core:login") if initialization else "false"
-                ),
-                "hx_select": "#sec1",
-            },
+            context,
             request=request,
         )
         return HttpResponse(modal_content)
@@ -666,6 +675,19 @@ class CustomOppStagesFormView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(htmx_required(login=False), name="dispatch")
 class SaveCustomOppStagesView(View):
+
+    def get_signal_kwargs(self, company, request, initialization):
+        """
+        Extension point: Override this method to pass additional data to signal.
+        Clients can add custom data without modifying source code.
+        """
+        return {
+            "company": company,
+            "request": request,
+            "view": self,
+            "initialization": initialization,
+        }
+
     def post(self, request, company_id):
         try:
             company = get_object_or_404(Company, id=company_id)
@@ -721,10 +743,21 @@ class SaveCustomOppStagesView(View):
                 request,
                 f"Successfully created {company} and associated Opportunity Stages.",
             )
+            signal_kwargs = self.get_signal_kwargs(
+                company=company, request=request, initialization=initialization
+            )
+
+            responses = opp_stage_created.send(sender=self.__class__, **signal_kwargs)
+
+            for receiver, response in responses:
+                if isinstance(response, HttpResponse):
+                    return response
+
             if initialization:
                 request.session.pop("db_password", None)
                 request.session.pop("company_id", None)
                 return redirect("/")
+
             branches_view_url = reverse_lazy("horilla_core:branches_view")
             response_html = (
                 f"<span "
@@ -733,7 +766,7 @@ class SaveCustomOppStagesView(View):
                 f'hx-select="#branches-view" '
                 f'hx-target="#branches-view" '
                 f'hx-swap="outerHTML" '
-                f'hx-on::after-request="closeContentModalSecond();"'
+                f'hx-on::after-request="closeContentModal()"'
                 f'hx-select-oob="#dropdown-companies">'
                 f"</span>"
             )
@@ -746,6 +779,19 @@ class SaveCustomOppStagesView(View):
 @method_decorator(htmx_required(login=False), name="dispatch")
 @method_decorator(csrf_exempt, name="dispatch")
 class CreateOppStageGroupView(View):
+
+    def get_signal_kwargs(self, company, request, initialization):
+        """
+        Extension point: Override this method to pass additional data to signal.
+        Clients can add custom data without modifying source code.
+        """
+        return {
+            "company": company,
+            "request": request,
+            "view": self,
+            "initialization": initialization,
+        }
+
     def post(self, request, pk):
         try:
             company = get_object_or_404(Company, pk=pk)
@@ -813,10 +859,21 @@ class CreateOppStageGroupView(View):
                 request,
                 f"Successfully created {company} and associated Opportunity Stages.",
             )
+            signal_kwargs = self.get_signal_kwargs(
+                company=company, request=request, initialization=initialization
+            )
+
+            responses = opp_stage_created.send(sender=self.__class__, **signal_kwargs)
+
+            for receiver, response in responses:
+                if isinstance(response, HttpResponse):
+                    return response
+
             if initialization:
                 request.session.pop("db_password", None)
                 request.session.pop("company_id", None)
                 return redirect("/")
+
             branches_view_url = reverse_lazy("horilla_core:branches_view")
             response_html = (
                 f"<span "
@@ -825,7 +882,7 @@ class CreateOppStageGroupView(View):
                 f'hx-select="#branches-view" '
                 f'hx-target="#branches-view" '
                 f'hx-swap="outerHTML" '
-                f'hx-on::after-request="closeContentModalSecond();"'
+                f'hx-on::after-request="closeContentModal()"'
                 f'hx-select-oob="#dropdown-companies">'
                 f"</span>"
             )

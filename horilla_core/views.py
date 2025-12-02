@@ -57,6 +57,8 @@ from rest_framework_simplejwt.tokens import UntypedToken
 
 from horilla_core.decorators import htmx_required, permission_required_or_denied
 
+from .signals import company_created
+
 
 def is_jwt_token_valid(auth_header):
     if not auth_header or not auth_header.startswith("Bearer "):
@@ -373,6 +375,13 @@ class CompanyFormView(LoginRequiredMixin, HorillaSingleFormView):
     model = Company
     view_id = "company-form-view"
 
+    def get_signal_kwargs(self):
+        """
+        Extension point: Override this method to pass additional data to signal.
+        Clients can add custom data without modifying source code.
+        """
+        return {}
+
     @cached_property
     def form_url(self):
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
@@ -382,28 +391,21 @@ class CompanyFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     def form_valid(self, form):
         super().form_valid(form)
-        if not self.kwargs.get("pk") and apps.is_installed("horilla_crm.leads"):
-            return HttpResponse(
-                """
-                <script>
-                    closeModal();
-                    $('#reloadButton').click();
-                     openContentModal();
-                        var div = document.createElement('div');
-                        div.setAttribute('hx-get', '%s');
-                        div.setAttribute('hx-target', '#contentModalBox');
-                        div.setAttribute('hx-trigger', 'load');
-                        div.setAttribute('hx-swap', 'innerHTML');
-                        document.body.appendChild(div);
-                        htmx.process(div);
-                </script>
-                """
-                % reverse_lazy(
-                    "leads:load_lead_stages", kwargs={"company_id": self.object.id}
-                ),
-                headers={"X-Debug": "Modal transition in progress"},
-            )
-        elif self.request.GET.get("details") == "true":
+        custom_kwargs = self.get_signal_kwargs()
+        signal_kwargs = {
+            "instance": self.object,
+            "request": self.request,
+            "view": self,
+            "is_new": not self.kwargs.get("pk"),
+            **custom_kwargs,  # Add any custom kwargs from override
+        }
+        responses = company_created.send(sender=self.__class__, **signal_kwargs)
+
+        for receiver, response in responses:
+            if isinstance(response, HttpResponse):
+                return response
+
+        if self.request.GET.get("details") == "true":
             return HttpResponse(
                 "<script>$('#reloadButton').click();closeModal();</script>"
             )

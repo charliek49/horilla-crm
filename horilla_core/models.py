@@ -5,11 +5,12 @@ models for horilla core app
 import json
 import logging
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import uuid4
 
 from auditlog.models import AuditlogHistoryField, LogEntry
+from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
@@ -422,12 +423,10 @@ class HorillaCoreModel(models.Model):
         updated_at, and company fields.
         """
         user = None
-        company = None
 
         request = getattr(_thread_local, "request", None)
         if request:
             user = getattr(request, "user", None)
-            company = getattr(request, "active_company", None)
         now = timezone.now()
         if not self.pk:
             if user and not isinstance(user, AnonymousUser):
@@ -435,8 +434,7 @@ class HorillaCoreModel(models.Model):
                 self.updated_by = user
             self.created_at = now
             self.updated_at = now
-            if company:
-                self.company = company
+
         else:
             if user and not isinstance(user, AnonymousUser):
                 self.updated_by = user
@@ -1706,9 +1704,15 @@ class Period(HorillaCoreModel):
 
     def save(self, *args, **kwargs):
         """
-        Override save to set period number and dates based on fiscal year type
+        Override save to set period number and dates based on fiscal year type.
+        Period numbers start from 1 for each fiscal year.
         """
-        if not self.pk:  # Only for new instances
+        # Skip auto-calculation if period_number is already set (e.g., from service)
+        skip_auto_calculation = kwargs.pop("skip_auto_calculation", False)
+
+        if (
+            not self.pk and not skip_auto_calculation
+        ):  # Only for new instances without explicit number
             fiscal_config = self.quarter.fiscal_year.fiscal_year_config
 
             if fiscal_config.fiscal_year_type == "standard":
@@ -1726,16 +1730,14 @@ class Period(HorillaCoreModel):
 
     def _create_standard_period(self):
         """
-        Create period for standard fiscal year type based on calendar months
+        Create period for standard fiscal year type based on calendar months.
+        Period numbers start from 1 for each fiscal year.
         """
-        from datetime import datetime, timedelta
-
-        from dateutil.relativedelta import relativedelta
 
         fiscal_config = self.quarter.fiscal_year.fiscal_year_config
         fiscal_year = self.quarter.fiscal_year
 
-        # Calculate which month this period represents
+        # Calculate period number within THIS fiscal year only
         existing_periods_in_year = Period.objects.filter(
             quarter__fiscal_year=fiscal_year
         ).count()
@@ -1757,7 +1759,7 @@ class Period(HorillaCoreModel):
             "november",
             "december",
         ]
-        start_month_index = months.index(fiscal_config.start_date_month)
+        start_month_index = months.index(fiscal_config.start_date_month.lower())
 
         # Calculate the month for this period
         period_month_index = (start_month_index + self.period_number - 1) % 12
@@ -1785,9 +1787,12 @@ class Period(HorillaCoreModel):
 
     def _create_custom_period(self):
         """
-        Create period for custom fiscal year type
+        Create period for custom fiscal year type.
+        Period numbers start from 1 for each fiscal year.
         """
         fiscal_config = self.quarter.fiscal_year.fiscal_year_config
+
+        # Only count periods in previous quarters within THIS fiscal year
         previous_quarters = Quarter.objects.filter(
             fiscal_year=self.quarter.fiscal_year,
             quarter_number__lt=self.quarter.quarter_number,
@@ -1802,6 +1807,7 @@ class Period(HorillaCoreModel):
             quarter=self.quarter
         ).count()
 
+        # Period number within the fiscal year (starts from 1)
         self.period_number = (
             periods_before_this_quarter + existing_periods_in_current_quarter + 1
         )
