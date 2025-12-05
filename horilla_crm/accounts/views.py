@@ -322,17 +322,6 @@ class AccountsKanbanView(LoginRequiredMixin, HorillaKanbanView):
                             onclick="openModal()"
                             """,
                     },
-                    {
-                        "action": _("Change Owner"),
-                        "src": "assets/icons/a2.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-get="{get_change_owner_url}"
-                            hx-target="#modalBox"
-                            hx-swap="innerHTML"
-                            onclick="openModal()"
-                            """,
-                    },
                 ]
             )
             if self.request.user.has_perm("accounts.delete_account"):

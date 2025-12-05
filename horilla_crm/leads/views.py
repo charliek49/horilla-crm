@@ -129,7 +129,7 @@ class LeadListView(LoginRequiredMixin, HorillaListView):
     filterset_class = LeadFilter
     search_url = reverse_lazy("leads:leads_list")
     main_url = reverse_lazy("leads:leads_view")
-    max_visible_actions = 4
+    max_visible_actions = 5
     bulk_update_fields = [
         "annual_revenue",
         "no_of_employees",
@@ -270,6 +270,20 @@ class LeadListView(LoginRequiredMixin, HorillaListView):
                         onclick="openDeleteModeModal()"
                     """,
                 }
+            )
+        if self.request.user.has_perm("leads.add_lead"):
+            actions.append(
+                {
+                    "action": _("Duplicate"),
+                    "src": "assets/icons/duplicate.svg",
+                    "img_class": "w-4 h-4",
+                    "attrs": """
+                              hx-get="{get_duplicate_url}?duplicate=true"
+                              hx-target="#modalBox"
+                              hx-swap="innerHTML"
+                              onclick="openModal()"
+                             """,
+                },
             )
 
         return actions

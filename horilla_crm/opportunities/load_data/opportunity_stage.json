@@ -158,7 +158,7 @@
             "order": 9,
             "probability": "00.00",
             "is_final": false,
-            "stage_type": "open"
+            "stage_type": "lost"
         }
     },
     {
@@ -176,7 +176,7 @@
             "order": 10,
             "probability": "100.00",
             "is_final": true,
-            "stage_type": "open"
+            "stage_type": "won"
         }
     }
 ]
