@@ -9,12 +9,15 @@ import zipfile
 from functools import cached_property
 from io import BytesIO
 
+import pytz
 from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import TemplateView
@@ -140,6 +143,23 @@ class ExportView(LoginRequiredMixin, TemplateView):
                 return model
         return None
 
+    def get_export_filename(self, model, export_format):
+        """
+        Generate a timestamped, safe filename for exporting a Horilla model.
+        """
+
+        tz_str = getattr(self.request.user, "time_zone", None)
+        user_tz = pytz.timezone(tz_str) if tz_str else pytz.UTC
+        dt_format = (
+            getattr(self.request.user, "date_time_format", None) or "%Y-%m-%d %H:%M:%S"
+        )
+        now = timezone.now().astimezone(user_tz)
+
+        # filenames cannot safely contain :
+        timestamp = now.strftime(dt_format)
+        safe_name = slugify(model._meta.verbose_name_plural)
+        return f"{safe_name}_export_{timestamp}.{export_format}"
+
     def export_model_data(self, model, export_format):
         """Export all data of a given model in the selected format"""
 
@@ -168,9 +188,8 @@ class ExportView(LoginRequiredMixin, TemplateView):
             for row in data:
                 writer.writerow(row)
             buffer.seek(0)
-            return f"{model.__name__}_export.csv", io.BytesIO(
-                buffer.getvalue().encode("utf-8")
-            )
+            filename = self.get_export_filename(model, "csv")
+            return f"{filename}", io.BytesIO(buffer.getvalue().encode("utf-8"))
 
         elif export_format == "xlsx":
             wb = Workbook()
@@ -202,7 +221,8 @@ class ExportView(LoginRequiredMixin, TemplateView):
             buffer = BytesIO()
             wb.save(buffer)
             buffer.seek(0)
-            return f"{model.__name__}_export.xlsx", buffer
+            filename = self.get_export_filename(model, "xlsx")
+            return f"{filename}", buffer
 
         elif export_format == "pdf":
             from reportlab.lib import colors
@@ -347,7 +367,8 @@ class ExportView(LoginRequiredMixin, TemplateView):
 
             c.save()
             buffer.seek(0)
-            return f"{model.__name__}_export.pdf", buffer
+            filename = self.get_export_filename(model, "pdf")
+            return f"{filename}", buffer
 
         return None, None
 
