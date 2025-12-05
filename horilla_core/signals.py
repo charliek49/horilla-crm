@@ -30,7 +30,6 @@ from horilla_core.models import (
     Role,
 )
 from horilla_core.services.fiscal_year_service import FiscalYearService
-from horilla_keys.models import ShortcutKey
 from horilla_utils.middlewares import _thread_local
 
 logger = logging.getLogger(__name__)
@@ -155,29 +154,6 @@ def add_custom_permissions(sender, **kwargs):
 
 
 post_migrate.connect(add_custom_permissions)
-
-
-@receiver(post_save, sender=HorillaUser)
-def create_default_shortcuts(sender, instance, created, **kwargs):
-    predefined = [
-        {"page": "/", "key": "H", "command": "alt"},
-        {"page": "/my-profile-view/", "key": "P", "command": "alt"},
-        {"page": "/regional-formating-view/", "key": "G", "command": "alt"},
-        {"page": "/user-login-history-view/", "key": "L", "command": "alt"},
-        {"page": "/user-holiday-view/", "key": "V", "command": "alt"},
-        {"page": "/shortkeys/short-key-view/", "key": "K", "command": "alt"},
-        {"page": "/user-view/", "key": "U", "command": "alt"},
-        {"page": "/branches-view/", "key": "B", "command": "alt"},
-    ]
-    for item in predefined:
-        if not ShortcutKey.objects.filter(user=instance, page=item["page"]).exists():
-            ShortcutKey.objects.create(
-                user=instance,
-                page=item["page"],
-                key=item["key"],
-                command=item["command"],
-                company=instance.company,
-            )
 
 
 @receiver(post_save, sender=HorillaUser)
