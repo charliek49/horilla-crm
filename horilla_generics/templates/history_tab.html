@@ -3,9 +3,9 @@
 {% load horilla_tags %}
 
 <div class="custom-scroll overflow-hidden overflow-y-auto h-full" role="tabpanel" aria-labelledby="history-tab" id="history-main">
-    <div class="w-full max-w-6xl mx-auto p-5 relative">
+    <div class="w-full mx-auto p-5 pt-0 relative">
         <!-- Sticky filter button -->
-        <div class="sticky top-4 z-90 px-5 bg-white max-w-6xl mx-auto flex justify-end gap-3">
+        <div class="sticky top-4 z-90 px-5 bg-white  mx-auto flex justify-end gap-3">
             {% if filter_applied %}
                 <button onclick="$('#tab-history').click();"
                     class="text-sm border-[1px] hover:border-[#9b210f] hover:bg-secondary-600 rounded-[5px] px-4 py-2 text-[#e54f38] flex gap-3 btn-with-icon transition duration-300 hover:text-white">

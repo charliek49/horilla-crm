@@ -8,7 +8,7 @@
                 <img src="{% static 'assets/icons/close.svg' %}" alt="Close" />
             </button>
         </div>
-        <form hx-post="{{ form_url }}?{{request.GET.urlencode}}" hx-encoding="multipart/form-data" class="space-y-4">
+        <form id="notes-form" hx-post="{{ form_url }}?{{request.GET.urlencode}}" hx-encoding="multipart/form-data" class="space-y-4">
             {% csrf_token %}
             <div>
                 <label for="{{ form.title.id_for_label }}" class="text-xs">
