@@ -401,8 +401,8 @@ class UpdateOpportunityStageOrderView(LoginRequiredMixin, View):
                 OpportunityStage.objects.filter(id=status.id).update(order=order)
 
 
-@method_decorator(htmx_required(login=False), name="dispatch")
-class LoadOpportunityStagesView(View):
+@method_decorator(htmx_required(), name="dispatch")
+class LoadOpportunityStagesView(LoginRequiredMixin, View):
     def get(self, request, company_id):
         try:
             company = get_object_or_404(Company, id=company_id)
@@ -538,7 +538,7 @@ class LoadOpportunityStagesView(View):
             ),
             "hx_swap": "outerHTML" if initialization else "innerHTML",
             "hx_push_url": (
-                reverse_lazy("horilla_core:login") if initialization else "false"
+                reverse_lazy("horilla_core:home_view") if initialization else "false"
             ),
         }
 
@@ -554,8 +554,8 @@ class LoadOpportunityStagesView(View):
         return HttpResponse(modal_content)
 
 
-@method_decorator(htmx_required(login=False), name="dispatch")
-class CustomOppStagesFormView(View):
+@method_decorator(htmx_required(), name="dispatch")
+class CustomOppStagesFormView(LoginRequiredMixin, View):
     def get(self, request, company_id):
         try:
             company = get_object_or_404(Company, id=company_id)
@@ -656,7 +656,7 @@ class CustomOppStagesFormView(View):
             ),
             "hx_swap": "outerHTML" if initialization else "innerHTML",
             "hx_push_url": (
-                reverse_lazy("horilla_core:login") if initialization else "false"
+                reverse_lazy("horilla_core:home_view") if initialization else "false"
             ),
         }
 
@@ -673,8 +673,8 @@ class CustomOppStagesFormView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-@method_decorator(htmx_required(login=False), name="dispatch")
-class SaveCustomOppStagesView(View):
+@method_decorator(htmx_required(), name="dispatch")
+class SaveCustomOppStagesView(LoginRequiredMixin, View):
 
     def get_signal_kwargs(self, company, request, initialization):
         """
@@ -756,7 +756,9 @@ class SaveCustomOppStagesView(View):
             if initialization:
                 request.session.pop("db_password", None)
                 request.session.pop("company_id", None)
-                return redirect("/")
+                response = HttpResponse()
+                response["HX-Redirect"] = "/"
+                return response
 
             branches_view_url = reverse_lazy("horilla_core:branches_view")
             response_html = (
@@ -776,9 +778,9 @@ class SaveCustomOppStagesView(View):
             return HttpResponse()
 
 
-@method_decorator(htmx_required(login=False), name="dispatch")
+@method_decorator(htmx_required(), name="dispatch")
 @method_decorator(csrf_exempt, name="dispatch")
-class CreateOppStageGroupView(View):
+class CreateOppStageGroupView(LoginRequiredMixin, View):
 
     def get_signal_kwargs(self, company, request, initialization):
         """
@@ -872,7 +874,9 @@ class CreateOppStageGroupView(View):
             if initialization:
                 request.session.pop("db_password", None)
                 request.session.pop("company_id", None)
-                return redirect("/")
+                response = HttpResponse()
+                response["HX-Redirect"] = "/"
+                return response
 
             branches_view_url = reverse_lazy("horilla_core:branches_view")
             response_html = (
@@ -889,10 +893,7 @@ class CreateOppStageGroupView(View):
             return HttpResponse(mark_safe(response_html))
 
         except Exception as e:
-            return HttpResponse(
-                '<div class="alert alert-danger">An error occurred while creating stages. Please try again.</div>',
-                status=500,
-            )
+            print(f"Error:{e}")
 
 
 class InitializeDatabaseOpportunityStages(View, ProgressStepsMixin):

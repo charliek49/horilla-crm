@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.template import Context, Template
 from django.urls import reverse_lazy
@@ -6,7 +8,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from horilla_core.decorators import htmx_required
+from horilla_core.decorators import db_initialization, htmx_required
 from horilla_core.forms import CompanyFormClass, UserFormClassSingle
 from horilla_core.models import Company, HorillaUser, Role
 from horilla_core.progress import ProgressStepsMixin
@@ -77,7 +79,7 @@ class InitializeDatabaseUser(View, ProgressStepsMixin):
         )
 
 
-class InitializeDatabaseCompany(View, ProgressStepsMixin):
+class InitializeDatabaseCompany(LoginRequiredMixin, View, ProgressStepsMixin):
 
     current_step = 3
 
@@ -94,6 +96,7 @@ class InitializeDatabaseCompany(View, ProgressStepsMixin):
         return redirect(next_url)
 
 
+@method_decorator(db_initialization(model=HorillaUser), name="dispatch")
 @method_decorator(htmx_required(login=False), name="dispatch")
 class SignUpFormView(HorillaSingleFormView, ProgressStepsMixin):
 
@@ -121,9 +124,17 @@ class SignUpFormView(HorillaSingleFormView, ProgressStepsMixin):
 
     def form_valid(self, form):
         instance = form.save(commit=False)
+
         instance.is_staff = True
         instance.is_superuser = True
         instance.save()
+        raw_password = form.cleaned_data.get("password")
+        user = authenticate(
+            self.request, username=instance.username, password=raw_password
+        )
+
+        if user:
+            login(self.request, user)
         context = {
             "progress_steps": self.get_progress_steps(),
             "current_step": self.current_step,
@@ -139,8 +150,11 @@ class SignUpFormView(HorillaSingleFormView, ProgressStepsMixin):
         return response
 
 
-@method_decorator(htmx_required(login=False), name="dispatch")
-class InitializeCompanyFormView(HorillaSingleFormView, ProgressStepsMixin):
+@method_decorator(db_initialization(model=Company), name="dispatch")
+@method_decorator(htmx_required(), name="dispatch")
+class InitializeCompanyFormView(
+    LoginRequiredMixin, HorillaSingleFormView, ProgressStepsMixin
+):
 
     model = Company
     view_id = "user-form-view"
@@ -190,7 +204,7 @@ class InitializeCompanyFormView(HorillaSingleFormView, ProgressStepsMixin):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class InitializeRoleView(View, ProgressStepsMixin):
+class InitializeRoleView(LoginRequiredMixin, View, ProgressStepsMixin):
     template_name = "initialize_database/initialize_role.html"
     current_step = 4
     response_template = None
@@ -253,11 +267,12 @@ class InitializeRoleView(View, ProgressStepsMixin):
                     role.description = description
                     role.parent_role = parent_role
                     role.save()
-            else:  # Create new role
+            else:
                 Role.objects.create(
                     role_name=role_name,
                     description=description,
                     parent_role=parent_role,
+                    company=request.active_company,
                 )
 
         if next_step == "true":

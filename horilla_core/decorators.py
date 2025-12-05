@@ -1,8 +1,11 @@
 from functools import wraps
 
+from django.conf import settings
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
+
+from horilla_core.models import HorillaUser
 
 
 def permission_required_or_denied(
@@ -112,3 +115,32 @@ def htmx_required(view_func=None, login=True):
 
     # If called with arguments: @htmx_required(login=False)
     return decorator
+
+
+def db_initialization(model=None):
+    """
+    Decorator factory.
+    @method_decorator(db_initialization(model=HorillaUser), name="dispatch")
+    """
+
+    def actual_decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            # 1. Does the database still need initialization?
+            needs_initialization = not model.objects.exists()
+
+            # 2. Is the correct password stored in session?
+            correct_password = settings.DB_INIT_PASSWORD
+            password_valid = request.session.get("db_password") == correct_password
+
+            # If DB is already initialized OR password is wrong → redirect away
+            if not needs_initialization or not password_valid:
+                next_url = request.GET.get("next", "/")
+                return redirect(next_url)
+
+            # Otherwise allow the original view to run
+            return view_func(request, *args, **kwargs)
+
+        return _wrapped_view
+
+    return actual_decorator
