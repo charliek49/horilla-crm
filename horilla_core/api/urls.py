@@ -21,8 +21,6 @@ from horilla_core.api.views import (
     ImportHistoryViewSet,
     PartnerRoleViewSet,
     RoleViewSet,
-    ScoringCriterionViewSet,
-    ScoringRuleViewSet,
     TeamRoleViewSet,
 )
 
@@ -37,8 +35,6 @@ router.register(r"business-hours", BusinessHourViewSet)
 router.register(r"team-roles", TeamRoleViewSet)
 router.register(r"customer-roles", CustomerRoleViewSet)
 router.register(r"partner-roles", PartnerRoleViewSet)
-router.register(r"scoring-rules", ScoringRuleViewSet)
-router.register(r"scoring-criteria", ScoringCriterionViewSet)
 router.register(r"import-histories", ImportHistoryViewSet)
 router.register(r"attachments", HorillaAttachmentViewSet)
 router.register(r"holidays", HolidayViewSet)

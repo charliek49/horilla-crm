@@ -21,10 +21,10 @@ from horilla_core.models import (
     HorillaUser,
     MultipleCurrency,
 )
-from horilla_core.utils import compute_score
 from horilla_crm.accounts.models import Account
 from horilla_crm.campaigns.models import Campaign
 from horilla_crm.contacts.models import Contact
+from horilla_crm.leads.utils import compute_score
 from horilla_utils.methods import render_template
 from horilla_utils.middlewares import _thread_local
 

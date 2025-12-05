@@ -1,7 +1,11 @@
 """Forms for Lead model and Lead conversion process."""
 
+import logging
+
 import pycountry
 from django import forms
+from django.apps import apps
+from django.db import models
 from django.urls import reverse, reverse_lazy
 
 from horilla_core.mixins import OwnerQuerysetMixin
@@ -12,7 +16,15 @@ from horilla_crm.opportunities.models import Opportunity
 from horilla_generics.forms import HorillaModelForm, HorillaMultiStepForm
 from horilla_mail.models import HorillaMailConfiguration
 
-from .models import EmailToLeadConfig, Lead, LeadStatus
+from .models import (
+    EmailToLeadConfig,
+    Lead,
+    LeadStatus,
+    ScoringCondition,
+    ScoringCriterion,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class LeadFormClass(OwnerQuerysetMixin, HorillaMultiStepForm):
@@ -52,6 +64,7 @@ class LeadFormClass(OwnerQuerysetMixin, HorillaMultiStepForm):
                 "hx-get": reverse_lazy("horilla_core:get_country_subdivisions"),
                 "hx-target": "#id_state",
                 "hx-trigger": "change",
+                "hx-swap": "innerHTML",
             }
         )
         self.fields["state"] = forms.ChoiceField(
@@ -378,3 +391,335 @@ class EmailToLeadForm(HorillaModelForm):
         self.fields["mail"].queryset = HorillaMailConfiguration.objects.filter(
             mail_channel="incoming", is_active=True
         )
+
+
+class ScoringCriterionForm(HorillaModelForm):
+    def __init__(self, *args, **kwargs):
+        self.row_id = kwargs.pop("row_id", "0")
+        kwargs["condition_model"] = ScoringCondition
+        self.instance_obj = kwargs.get("instance")
+
+        model_name = None
+        request = kwargs.get("request")
+        if request:
+            model_name = request.GET.get("model_name") or request.POST.get("model_name")
+        if self.instance_obj:
+            model_name = self.instance_obj.rule.module
+
+        condition_field_choices = {
+            "field": self._get_model_field_choices(model_name),
+            "operator": [
+                ("", "---------"),
+                ("equals", "Equals"),
+                ("not_equals", "Not Equals"),
+                ("contains", "Contains"),
+                ("not_contains", "Does Not Contain"),
+                ("starts_with", "Starts With"),
+                ("ends_with", "Ends With"),
+                ("greater_than", "Greater Than"),
+                ("greater_than_equal", "Greater Than or Equal"),
+                ("less_than", "Less Than"),
+                ("less_than_equal", "Less Than or Equal"),
+                ("is_empty", "Is Empty"),
+                ("is_not_empty", "Is Not Empty"),
+            ],
+            "logical_operator": [
+                ("", "---------"),
+                ("and", "AND"),
+                ("or", "OR"),
+            ],
+        }
+        kwargs["condition_field_choices"] = condition_field_choices
+
+        super().__init__(*args, **kwargs)
+        self.model_name = model_name or ""
+        self._add_htmx_to_field_selects()
+
+        if self.instance_obj and self.instance_obj.pk:
+            self._set_initial_condition_values()
+
+    def _set_initial_condition_values(self):
+        """Set initial values for condition fields in edit mode"""
+        if not self.instance_obj or not self.instance_obj.pk:
+            return
+
+        existing_conditions = self.instance_obj.conditions.all().order_by("order")
+        if hasattr(self, "row_id") and self.row_id != "0":
+            return
+
+        if existing_conditions.exists():
+            first_condition = existing_conditions.first()
+            for field_name in self.condition_fields:
+                if field_name in self.fields:
+                    value = getattr(first_condition, field_name, "")
+                    self.fields[field_name].initial = value
+                    field_key_0 = f"{field_name}_0"
+                    if field_key_0 in self.fields:
+                        self.fields[field_key_0].initial = value
+
+    def _add_htmx_to_field_selects(self):
+        """Add HTMX attributes to field select widgets for dynamic value field updates"""
+        model_name = getattr(self, "model_name", "")
+        row_id = getattr(self, "row_id", "0")
+
+        for field_name, field in self.fields.items():
+            if field_name.startswith("field") or field_name == "field":
+                if hasattr(field.widget, "attrs"):
+                    field.widget.attrs.update(
+                        {
+                            "name": f"field_{row_id}",
+                            "id": f"id_field_{row_id}",
+                            "hx-get": reverse_lazy(
+                                "horilla_generics:get_field_value_widget"
+                            ),
+                            "hx-target": f"#id_value_{row_id}_container",
+                            "hx-swap": "innerHTML",
+                            "hx-include": f'[name="field_{row_id}"],#id_value_{row_id}',
+                            "hx-vals": f'{{"model_name": "{model_name}", "row_id": "{row_id}"}}',
+                            "hx-trigger": "change,load",
+                        }
+                    )
+
+    def _get_model_field_choices(self, model_name):
+        """Get field choices for the specified model"""
+        field_choices = [("", "---------")]
+
+        if model_name:
+            try:
+                model = None
+                for app_config in apps.get_app_configs():
+                    try:
+                        model = apps.get_model(
+                            app_label=app_config.label, model_name=model_name
+                        )
+                        break
+                    except LookupError:
+                        continue
+
+                if model:
+                    model_fields = [
+                        (field.name, field.verbose_name or field.name)
+                        for field in model._meta.get_fields()
+                        if field.concrete and not field.is_relation
+                    ]
+                    field_choices.extend(model_fields)
+
+            except Exception as e:
+                logger.error(
+                    f"Error fetching model {model_name}: {str(e)}", exc_info=True
+                )
+
+        return field_choices
+
+    def _add_condition_fields(self):
+        """Override to add HTMX-enabled condition fields with proper initialization"""
+        for field_name in self.condition_fields:
+            try:
+                model_field = self.condition_model._meta.get_field(field_name)
+
+                # Create base field (for row 0 and template access)
+                if field_name == "field" and field_name in self.condition_field_choices:
+                    model_name = getattr(self, "model_name", "")
+                    form_field = forms.ChoiceField(
+                        choices=self.condition_field_choices[field_name],
+                        required=False,
+                        label=model_field.verbose_name
+                        or field_name.replace("_", " ").title(),
+                        widget=forms.Select(
+                            attrs={
+                                "class": "js-example-basic-single headselect",
+                                "data-placeholder": f'Select {field_name.replace("_", " ").title()}',
+                                "id": f"id_{field_name}_0",
+                                "name": f"{field_name}_0",
+                                "hx-get": reverse_lazy(
+                                    "horilla_generics:get_field_value_widget"
+                                ),
+                                "hx-target": f"#id_value_0_container",
+                                "hx-swap": "innerHTML",
+                                "hx-vals": f'{{"model_name": "{model_name}", "row_id": "0"}}',
+                                "hx-include": f'[name="{field_name}_0"]',
+                                "hx-trigger": "change,load",
+                            }
+                        ),
+                    )
+                elif field_name == "value":
+                    form_field = forms.CharField(
+                        required=False,
+                        label=model_field.verbose_name
+                        or field_name.replace("_", " ").title(),
+                        widget=forms.TextInput(
+                            attrs={
+                                "class": "text-color-600 p-2 placeholder:text-xs pr-[40px] w-full border border-dark-50 rounded-md mt-1 focus-visible:outline-0 placeholder:text-dark-100 text-sm [transition:.3s] focus:border-primary-600",
+                                "placeholder": f'Enter {field_name.replace("_", " ").title()}',
+                                "id": f"id_{field_name}_0",
+                                "name": f"{field_name}_0",
+                                "data-container-id": f"value-field-container-0",
+                            }
+                        ),
+                    )
+                elif field_name in self.condition_field_choices:
+                    form_field = forms.ChoiceField(
+                        choices=self.condition_field_choices[field_name],
+                        required=False,
+                        label=model_field.verbose_name
+                        or field_name.replace("_", " ").title(),
+                        widget=forms.Select(
+                            attrs={
+                                "class": "js-example-basic-single headselect",
+                                "data-placeholder": f'Select {field_name.replace("_", " ").title()}',
+                                "id": f"id_{field_name}_0",
+                                "name": f"{field_name}_0",
+                            }
+                        ),
+                    )
+                elif hasattr(model_field, "choices") and model_field.choices:
+                    form_field = forms.ChoiceField(
+                        choices=[("", "---------")] + list(model_field.choices),
+                        required=False,
+                        label=model_field.verbose_name
+                        or field_name.replace("_", " ").title(),
+                        widget=forms.Select(
+                            attrs={
+                                "class": "js-example-basic-single headselect",
+                                "data-placeholder": f'Select {field_name.replace("_", " ").title()}',
+                                "id": f"id_{field_name}_0",
+                                "name": f"{field_name}_0",
+                            }
+                        ),
+                    )
+                elif isinstance(model_field, models.CharField):
+                    form_field = forms.CharField(
+                        max_length=model_field.max_length,
+                        required=False,
+                        label=model_field.verbose_name
+                        or field_name.replace("_", " ").title(),
+                        widget=forms.TextInput(
+                            attrs={
+                                "class": "text-color-600 p-2 placeholder:text-xs pr-[40px] w-full border border-dark-50 rounded-md mt-1 focus-visible:outline-0 placeholder:text-dark-100 text-sm [transition:.3s] focus:border-primary-600",
+                                "placeholder": f'Enter {field_name.replace("_", " ").title()}',
+                                "id": f"id_{field_name}_0",
+                                "name": f"{field_name}_0",
+                            }
+                        ),
+                    )
+                elif isinstance(model_field, models.IntegerField):
+                    form_field = forms.IntegerField(
+                        required=False,
+                        label=model_field.verbose_name
+                        or field_name.replace("_", " ").title(),
+                        widget=forms.NumberInput(
+                            attrs={
+                                "class": "text-color-600 p-2 placeholder:text-xs pr-[40px] w-full border border-dark-50 rounded-md mt-1 focus-visible:outline-0 placeholder:text-dark-100 text-sm [transition:.3s] focus:border-primary-600",
+                                "placeholder": f'Enter {field_name.replace("_", " ").title()}',
+                                "id": f"id_{field_name}_0",
+                                "name": f"{field_name}_0",
+                            }
+                        ),
+                    )
+                elif isinstance(model_field, models.BooleanField):
+                    form_field = forms.BooleanField(
+                        required=False,
+                        label=model_field.verbose_name
+                        or field_name.replace("_", " ").title(),
+                        widget=forms.CheckboxInput(
+                            attrs={
+                                "class": "sr-only peer",
+                                "id": f"id_{field_name}_0",
+                                "name": f"{field_name}_0",
+                            }
+                        ),
+                    )
+                else:
+                    form_field = forms.CharField(
+                        required=False,
+                        label=model_field.verbose_name
+                        or field_name.replace("_", " ").title(),
+                        widget=forms.TextInput(
+                            attrs={
+                                "class": "text-color-600 p-2 placeholder:text-xs pr-[40px] w-full border border-dark-50 rounded-md mt-1 focus-visible:outline-0 placeholder:text-dark-100 text-sm [transition:.3s] focus:border-primary-600",
+                                "placeholder": f'Enter {field_name.replace("_", " ").title()}',
+                                "id": f"id_{field_name}_0",
+                                "name": f"{field_name}_0",
+                            }
+                        ),
+                    )
+
+                form_field.is_custom_field = True
+                self.fields[field_name] = form_field
+
+            except Exception as e:
+                logger.error(f"Error adding condition field {field_name}: {str(e)}")
+
+        # Set initial values for edit mode
+        self._set_initial_condition_values()
+
+    def clean(self):
+        """Process multiple condition rows from form data"""
+        cleaned_data = super().clean()
+
+        condition_rows = self._extract_condition_rows()
+
+        if not condition_rows:
+            raise forms.ValidationError("At least one condition must be provided.")
+
+        cleaned_data["condition_rows"] = condition_rows
+
+        return cleaned_data
+
+    def _extract_condition_rows(self):
+        condition_rows = []
+        condition_fields = ["field", "operator", "value", "logical_operator"]
+
+        if not self.data:
+            return condition_rows
+
+        row_ids = set()
+
+        for key in self.data.keys():
+            for field_name in condition_fields:
+                if key.startswith(f"{field_name}_"):
+                    row_id = key.replace(f"{field_name}_", "")
+                    if row_id.isdigit():
+                        row_ids.add(row_id)
+
+        if any(f in self.data for f in condition_fields) or any(
+            f"{f}_0" in self.data for f in condition_fields
+        ):
+            row_ids.add("0")
+
+        for row_id in sorted(row_ids, key=lambda x: int(x)):
+            row_data = {}
+            has_required_data = True
+
+            for field_name in condition_fields:
+                if row_id == "0":
+                    field_key = (
+                        f"{field_name}_0"
+                        if f"{field_name}_0" in self.data
+                        else field_name
+                    )
+                else:
+                    field_key = f"{field_name}_{row_id}"
+
+                value = self.data.get(field_key, "").strip()
+                row_data[field_name] = value
+
+                if field_name in ["field", "operator"] and not value:
+                    has_required_data = False
+
+            if has_required_data and row_data.get("field") and row_data.get("operator"):
+                row_data["order"] = int(row_id)
+                condition_rows.append(row_data)
+
+        return condition_rows
+
+    class Meta:
+        model = ScoringCriterion
+        fields = ["rule", "points", "operation_type"]
+        widgets = {
+            "points": forms.NumberInput(
+                attrs={
+                    "class": "text-color-600 p-2 w-full border border-dark-50 rounded-md mt-1"
+                }
+            ),
+        }

@@ -6,6 +6,8 @@ These models represent the structure of lead-related data and include any
 relationships, constraints, and behaviors.
 """
 
+import logging
+
 from colorfield.fields import ColorField
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -20,10 +22,13 @@ from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 
 from horilla.registry.feature import feature_enabled
-from horilla_core.models import Company, HorillaCoreModel, MultipleCurrency
-from horilla_core.utils import compute_score
+from horilla.registry.permission_registry import permission_exempt_model
+from horilla.utils.choices import OPERATOR_CHOICES
+from horilla_core.models import Company, HorillaCoreModel
 from horilla_mail.models import HorillaMailConfiguration
 from horilla_utils.methods import render_template
+
+logger = logging.getLogger(__name__)
 
 
 @feature_enabled(import_data=True, export_data=True, global_search=True)
@@ -335,6 +340,12 @@ class Lead(HorillaCoreModel):
         """
         return reverse_lazy("leads:leads_edit", kwargs={"pk": self.pk})
 
+    def get_duplicate_url(self):
+        """
+        This method to get edit url
+        """
+        return reverse_lazy("leads:leads_edit_single", kwargs={"pk": self.pk})
+
     def get_change_owner_url(self):
         """
         This method to get change owner url
@@ -351,6 +362,8 @@ class Lead(HorillaCoreModel):
 @receiver(pre_save, sender=Lead)
 def update_lead_score(sender, instance, **kwargs):
     """Signal to update lead score before saving a Lead instance."""
+    from horilla_crm.leads.utils import compute_score
+
     instance.lead_score = compute_score(instance)
 
 
@@ -497,3 +510,219 @@ class LeadCaptureForm(HorillaCoreModel):
 
     def __str__(self):
         return self.form_name
+
+
+class ScoringRule(HorillaCoreModel):
+    name = models.CharField(max_length=100, verbose_name=_("Rule Name"))
+    module = models.CharField(
+        max_length=50,
+        choices=[
+            ("lead", _("Lead")),
+            ("opportunity", _("Opportunity")),
+            ("account", _("Account")),
+            ("contact", _("Contact")),
+        ],
+        verbose_name=_("Module"),
+    )
+    description = models.TextField(blank=True, null=True, verbose_name=_("Description"))
+
+    def __str__(self):
+        return self.name
+
+    def is_active_col(self):
+
+        html = render_template(
+            path="scoring_rule/is_active_col.html", context={"instance": self}
+        )
+
+        return mark_safe(html)
+
+    def get_edit_url(self):
+        """
+        This method to get edit url
+        """
+        return reverse_lazy("leads:scoring_rule_update_form", kwargs={"pk": self.pk})
+
+    def get_delete_url(self):
+        """
+        This method to get delete url
+        """
+
+        return reverse_lazy("leads:scoring_rule_delete_view", kwargs={"pk": self.pk})
+
+    def get_detail_view_url(self):
+        """
+        This method to get detail view url
+        """
+        return reverse_lazy("leads:scoring_rule_detail_view", kwargs={"pk": self.pk})
+
+    class Meta:
+        """
+        Meta options for the Scoring Rule model.
+        """
+
+        verbose_name = _("Scoring Rule")
+        verbose_name_plural = _("Scoring Rules")
+
+
+class ScoringCriterion(HorillaCoreModel):
+    """Main scoring criterion that contains multiple conditions"""
+
+    rule = models.ForeignKey(
+        ScoringRule, on_delete=models.CASCADE, related_name="criteria"
+    )
+    name = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Criterion Name")
+    )  # Optional name for the criterion
+    points = models.IntegerField(verbose_name=_("Points to Award"))
+    operation_type = models.CharField(
+        max_length=3,
+        choices=[("add", _("Add")), ("sub", _("Sub"))],
+        default="and",
+        verbose_name=_("Operation Type"),
+    )
+    order = models.PositiveIntegerField(
+        default=0, verbose_name=_("Order")
+    )  # For sorting criteria
+
+    def __str__(self):
+        return f"{self.rule.name} - {self.name or f'Criterion {self.pk}'}"
+
+    def evaluate_conditions(self, instance):
+        """
+        Evaluate all conditions for this criterion against the given instance
+        Returns True if all conditions are met according to their logical operators
+        """
+        conditions = self.conditions.all().order_by("order")
+        if not conditions.exists():
+            return False
+
+        result = None
+        for condition in conditions:
+            condition_result = condition.evaluate(instance)
+
+            if result is None:
+                result = condition_result
+            else:
+                if condition.logical_operator == "and":
+                    result = result and condition_result
+                else:  # 'or'
+                    result = result or condition_result
+
+        return result
+
+    class Meta:
+        verbose_name = _("Scoring Criterion")
+        verbose_name_plural = _("Scoring Criteria")
+        ordering = ["order", "id"]
+
+
+@permission_exempt_model
+class ScoringCondition(HorillaCoreModel):
+    """Individual conditions within a scoring criterion"""
+
+    criterion = models.ForeignKey(
+        ScoringCriterion, on_delete=models.CASCADE, related_name="conditions"
+    )
+    field = models.CharField(max_length=100, verbose_name=_("Field Name"))
+    operator = models.CharField(
+        max_length=50,
+        choices=OPERATOR_CHOICES,
+        verbose_name=_("Operator"),
+    )
+    value = models.CharField(max_length=255, blank=True, verbose_name=_("Value"))
+    logical_operator = models.CharField(
+        max_length=3,
+        choices=[("and", _("AND")), ("or", _("OR"))],
+        default="and",
+        verbose_name=_("Logical Operator"),
+    )
+    order = models.PositiveIntegerField(
+        default=0, verbose_name=_("Order")
+    )  # For ordering conditions
+
+    def __str__(self):
+        return f"{self.field} {self.operator} {self.value}"
+
+    def evaluate(self, instance):
+        """
+        Evaluate this condition against the given instance
+        Returns True if the condition is met, False otherwise
+        """
+        try:
+            # Get the field value from the instance
+            field_value = getattr(instance, self.field, None)
+
+            # Convert field_value to string for comparison
+            if field_value is None:
+                field_value = ""
+            else:
+                field_value = str(field_value)
+
+            # Perform comparison based on operator
+            if self.operator == "equals":
+                return field_value == self.value
+            elif self.operator == "not_equals":
+                return field_value != self.value
+            elif self.operator == "contains":
+                return self.value.lower() in field_value.lower()
+            elif self.operator == "not_contains":
+                return self.value.lower() not in field_value.lower()
+            elif self.operator == "starts_with":
+                return field_value.lower().startswith(self.value.lower())
+            elif self.operator == "ends_with":
+                return field_value.lower().endswith(self.value.lower())
+            elif self.operator == "greater_than":
+                try:
+                    return float(field_value) > float(self.value)
+                except (ValueError, TypeError):
+                    return False
+            elif self.operator == "greater_than_equal":
+                try:
+                    return float(field_value) >= float(self.value)
+                except (ValueError, TypeError):
+                    return False
+            elif self.operator == "less_than":
+                try:
+                    return float(field_value) < float(self.value)
+                except (ValueError, TypeError):
+                    return False
+            elif self.operator == "less_than_equal":
+                try:
+                    return float(field_value) <= float(self.value)
+                except (ValueError, TypeError):
+                    return False
+            elif self.operator == "is_empty":
+                return not field_value or field_value.strip() == ""
+            elif self.operator == "is_not_empty":
+                return bool(field_value and field_value.strip())
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Error evaluating condition {self}: {str(e)}")
+            return False
+
+    class Meta:
+        verbose_name = _("Scoring Condition")
+        verbose_name_plural = _("Scoring Conditions")
+        ordering = ["order", "id"]
+
+
+@permission_exempt_model
+class EmailActivityScoring(HorillaCoreModel):
+    rule = models.ForeignKey(
+        ScoringRule, on_delete=models.CASCADE, related_name="email_activities"
+    )
+    activity_type = models.CharField(
+        max_length=50,
+        choices=[
+            ("opened", _("Opened")),
+            ("clicked", _("Clicked")),
+            ("bounced", _("Bounced")),
+        ],
+    )
+    points = models.IntegerField(default=10)
+
+    def __str__(self):
+        return f"{self.activity_type} - {self.points} points"

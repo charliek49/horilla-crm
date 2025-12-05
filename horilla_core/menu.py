@@ -7,14 +7,7 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 from horilla.menu import my_settings_menu, settings_menu
-from horilla_core.models import (
-    CustomerRole,
-    Department,
-    PartnerRole,
-    Role,
-    ScoringRule,
-    TeamRole,
-)
+from horilla_core.models import CustomerRole, Department, PartnerRole, Role, TeamRole
 
 
 @my_settings_menu.register
@@ -169,15 +162,6 @@ class BaseSettings:
             "hx-select": "#branches-view",
             "hx-select-oob": "#settings-sidebar",
             "perm": "horilla_core.view_company",
-        },
-        {
-            "label": ScoringRule()._meta.verbose_name,
-            "url": reverse_lazy("horilla_core:scoring_rule_view"),
-            "hx-target": "#settings-content",
-            "hx-push-url": "true",
-            "hx-select": "#scoring-rule-view",
-            "hx-select-oob": "#settings-sidebar",
-            "perm": "horilla_core.view_scoringrule",
         },
         {
             "label": Role()._meta.verbose_name,

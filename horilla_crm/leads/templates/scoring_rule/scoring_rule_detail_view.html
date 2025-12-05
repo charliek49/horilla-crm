@@ -40,16 +40,16 @@
                 <td class="text-sm border border-[#efefef] text-left p-3 w-[100px]">
                   <div class="flex gap-3 items-center">
                     {% if can_change_scoringrule %}
-                      <button hx-get="{% url 'horilla_core:scoring_rule_criteria_edit_form' score_crite.pk  %}"
+                      <button hx-get="{% url 'leads:scoring_rule_criteria_edit_form' score_crite.pk  %}"
                         hx-target="#modalBox" hx-swap="innerHTML" onclick="openModal()" >
                         <img src="{% static '/assets/icons/a1.svg' %}" alt="" width="16" />
                       </button>
                     {% endif %}
                     {% if can_delete_scoringrule %}
                         <button
-                          hx-post="{% url 'horilla_core:scoring_rule_criteria_delete' score_crite.pk  %}"
+                          hx-post="{% url 'leads:scoring_rule_criteria_delete' score_crite.pk  %}"
                           hx-target="#deleteModeBox"
-                          hx-swap="innerHTML"
+                          hx-swap="innerHTML" 
                           hx-trigger="click"
                           hx-vals='{"check_dependencies": "true"}'
                           onclick="openDeleteModeModal()">
@@ -63,7 +63,7 @@
           {% endfor %}
         </tbody>
       </table>
-      <br>
+      <br> 
     {% else %}
       <div class="flex justify-between items-center h-20">
       </div>

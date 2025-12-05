@@ -14,7 +14,7 @@ from djmoney.settings import CURRENCY_CHOICES
 from horilla.registry.feature import feature_enabled
 from horilla.utils.choices import LANGUAGE_CHOICES
 from horilla_core.models import HorillaCoreModel
-from horilla_core.utils import compute_score
+from horilla_crm.leads.utils import compute_score
 from horilla_utils.middlewares import _thread_local
 
 CONTACT_SOURCE_CHOICES = [

@@ -5,7 +5,6 @@ from horilla_core.models import (
     Holiday,
     HorillaUser,
     PartnerRole,
-    ScoringRule,
     TeamRole,
 )
 from horilla_generics.filters import HorillaFilterSet
@@ -54,14 +53,6 @@ class CustomerRoleFilter(HorillaFilterSet):
 class PartnerRoleFilter(HorillaFilterSet):
     class Meta:
         model = PartnerRole
-        fields = "__all__"
-        exclude = ["additional_info"]
-        search_fields = ["customer_role_name"]
-
-
-class ScoringRuleFilter(HorillaFilterSet):
-    class Meta:
-        model = ScoringRule
         fields = "__all__"
         exclude = ["additional_info"]
         search_fields = ["customer_role_name"]

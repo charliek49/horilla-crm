@@ -1,28 +1,24 @@
 """
 This module contains signal handlers and utility functions for Horilla's core
-models such as Company, FiscalYear, MultipleCurrency, ScoringRule, and related
+models such as Company, FiscalYear, MultipleCurrency, and related
 models.
 
 Features implemented in this module include:
 - Automatic fiscal year configuration when a company is created or updated.
 - Default currency initialization and handling of multi-currency configurations.
 - Custom permission creation during migrations (e.g., 'can_import', 'view_own').
-- Automatic recalculation of scores when scoring rules, criteria, or conditions change.
 - Helper utilities to dynamically discover models and build filter queries.
 
-This ensures automation, consistency, and configurable scoring logic across the Horilla ERP system.
 """
 
+import logging
 from decimal import Decimal
-from venv import logger
 
 from django.apps import apps
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import FieldDoesNotExist
 from django.db import transaction
-from django.db.models import Case, F, IntegerField, Q, When
-from django.db.models.signals import post_migrate, post_save, pre_delete
+from django.db.models.signals import post_migrate, post_save
 from django.dispatch import Signal, receiver
 
 from horilla_core.models import (
@@ -32,13 +28,13 @@ from horilla_core.models import (
     HorillaUser,
     MultipleCurrency,
     Role,
-    ScoringCondition,
-    ScoringCriterion,
-    ScoringRule,
 )
 from horilla_core.services.fiscal_year_service import FiscalYearService
 from horilla_keys.models import ShortcutKey
 from horilla_utils.middlewares import _thread_local
+
+logger = logging.getLogger(__name__)
+
 
 company_currency_changed = Signal()
 company_created = Signal()
@@ -159,197 +155,6 @@ def add_custom_permissions(sender, **kwargs):
 
 
 post_migrate.connect(add_custom_permissions)
-
-
-def get_score_field(model):
-    score_fields = {
-        "lead": "lead_score",
-        "opportunity": "opportunity_score",
-        "account": "account_score",
-        "contact": "contact_score",
-    }
-    return score_fields.get(model._meta.model_name)
-
-
-def get_models_for_module(module):
-    """
-    Dynamically find models matching a module name (e.g., 'lead') across installed apps.
-    Only includes models that have a corresponding score field.
-    """
-    models = []
-    for app_config in apps.get_app_configs():
-        for model in app_config.get_models():
-            if model._meta.model_name == module:
-                score_field = get_score_field(model)
-                if score_field and score_field in [f.name for f in model._meta.fields]:
-                    models.append(model)
-    return models
-
-
-def build_query_from_conditions(criterion, Model):
-    """
-    Build a Django ORM query to filter instances that match a criterion's conditions.
-
-    Args:
-        criterion: ScoringCriterion instance.
-        Model: The Django model class (e.g., Lead).
-
-    Returns:
-        Q object representing the combined conditions.
-    """
-    query = Q()
-    for condition in criterion.conditions.all().order_by("order"):
-        field = condition.field
-        operator = condition.operator
-        value = condition.value
-        logical_operator = condition.logical_operator
-
-        try:
-            Model._meta.get_field(field)
-            if operator == "equals":
-                if Model._meta.get_field(field).get_internal_type() == "ForeignKey":
-                    condition_query = Q(**{f"{field}_id__exact": value})
-                else:
-                    condition_query = Q(**{f"{field}__exact": value})
-            elif operator == "not_equals":
-                if Model._meta.get_field(field).get_internal_type() == "ForeignKey":
-                    condition_query = ~Q(**{f"{field}_id__exact": value})
-                else:
-                    condition_query = ~Q(**{f"{field}__exact": value})
-            elif operator == "contains":
-                condition_query = Q(**{f"{field}__icontains": value})
-            elif operator == "not_contains":
-                condition_query = ~Q(**{f"{field}__icontains": value})
-            elif operator == "starts_with":
-                condition_query = Q(**{f"{field}__istartswith": value})
-            elif operator == "ends_with":
-                condition_query = Q(**{f"{field}__iendswith": value})
-            elif operator == "greater_than":
-                try:
-                    condition_query = Q(**{f"{field}__gt": float(value)})
-                except (ValueError, TypeError):
-                    condition_query = Q(pk__in=[])
-            elif operator == "greater_than_equal":
-                try:
-                    condition_query = Q(**{f"{field}__gte": float(value)})
-                except (ValueError, TypeError):
-                    condition_query = Q(pk__in=[])
-            elif operator == "less_than":
-                try:
-                    condition_query = Q(**{f"{field}__lt": float(value)})
-                except (ValueError, TypeError):
-                    condition_query = Q(pk__in=[])
-            elif operator == "less_than_equal":
-                try:
-                    condition_query = Q(**{f"{field}__lte": float(value)})
-                except (ValueError, TypeError):
-                    condition_query = Q(pk__in=[])
-            elif operator == "is_empty":
-                condition_query = Q(**{field: None}) | Q(**{f"{field}__exact": ""})
-            elif operator == "is_not_empty":
-                condition_query = ~Q(**{field: None}) & ~Q(**{f"{field}__exact": ""})
-            else:
-                logger.warning(f"Unsupported operator {operator} for field {field}")
-                condition_query = Q(pk__in=[])
-            if logical_operator == "and":
-                query &= condition_query
-            else:
-                query |= condition_query
-        except FieldDoesNotExist:
-            logger.warning(f"Field {field} does not exist on {Model._meta.model_name}")
-            query &= Q(pk__in=[])
-
-    return query
-
-
-def update_all_scores_for_module(module):
-    """
-    Update score fields for instances matching active scoring rules' conditions
-    using direct database UPDATE queries.
-
-    Args:
-        module: String (e.g., 'lead', 'opportunity') indicating the module.
-    """
-    models = get_models_for_module(module)
-    for Model in models:
-        score_field = get_score_field(Model)
-        if not score_field:
-            continue
-
-        with transaction.atomic():
-            try:
-                Model.objects.update(**{score_field: 0})
-                logger.info(
-                    f"Reset {score_field} to 0 for all {Model._meta.model_name} instances"
-                )
-            except Exception as e:
-                logger.error(
-                    f"Error resetting {score_field} for {Model._meta.model_name}: {e}"
-                )
-                raise
-
-            rules = ScoringRule.objects.filter(module=module, is_active=True)
-            if not rules.exists():
-                continue
-
-            for rule in rules:
-                for criterion in rule.criteria.all().order_by("order"):
-                    query = build_query_from_conditions(criterion, Model)
-                    if not query:
-                        continue
-
-                    points = criterion.points
-                    if criterion.operation_type == "sub":
-                        points = -points
-
-                    try:
-                        Model.objects.filter(query).update(
-                            **{
-                                score_field: Case(
-                                    When(query, then=F(score_field) + points),
-                                    default=F(score_field),
-                                    output_field=IntegerField(),
-                                )
-                            }
-                        )
-                        logger.info(
-                            f"Updated {score_field} for {Model._meta.model_name} instances matching criterion {criterion.id}"
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"Error updating {score_field} for {Model._meta.model_name} with criterion {criterion.id}: {e}"
-                        )
-                        raise
-
-
-@receiver(post_save, sender=ScoringRule)
-@receiver(pre_delete, sender=ScoringRule)
-def handle_rule_change(sender, instance, **kwargs):
-    """
-    Signal handler triggered when a scoring rule is created, updated, or deleted.
-    Automatically triggers recalculation of all scores for the associated module.
-    """
-    update_all_scores_for_module(instance.module)
-
-
-@receiver(post_save, sender=ScoringCriterion)
-@receiver(pre_delete, sender=ScoringCriterion)
-def handle_criterion_change(sender, instance, **kwargs):
-    """
-    Signal handler triggered when a scoring criterion is created, updated, or deleted.
-    Ensures scores are recalculated for all modules affected by this criterion.
-    """
-    update_all_scores_for_module(instance.rule.module)
-
-
-@receiver(post_save, sender=ScoringCondition)
-@receiver(pre_delete, sender=ScoringCondition)
-def handle_condition_change(sender, instance, **kwargs):
-    """
-    Signal handler triggered when a scoring condition is created, updated, or deleted.
-    Rebuilds and applies scoring rules to update scores for affected module instances.
-    """
-    update_all_scores_for_module(instance.criterion.rule.module)
 
 
 @receiver(post_save, sender=HorillaUser)

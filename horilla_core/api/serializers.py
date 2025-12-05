@@ -15,8 +15,6 @@ from horilla_core.models import (
     ImportHistory,
     PartnerRole,
     Role,
-    ScoringCriterion,
-    ScoringRule,
     TeamRole,
 )
 
@@ -93,22 +91,6 @@ class PartnerRoleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PartnerRole
-        fields = "__all__"
-
-
-class ScoringRuleSerializer(serializers.ModelSerializer):
-    """Serializer for ScoringRule model"""
-
-    class Meta:
-        model = ScoringRule
-        fields = "__all__"
-
-
-class ScoringCriterionSerializer(serializers.ModelSerializer):
-    """Serializer for ScoringCriterion model"""
-
-    class Meta:
-        model = ScoringCriterion
         fields = "__all__"
 
 

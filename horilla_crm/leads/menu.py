@@ -12,7 +12,8 @@ from horilla.menu import (
     settings_menu,
     sub_section_menu,
 )
-from horilla_crm.leads.models import Lead, LeadStatus
+from horilla_core.menu import BaseSettings
+from horilla_crm.leads.models import Lead, LeadStatus, ScoringRule
 
 
 @floating_menu.register
@@ -99,3 +100,16 @@ class LeadSubSection:
         "hx-select": "#mainContent",
         "hx-swap": "outerHTML",
     }
+
+
+BaseSettings.items.append(
+    {
+        "label": ScoringRule()._meta.verbose_name,
+        "url": reverse_lazy("leads:scoring_rule_view"),
+        "hx-target": "#settings-content",
+        "hx-push-url": "true",
+        "hx-select": "#scoring-rule-view",
+        "hx-select-oob": "#settings-sidebar",
+        "perm": "leads.view_scoringrule",
+    },
+)

@@ -17,7 +17,6 @@ from . import partner_role as partner_role_views
 from . import recycle_bin as recycle_bin_views
 from . import regional_formating as regional_formating_views
 from . import roles as roles_views
-from . import scoring_rule as scoring_rule_views
 from . import team_role as team_role_views
 from . import user_holidays as user_holidays_views
 from . import user_login_history as user_login_history_views
@@ -62,7 +61,17 @@ urlpatterns = [
     path(
         "edit-company/<int:pk>/", views.CompanyFormView.as_view(), name="edit_company"
     ),
+    path(
+        "edit-company-multi-step/<int:pk>/",
+        views.CompanyMultiFormView.as_view(),
+        name="edit_company_multi_step",
+    ),
     path("create-company/", views.CompanyFormView.as_view(), name="create_company"),
+    path(
+        "create-company-multi-step/",
+        views.CompanyMultiFormView.as_view(),
+        name="create_company_multi_step",
+    ),
     path(
         "switch-company/<int:company_id>/",
         views.SwitchCompanyView.as_view(),
@@ -440,67 +449,6 @@ urlpatterns = [
         "partner-role-delete-view/<int:pk>/",
         partner_role_views.PartnerRoleDeleteView.as_view(),
         name="partner_role_delete_view",
-    ),
-    # scoring rule urls
-    path(
-        "scoring-rule-view/",
-        scoring_rule_views.ScoringRuleView.as_view(),
-        name="scoring_rule_view",
-    ),
-    path(
-        "scoring-rule-nav-view/",
-        scoring_rule_views.ScoringRuleNavbar.as_view(),
-        name="scoring_rule_nav_view",
-    ),
-    path(
-        "scoring-rule-list-view/",
-        scoring_rule_views.ScoringRuleListView.as_view(),
-        name="scoring_rule_list_view",
-    ),
-    path(
-        "scoring-rule-create-form/",
-        scoring_rule_views.ScoringRuleFormView.as_view(),
-        name="scoring_rule_create_form",
-    ),
-    path(
-        "scoring-rule-update-form/<int:pk>/",
-        scoring_rule_views.ScoringRuleFormView.as_view(),
-        name="scoring_rule_update_form",
-    ),
-    path(
-        "scoring-rule-delete-view/<int:pk>/",
-        scoring_rule_views.ScoringRuleDeleteView.as_view(),
-        name="scoring_rule_delete_view",
-    ),
-    path(
-        "scoring-rule-detail-view/<int:pk>/",
-        scoring_rule_views.ScoringRuleDetailView.as_view(),
-        name="scoring_rule_detail_view",
-    ),
-    path(
-        "scoring-rule-detail-nav-view/",
-        scoring_rule_views.ScoringRuleDetailNavbar.as_view(),
-        name="scoring_rule_detail_nav_view",
-    ),
-    path(
-        "scoring-rule-criteria-create-form/",
-        scoring_rule_views.ScoringCriterionCreateUpdateView.as_view(),
-        name="scoring_rule_criteria_create_form",
-    ),
-    path(
-        "scoring-rule-criteria-edit-form/<int:pk>/",
-        scoring_rule_views.ScoringCriterionCreateUpdateView.as_view(),
-        name="scoring_rule_criteria_edit_form",
-    ),
-    path(
-        "scoring-rule-criteria-delete/<int:pk>/",
-        scoring_rule_views.ScoringCriteriaDeleteView.as_view(),
-        name="scoring_rule_criteria_delete",
-    ),
-    path(
-        "scoring-rule-activate/<int:pk>/",
-        scoring_rule_views.ScroringActiveToggleView.as_view(),
-        name="scoring_rule_activate",
     ),
     # Recyclebin urls
     path(

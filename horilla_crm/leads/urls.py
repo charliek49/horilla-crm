@@ -3,7 +3,7 @@
 from django.urls import path
 from django.views.generic import TemplateView
 
-from horilla_crm.leads import mail_to_lead, web_to_lead
+from horilla_crm.leads import mail_to_lead, scoring_rule, web_to_lead
 
 from . import lead_stage, views
 
@@ -210,5 +210,65 @@ urlpatterns = [
         "capture/<int:form_id>/",
         web_to_lead.PublicLeadFormView.as_view(),
         name="public_lead_form",
+    ),
+    path(
+        "scoring-rule-view/",
+        scoring_rule.ScoringRuleView.as_view(),
+        name="scoring_rule_view",
+    ),
+    path(
+        "scoring-rule-nav-view/",
+        scoring_rule.ScoringRuleNavbar.as_view(),
+        name="scoring_rule_nav_view",
+    ),
+    path(
+        "scoring-rule-list-view/",
+        scoring_rule.ScoringRuleListView.as_view(),
+        name="scoring_rule_list_view",
+    ),
+    path(
+        "scoring-rule-create-form/",
+        scoring_rule.ScoringRuleFormView.as_view(),
+        name="scoring_rule_create_form",
+    ),
+    path(
+        "scoring-rule-update-form/<int:pk>/",
+        scoring_rule.ScoringRuleFormView.as_view(),
+        name="scoring_rule_update_form",
+    ),
+    path(
+        "scoring-rule-delete-view/<int:pk>/",
+        scoring_rule.ScoringRuleDeleteView.as_view(),
+        name="scoring_rule_delete_view",
+    ),
+    path(
+        "scoring-rule-detail-view/<int:pk>/",
+        scoring_rule.ScoringRuleDetailView.as_view(),
+        name="scoring_rule_detail_view",
+    ),
+    path(
+        "scoring-rule-detail-nav-view/",
+        scoring_rule.ScoringRuleDetailNavbar.as_view(),
+        name="scoring_rule_detail_nav_view",
+    ),
+    path(
+        "scoring-rule-criteria-create-form/",
+        scoring_rule.ScoringCriterionCreateUpdateView.as_view(),
+        name="scoring_rule_criteria_create_form",
+    ),
+    path(
+        "scoring-rule-criteria-edit-form/<int:pk>/",
+        scoring_rule.ScoringCriterionCreateUpdateView.as_view(),
+        name="scoring_rule_criteria_edit_form",
+    ),
+    path(
+        "scoring-rule-criteria-delete/<int:pk>/",
+        scoring_rule.ScoringCriteriaDeleteView.as_view(),
+        name="scoring_rule_criteria_delete",
+    ),
+    path(
+        "scoring-rule-activate/<int:pk>/",
+        scoring_rule.ScroringActiveToggleView.as_view(),
+        name="scoring_rule_activate",
     ),
 ]

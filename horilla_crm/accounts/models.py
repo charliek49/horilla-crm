@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy as _
 
 from horilla.registry.feature import feature_enabled
 from horilla_core.models import HorillaCoreModel
-from horilla_core.utils import compute_score
+from horilla_crm.leads.utils import compute_score
 from horilla_utils.middlewares import _thread_local
 
 

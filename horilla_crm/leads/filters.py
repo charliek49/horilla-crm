@@ -1,6 +1,6 @@
 """Filters for Lead and LeadStatus models."""
 
-from horilla_crm.leads.models import Lead, LeadStatus
+from horilla_crm.leads.models import Lead, LeadStatus, ScoringRule
 from horilla_generics.filters import HorillaFilterSet
 
 
@@ -26,3 +26,11 @@ class LeadStatusFilter(HorillaFilterSet):
         fields = "__all__"
         exclude = ["additional_info"]
         search_fields = ["name"]
+
+
+class ScoringRuleFilter(HorillaFilterSet):
+    class Meta:
+        model = ScoringRule
+        fields = "__all__"
+        exclude = ["additional_info"]
+        search_fields = ["customer_role_name"]

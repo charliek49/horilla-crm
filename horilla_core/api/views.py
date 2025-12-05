@@ -24,8 +24,6 @@ from horilla_core.api.serializers import (
     ImportHistorySerializer,
     PartnerRoleSerializer,
     RoleSerializer,
-    ScoringCriterionSerializer,
-    ScoringRuleSerializer,
     TeamRoleSerializer,
 )
 from horilla_core.models import (
@@ -39,8 +37,6 @@ from horilla_core.models import (
     ImportHistory,
     PartnerRole,
     Role,
-    ScoringCriterion,
-    ScoringRule,
     TeamRole,
 )
 
@@ -186,28 +182,6 @@ class PartnerRoleViewSet(SearchFilterMixin, BulkOperationsMixin, viewsets.ModelV
     permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
     search_fields = ["name", "description"]
     filterset_fields = ["name", "company", "is_active"]
-
-
-class ScoringRuleViewSet(SearchFilterMixin, BulkOperationsMixin, viewsets.ModelViewSet):
-    """ViewSet for ScoringRule model"""
-
-    queryset = ScoringRule.objects.all()
-    serializer_class = ScoringRuleSerializer
-    permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
-    search_fields = ["name", "description"]
-    filterset_fields = ["name", "company", "is_active"]
-
-
-class ScoringCriterionViewSet(
-    SearchFilterMixin, BulkOperationsMixin, viewsets.ModelViewSet
-):
-    """ViewSet for ScoringCriterion model"""
-
-    queryset = ScoringCriterion.objects.all()
-    serializer_class = ScoringCriterionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
-    search_fields = ["name", "description"]
-    filterset_fields = ["name", "rule", "is_active"]
 
 
 class ImportHistoryViewSet(
