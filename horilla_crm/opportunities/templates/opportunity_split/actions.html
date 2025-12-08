@@ -1,5 +1,9 @@
 {% load static i18n %}
+{% load horilla_tags %}
 
+{% has_perm "opportunities.delete_opportunitysplit" as can_delete %}
+
+{% if can_delete %}
 <div class="flex tablebtn">
     <button class="group relative w-10 h-7 bg-[#f0f0f0] flex-1 flex justify-center border-r border-r-[white] hover:bg-[#e0e0e0] transition duration-300 items-center {% if disabled %} cursor-not-allowed {% endif%}"
         hx-delete="{% url 'opportunities:delete_split_row' instance.id %}?delete=true"
@@ -19,3 +23,4 @@
         </div>
     </button>
 </div>
+{% endif %}
