@@ -2944,6 +2944,9 @@ class HorillaKanbanView(HorillaListView):
         return context
 
     def load_more_items(self, request, *args, **kwargs):
+        """
+        Load more items for a specific Kanban column with filters and search applied.
+        """
         column_key = request.GET.get("column_key")
         page = request.GET.get("page")
         group_by = self.get_group_by_field()
@@ -2958,12 +2961,13 @@ class HorillaKanbanView(HorillaListView):
             elif isinstance(field, ForeignKey) and column_key and column_key.isdigit():
                 column_key = int(column_key)
 
+            # CRITICAL FIX: Use get_queryset() which applies ALL filters from HorillaListView
+            # This ensures search and filterset are properly applied
             queryset = self.get_queryset()
 
+            # Filter by the specific column after applying all other filters
             if hasattr(field, "choices") and field.choices:
-                items = queryset.filter(**{group_by: column_key}).order_by(
-                    "id"
-                )  # Ensure ordering
+                items = queryset.filter(**{group_by: column_key}).order_by("id")
             elif isinstance(field, ForeignKey):
                 if column_key is None:
                     items = queryset.filter(**{f"{group_by}__isnull": True}).order_by(
@@ -3032,6 +3036,10 @@ class HorillaKanbanView(HorillaListView):
                 render_to_string("partials/kanban_items.html", context, request=request)
             )
         except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"Load more items failed: {str(e)}")
             return HttpResponse(status=500, content=f"Error: {str(e)}")
 
 
@@ -3061,19 +3069,52 @@ class HorillaDetailView(DetailView):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect_to_login(request.get_full_path())
+
         try:
             model_name = request.POST.get("model_name") or request.GET.get("model_name")
             app_label = request.POST.get("app_label") or request.GET.get("app_label")
 
             if model_name and app_label:
                 self.model = apps.get_model(app_label=app_label, model_name=model_name)
-            self.object = self.get_object()
 
+            self.object = self.get_object()
         except Exception as e:
             if request.headers.get("HX-Request") == "true":
-                messages.error(self.request, e)
+                messages.error(request, e)
                 return HttpResponse(headers={"HX-Refresh": "true"})
             raise HorillaHttp404(e)
+
+        app = self.model._meta.app_label
+        model = self.model._meta.model_name
+        user = request.user
+        obj = self.object
+
+        view_perm = f"{app}.view_{model}"
+
+        OWNER_FIELDS = getattr(self.model, "OWNER_FIELDS", ["owner"])
+
+        is_owner = False
+        for field in OWNER_FIELDS:
+            try:
+                v = getattr(obj, field, None)
+                if v:
+                    if hasattr(v, "all"):
+                        if user in v.all():
+                            is_owner = True
+                            break
+                    elif v == user:
+                        is_owner = True
+                        break
+            except:
+                pass
+
+        own_view_perm = f"{app}.view_own_{model}"
+
+        allowed = user.has_perm(view_perm) or (
+            is_owner and user.has_perm(own_view_perm)
+        )
+        if not allowed:
+            return render(request, "error/403.html")
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -3125,11 +3166,6 @@ class HorillaDetailView(DetailView):
         model_name = self.model._meta.model_name
         app_label = self.model._meta.app_label
 
-        # Superuser always has permission
-        if user.is_superuser:
-            return True
-
-        # Check if user is the owner
         is_owner = False
         owner_fields = getattr(self.model, "OWNER_FIELDS", [])
 
@@ -3752,15 +3788,57 @@ class HorillaDetailSectionView(DetailView):
     ]
     include_fields = []
 
+    def check_object_permission(self, request, obj):
+        """
+        Check if user has permission to view the object.
+        Override this method for custom permission logic.
+
+        Returns True if permission granted, False otherwise.
+        """
+        user = request.user
+
+        # Automatically generate permissions from model meta
+        app_label = self.model._meta.app_label
+        model_name = self.model._meta.model_name
+        view_permission = f"{app_label}.view_{model_name}"
+        view_own_permission = f"{app_label}.view_own_{model_name}"
+
+        has_view_permission = user.has_perm(view_permission)
+        if has_view_permission:
+            return True
+
+        # Check if user is the owner (automatically detect from model's OWNER_FIELDS)
+        is_owner = False
+        owner_fields = getattr(self.model, "OWNER_FIELDS", [])
+
+        if owner_fields:
+            # Check against all owner fields defined in the model
+            for owner_field in owner_fields:
+                filter_kwargs = {owner_field: user, "pk": obj.pk}
+                if self.model.objects.filter(**filter_kwargs).exists():
+                    is_owner = True
+                    break
+
+        # If user is owner, check if they have view_own permission
+        if is_owner:
+            has_view_own_permission = user.has_perm(view_own_permission)
+            return has_view_own_permission
+
+        return False
+
     def get(self, request, *args, **kwargs):
         """
-        Override get method to handle object not found before processing
+        Override get method to handle object not found and permission check
         """
         try:
             self.object = self.get_object()
         except Exception as e:
             messages.error(self.request, e)
             return HttpResponse("<script>$('#reloadButton').click();</script>")
+
+        # Permission check
+        if not self.check_object_permission(request, self.object):
+            return render(request, "error/403.html", status=403)
 
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)

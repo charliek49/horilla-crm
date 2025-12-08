@@ -10,7 +10,11 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import TemplateView, View
 
-from horilla_core.decorators import htmx_required, permission_required
+from horilla_core.decorators import (
+    htmx_required,
+    permission_required,
+    permission_required_or_denied,
+)
 from horilla_core.models import HorillaUser
 from horilla_crm.opportunities.models import (
     Opportunity,
@@ -204,6 +208,9 @@ class OpportunitySplitTypeActiveToggleView(LoginRequiredMixin, View):
             return HttpResponse("<script>$('#reloadButton').click();</script>")
 
 
+@method_decorator(
+    permission_required_or_denied("opportunities.add_opportunitysplit"), name="dispatch"
+)
 @method_decorator(htmx_required, name="dispatch")
 class ManageOpportunitySplit(LoginRequiredMixin, TemplateView):
     """
@@ -213,6 +220,9 @@ class ManageOpportunitySplit(LoginRequiredMixin, TemplateView):
     template_name = "opportunity_split/manage_opportunity_spilt.html"
 
 
+@method_decorator(
+    permission_required_or_denied("opportunities.add_opportunitysplit"), name="dispatch"
+)
 @method_decorator(htmx_required, name="dispatch")
 class OpportunitySplitTabView(LoginRequiredMixin, HorillaTabView):
     """
@@ -272,6 +282,9 @@ class OpportunitySplitTabView(LoginRequiredMixin, HorillaTabView):
         return tabs
 
 
+@method_decorator(
+    permission_required_or_denied("opportunities.add_opportunitysplit"), name="dispatch"
+)
 @method_decorator(htmx_required, name="dispatch")
 class OpportunitySplitTabContentView(LoginRequiredMixin, TemplateView):
     """
@@ -328,7 +341,11 @@ class OpportunitySplitTabContentView(LoginRequiredMixin, TemplateView):
                 "next_row_index": existing_splits.count() + 1,
                 "team_selling_enabled": team_selling_enabled,
                 "allow_all_users": allow_all_users,
-                "currency": self.request.user.currency,
+                "currency": (
+                    self.request.active_company.currency
+                    if self.request.active_company
+                    else self.request.user.currency
+                ),
             }
         )
 

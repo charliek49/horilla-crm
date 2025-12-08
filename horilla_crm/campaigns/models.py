@@ -67,6 +67,8 @@ class CampaignMember(HorillaCoreModel):
         default="lead",
     )
 
+    OWNER_FIELDS = ["created_by"]
+
     def is_owned_by(self, user):
         """Check if this campaign member is owned by the user"""
         if self.lead and hasattr(self.lead, "lead_owner"):
@@ -348,7 +350,7 @@ class Campaign(HorillaCoreModel):
     ]
 
     def __str__(self):
-        return f"{self.campaign_name}-{self.pk}"
+        return f"{self.campaign_name}-{self.pk}-camp"
 
     class Meta:
         """

@@ -14,6 +14,7 @@ from horilla_core.decorators import (
     permission_required,
     permission_required_or_denied,
 )
+from horilla_core.utils import is_owner
 from horilla_crm.contacts.models import ContactAccountRelationship
 from horilla_crm.opportunities.filters import OpportunityFilter
 from horilla_crm.opportunities.forms import OpportunityFormClass, OpportunitySingleForm
@@ -109,19 +110,16 @@ class OpportunityListView(LoginRequiredMixin, HorillaListView):
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
         query_string = urlencode(query_params)
-        attrs = {}
-        if self.request.user.has_perm(
-            "opportunities.view_opportunity"
-        ) or self.request.user.has_perm("opportunities.view_own_opportunity"):
-            attrs = {
-                "hx-get": f"{{get_detail_url}}?{query_string}",
-                "hx-target": "#mainContent",
-                "hx-swap": "outerHTML",
-                "hx-push-url": "true",
-                "hx-select": "#mainContent",
-                "style": "cursor:pointer",
-                "class": "hover:text-primary-600",
-            }
+        attrs = {
+            "hx-get": f"{{get_detail_url}}?{query_string}",
+            "hx-target": "#mainContent",
+            "hx-swap": "outerHTML",
+            "hx-push-url": "true",
+            "hx-select": "#mainContent",
+            "permission": "opportunities.view_opportunity",
+            "own_permission": "opportunities.view_own_opportunity",
+            "owner_field": "owner",
+        }
         return [
             {
                 "name": {
@@ -148,49 +146,43 @@ class OpportunityListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def actions(self):
-        instance = self.model()
-        actions = []
+        opp_permissions = {
+            "permission": "opportunities.change_opportunity",
+            "own_permission": "opportunities.change_own_opportunity",
+            "owner_field": "owner",
+        }
 
-        show_actions = (
-            self.request.user.is_superuser
-            or self.request.user.has_perm("opportunities.change_opportunity")
-            or self.get_queryset().filter(owner=self.request.user).exists()
-        )
-
-        if show_actions:
-            actions.extend(
-                [
-                    {
-                        "action": _("Edit"),
-                        "src": "assets/icons/edit.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
+        actions = [
+            {
+                **opp_permissions,
+                "action": _("Edit"),
+                "src": "assets/icons/edit.svg",
+                "img_class": "w-4 h-4",
+                "attrs": """
                         hx-get="{get_edit_url}?new=true"
                         hx-target="#modalBox"
                         hx-swap="innerHTML"
                         onclick="openModal()"
                         """,
-                    },
-                    {
-                        "action": _("Change Owner"),
-                        "src": "assets/icons/a2.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
+            },
+            {
+                **opp_permissions,
+                "action": _("Change Owner"),
+                "src": "assets/icons/a2.svg",
+                "img_class": "w-4 h-4",
+                "attrs": """
                         hx-get="{get_change_owner_url}?new=true"
                         hx-target="#modalBox"
                         hx-swap="innerHTML"
                         onclick="openModal()"
                         """,
-                    },
-                ]
-            )
-            if self.request.user.has_perm("opportunities.delete_opportunity"):
-                actions.append(
-                    {
-                        "action": "Delete",
-                        "src": "assets/icons/a4.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
+            },
+            {
+                "action": "Delete",
+                "src": "assets/icons/a4.svg",
+                "img_class": "w-4 h-4",
+                "permission": "opportunities.delete_opportunity",
+                "attrs": """
                             hx-post="{get_delete_url}"
                             hx-target="#deleteModeBox"
                             hx-swap="innerHTML"
@@ -198,8 +190,8 @@ class OpportunityListView(LoginRequiredMixin, HorillaListView):
                             hx-vals='{{"check_dependencies": "true"}}'
                             onclick="openDeleteModeModal()"
                         """,
-                    }
-                )
+            },
+        ]
         return actions
 
 
@@ -234,80 +226,28 @@ class OpportunityKanbanView(LoginRequiredMixin, HorillaKanbanView):
     main_url = reverse_lazy("opportunities:opportunities_view")
     group_by_field = "stage"
 
-    @cached_property
-    def actions(self):
-        instance = self.model()
-        actions = []
-
-        show_actions = (
-            self.request.user.is_superuser
-            or self.request.user.has_perm("opportunities.change_opportunity")
-            or self.get_queryset().filter(owner=self.request.user).exists()
-        )
-
-        if show_actions:
-            actions.extend(
-                [
-                    {
-                        "action": _("Edit"),
-                        "src": "assets/icons/edit.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                        hx-get="{get_edit_url}?new=true"
-                        hx-target="#modalBox"
-                        hx-swap="innerHTML"
-                        onclick="openModal()"
-                        """,
-                    },
-                    {
-                        "action": _("Change Owner"),
-                        "src": "assets/icons/a2.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                        hx-get="{get_change_owner_url}?new=true"
-                        hx-target="#modalBox"
-                        hx-swap="innerHTML"
-                        onclick="openModal()"
-                        """,
-                    },
-                ]
-            )
-            if self.request.user.has_perm("opportunities.delete_opportunity"):
-                actions.append(
-                    {
-                        "action": "Delete",
-                        "src": "assets/icons/a4.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-post="{get_delete_url}"
-                            hx-target="#deleteModeBox"
-                            hx-swap="innerHTML"
-                            hx-trigger="click"
-                            hx-vals='{{"check_dependencies": "true"}}'
-                            onclick="openDeleteModeModal()"
-                        """,
-                    }
-                )
-        return actions
+    actions = OpportunityListView.actions
 
     @cached_property
     def kanban_attrs(self):
-        query_params = self.request.GET.dict()
+        """
+        Returns attributes for kanban cards (as a dict).
+        """
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
+
         query_string = urlencode(query_params)
-        if self.request.user.has_perm(
-            "opportunities.view_opportunity"
-        ) or self.request.user.has_perm("opportunities.view_own_opportunity"):
-            return f"""
-                    hx-get="{{get_detail_url}}?{query_string}"
-                    hx-target="#mainContent"
-                    hx-swap="outerHTML"
-                    hx-push-url="true"
-                    hx-select="#mainContent"
-                    style ="cursor:pointer",
-                    """
+        return {
+            "hx-get": f"{self.get_detail_url}?{query_string}",
+            "hx-target": "#mainContent",
+            "hx-swap": "outerHTML",
+            "hx-push-url": "true",
+            "hx-select": "#mainContent",
+            "permission": "opportunities.view_opportunity",
+            "own_permission": "opportunities.view_own_opportunity",
+            "owner_field": "owner",
+        }
 
     columns = [
         "name",
@@ -505,6 +445,7 @@ class OpportunityDetailView(RecentlyViewedMixin, LoginRequiredMixin, HorillaDeta
     model = Opportunity
     pipeline_field = "stage"
     tab_url = reverse_lazy("opportunities:opportunity_detail_view_tabs")
+    actions = OpportunityListView.actions
     breadcrumbs = [
         ("Sales", "leads:leads_view"),
         ("Opportunites", "opportunities:opportunities_view"),
@@ -519,71 +460,6 @@ class OpportunityDetailView(RecentlyViewedMixin, LoginRequiredMixin, HorillaDeta
         "probability",
         "forecast_category",
     ]
-
-    @cached_property
-    def actions(self):
-        instance = self.model()
-        actions = []
-
-        show_actions = (
-            self.request.user.is_superuser
-            or self.request.user.has_perm("opportunities.change_opportunity")
-            or self.get_queryset().filter(owner=self.request.user).exists()
-        )
-
-        if show_actions:
-            actions.extend(
-                [
-                    {
-                        "action": _("Edit"),
-                        "src": "assets/icons/edit.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                        hx-get="{get_edit_url}?new=true"
-                        hx-target="#modalBox"
-                        hx-swap="innerHTML"
-                        onclick="openModal()"
-                        """,
-                    },
-                    {
-                        "action": _("Change Owner"),
-                        "src": "assets/icons/a2.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                        hx-get="{get_change_owner_url}?new=true"
-                        hx-target="#modalBox"
-                        hx-swap="innerHTML"
-                        onclick="openModal()"
-                        """,
-                    },
-                ]
-            )
-            if self.request.user.has_perm("opportunities.delete_opportunity"):
-                actions.append(
-                    {
-                        "action": "Delete",
-                        "src": "assets/icons/a4.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-post="{get_delete_url}"
-                            hx-target="#deleteModeBox"
-                            hx-swap="innerHTML"
-                            hx-trigger="click"
-                            hx-vals='{{"check_dependencies": "true"}}'
-                            onclick="openDeleteModeModal()"
-                        """,
-                    }
-                )
-        return actions
-
-    def get(self, request, *args, **kwargs):
-        if not self.model.objects.filter(
-            owner_id=self.request.user, pk=self.kwargs["pk"]
-        ).first() and not self.request.user.has_perm("campaigns.view_campaign"):
-            from django.shortcuts import render
-
-            return render(self.request, "error/403.html")
-        return super().get(request, *args, **kwargs)
 
 
 @method_decorator(
@@ -607,19 +483,6 @@ class OpportunityDetailViewTabView(LoginRequiredMixin, HorillaDetailTabView):
         "notes_attachments": "opportunities:opportunity_notes_attachments",
         "history": "opportunities:opportunity_history_tab_view",
     }
-
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        opportunity_id = self.object_id
-
-        is_owner = Opportunity.objects.filter(owner_id=user, pk=opportunity_id).exists()
-        has_permission = user.has_perm(
-            "opportunities.view_opportunity"
-        ) or user.has_perm("opportunities.view_own_opportunities")
-        if not (is_owner or has_permission):
-            return render(request, "error/403.html", status=403)
-
-        return super().get(request, *args, **kwargs)
 
 
 @method_decorator(
@@ -705,30 +568,27 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
         query_string = urlencode(query_params)
         pk = self.request.GET.get("object_id")
         referrer_url = "opportunity_detail_view"
-
-        contact_col_attrs = []
-        if self.request.user.has_perm("contacts.view_contact"):
-            contact_col_attrs = [
-                {
-                    "first_name": {
-                        "style": "cursor:pointer",
-                        "class": "hover:text-primary-600",
-                        "hx-get": f"{{get_detail_url}}?referrer_app={self.model._meta.app_label}&referrer_model={self.model._meta.model_name}&referrer_id={pk}&referrer_url={referrer_url}&{query_string}",
-                        "hx-target": "#mainContent",
-                        "hx-swap": "outerHTML",
-                        "hx-push-url": "true",
-                        "hx-select": "#mainContent",
-                    }
+        contact_col_attrs = [
+            {
+                "first_name": {
+                    "permission": "contacts.view_contact",
+                    "own_permission": "contacts.view_own_contact",
+                    "owner_field": "contact_owner",
+                    "hx-get": f"{{get_detail_url}}?referrer_app={self.model._meta.app_label}&referrer_model={self.model._meta.model_name}&referrer_id={pk}&referrer_url={referrer_url}&{query_string}",
+                    "hx-target": "#mainContent",
+                    "hx-swap": "outerHTML",
+                    "hx-push-url": "true",
+                    "hx-select": "#mainContent",
                 }
-            ]
-
+            }
+        ]
         config = {
             "custom_related_lists": {
                 "contact": {
                     "app_label": "contacts",
                     "model_name": "Contact",
                     "intermediate_model": "OpportunityContactRole",
-                    "intermediate_field": "opportunity_roles",
+                    "intermediate_field": "contact",
                     "related_field": "opportunity",
                     "config": {
                         "title": _("Contact Roles"),
@@ -760,7 +620,20 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
                                 "opportunity_roles__is_primary",
                             ),
                         ],
-                        "can_add": True,
+                        "can_add": self.request.user.has_perm(
+                            "opportunities.add_opportunitycontactrole"
+                        )
+                        and (
+                            (
+                                is_owner(Opportunity, pk)
+                                and self.request.user.has_perm(
+                                    "opportunities.change_own_opportunity"
+                                )
+                            )
+                            or self.request.user.has_perm(
+                                "opportunities.change_opportunity"
+                            )
+                        ),
                         "add_url": reverse_lazy(
                             "opportunities:add_opportunity_contact_role"
                         ),
@@ -769,6 +642,12 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
                                 "action": "edit",
                                 "src": "/assets/icons/edit.svg",
                                 "img_class": "w-4 h-4",
+                                "permission": "opportunities.change_opportunitycontactrole",
+                                "own_permission": "opportunities.change_own_opportunitycontactrole",
+                                "owner_field": "created_by",
+                                "intermediate_model": "OpportunityContactRole",
+                                "intermediate_field": "contact",
+                                "parent_field": "opportunity",
                                 "attrs": """
                                     hx-get="{get_opportunity_contact_role_edit_url}"
                                     hx-target="#modalBox"
@@ -781,6 +660,7 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
                                 "action": "Delete",
                                 "src": "assets/icons/a4.svg",
                                 "img_class": "w-4 h-4",
+                                "permission": "opportunities.delete_opportunitycontactrole",
                                 "attrs": """
                                         hx-post="{get_opportunity_contact_role_delete_url}"
                                         hx-target="#deleteModeBox"
@@ -796,7 +676,44 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
                 },
             },
         }
+        add_perm = (
+            is_owner(Opportunity, pk)
+            and self.request.user.has_perm("opportunities.change_own_opportunity")
+        ) or self.request.user.has_perm("opportunities.change_opportunity")
         if OpportunitySettings.is_team_selling_enabled():
+            custom_buttons = []
+            if (
+                self.request.user.has_perm("opportunities.add_opportunityteammember")
+                and add_perm
+            ):
+                custom_buttons.extend(
+                    [
+                        {
+                            "label": _("Add Team"),
+                            "url": reverse_lazy("opportunities:add_default_team"),
+                            "attrs": """
+                            hx-target="#modalBox"
+                            hx-swap="innerHTML"
+                            onclick="openModal()"
+                            hx-indicator="#modalBox"
+                        """,
+                            "icon": "fa-solid fa-users",
+                            "class": "text-xs px-4 py-1.5 bg-primary-600 rounded-md hover:bg-primary-800 transition duration-300 text-white",
+                        },
+                        {
+                            "label": _("Add Members"),
+                            "url": reverse_lazy("opportunities:add_opportunity_member"),
+                            "attrs": """
+                            hx-target="#modalBox"
+                            hx-swap="innerHTML"
+                            onclick="openModal()"
+                            hx-indicator="#modalBox"
+                        """,
+                            "icon": "fa-solid fa-user-plus",
+                            "class": "text-xs px-4 py-1.5 bg-white border border-primary-600 text-primary-600 rounded-md hover:bg-primary-50 transition duration-300",
+                        },
+                    ]
+                )
             config["opportunity_team_members"] = {
                 "title": "Opportunity Team",
                 "columns": [
@@ -814,37 +731,13 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
                     ),
                 ],
                 "can_add": False,
-                "custom_buttons": [
-                    {
-                        "label": _("Add Team"),
-                        "url": reverse_lazy("opportunities:add_default_team"),
-                        "attrs": """
-                            hx-target="#modalBox"
-                            hx-swap="innerHTML"
-                            onclick="openModal()"
-                            hx-indicator="#modalBox"
-                        """,
-                        "icon": "fa-solid fa-users",
-                        "class": "text-xs px-4 py-1.5 bg-primary-600 rounded-md hover:bg-primary-800 transition duration-300 text-white",
-                    },
-                    {
-                        "label": _("Add Members"),
-                        "url": reverse_lazy("opportunities:add_opportunity_member"),
-                        "attrs": """
-                            hx-target="#modalBox"
-                            hx-swap="innerHTML"
-                            onclick="openModal()"
-                            hx-indicator="#modalBox"
-                        """,
-                        "icon": "fa-solid fa-user-plus",
-                        "class": "text-xs px-4 py-1.5 bg-white border border-primary-600 text-primary-600 rounded-md hover:bg-primary-50 transition duration-300",
-                    },
-                ],
+                "custom_buttons": custom_buttons,
                 "actions": [
                     {
                         "action": "Edit",
                         "src": "/assets/icons/edit.svg",
                         "img_class": "w-4 h-4",
+                        "permission": "opportunities.change_opportunityteammember",
                         "attrs": """
                                     hx-get="{get_edit_url}"
                                     hx-target="#modalBox"
@@ -857,6 +750,7 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
                         "action": "Delete",
                         "src": "/assets/icons/a4.svg",
                         "img_class": "w-4 h-4",
+                        "permission": "opportunities.delete_opportunityteammember",
                         "attrs": """
                                     hx-post="{get_delete_url}"
                                     hx-target="#deleteModeBox"
@@ -869,6 +763,25 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
                 ],
             }
             if OpportunitySettings.is_split_enabled():
+                splits_custom_buttons = []
+                if (
+                    self.request.user.has_perm("opportunities.add_opportunitysplit")
+                    and add_perm
+                ):
+                    splits_custom_buttons.append(
+                        {
+                            "label": _("Manage Opportunity Splits"),
+                            "url": reverse_lazy(
+                                "opportunities:manage_opportunity_splits"
+                            ),
+                            "attrs": """
+                            hx-target="#contentModalBox"
+                            hx-swap="innerHTML"
+                            onclick="openContentModal()"
+                        """,
+                            "class": "text-xs px-4 py-1.5 bg-primary-600 rounded-md hover:bg-primary-800 transition duration-300 text-white",
+                        }
+                    )
                 config["splits"] = {
                     "title": _("Opportunity Splits"),
                     "columns": [
@@ -898,22 +811,10 @@ class OpportunityRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView)
                         ),
                     ],
                     "can_add": False,
-                    "custom_buttons": [
-                        {
-                            "label": _("Manage Opportunity Splits"),
-                            "url": reverse_lazy(
-                                "opportunities:manage_opportunity_splits"
-                            ),
-                            "attrs": """
-                                hx-target="#contentModalBox"
-                                hx-swap="innerHTML"
-                                onclick="openContentModal()"
-                            """,
-                            "class": "text-xs px-4 py-1.5 bg-primary-600 rounded-md hover:bg-primary-800 transition duration-300 text-white",
-                        },
-                    ],
-                    "action_method": "actions",
+                    "custom_buttons": splits_custom_buttons,
                 }
+                if self.request.user.has_perm("opportunities.delete_opportunitysplit"):
+                    config["splits"]["action_method"] = "actions"
 
         return config
 

@@ -20,6 +20,7 @@ from horilla_core.decorators import (
     permission_required,
     permission_required_or_denied,
 )
+from horilla_core.utils import is_owner
 from horilla_crm.accounts.models import Account
 from horilla_crm.campaigns.models import CampaignMember
 from horilla_crm.contacts.models import Contact, ContactAccountRelationship
@@ -149,23 +150,17 @@ class LeadListView(LoginRequiredMixin, HorillaListView):
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
         query_string = urlencode(query_params)
-        attrs = {}
-        if self.request.user.has_perm("leads.view_lead") or self.request.user.has_perm(
-            "leads.view_own_lead"
-        ):
-            attrs = {
-                "hx-get": f"{{get_detail_url}}?{query_string}",
-                "hx-target": "#mainContent",
-                "hx-swap": "outerHTML",
-                "hx-push-url": "true",
-                "hx-select": "#mainContent",
-                "class": "hover:text-primary-600",
-                "style": "cursor:pointer",
-            }
         return [
             {
                 "title": {
-                    **attrs,
+                    "hx-get": f"{{get_detail_url}}?{query_string}",
+                    "hx-target": "#mainContent",
+                    "hx-swap": "outerHTML",
+                    "hx-push-url": "true",
+                    "hx-select": "#mainContent",
+                    "permission": "leads.view_lead",
+                    "own_permission": "leads.view_own_lead",
+                    "owner_field": "lead_owner",
                 }
             }
         ]
@@ -194,74 +189,66 @@ class LeadListView(LoginRequiredMixin, HorillaListView):
             (instance._meta.get_field("annual_revenue").verbose_name, "annual_revenue"),
         ]
 
+    actions = []
+
     @cached_property
     def actions(self):
         """
         Return actions if user is superuser, has global perms, or owns any lead in the queryset.
         Actions are shown globally (for all rows) but backend views enforce ownership/perms.
         """
-        actions = []
-
-        show_actions = (
-            self.request.user.is_superuser
-            or self.request.user.has_perm("leads.change_lead")
-            or (
-                self.get_queryset().filter(lead_owner=self.request.user).exists()
-                and self.request.user.has_perm("leads.change_own_lead")
-            )
-        )
-
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
         query_string = urlencode(query_params)
-
-        if show_actions:
-            actions.extend(
-                [
-                    {
-                        "action": "Edit",
-                        "src": "assets/icons/edit.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
+        lead_permission = {
+            "permission": "leads.change_lead",
+            "own_permission": "leads.change_own_lead",
+            "owner_field": "lead_owner",
+        }
+        actions = [
+            {
+                **lead_permission,
+                "action": "Edit",
+                "src": "assets/icons/edit.svg",
+                "img_class": "w-4 h-4",
+                "attrs": """
                             hx-get="{get_edit_url}?new=true"
                             hx-target="#modalBox"
                             hx-swap="innerHTML"
                             onclick="openModal()"
                             """,
-                    },
-                    {
-                        "action": "Change Owner",
-                        "src": "assets/icons/a2.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
+            },
+            {
+                **lead_permission,
+                "action": "Change Owner",
+                "src": "assets/icons/a2.svg",
+                "img_class": "w-4 h-4",
+                "attrs": """
                             hx-get="{get_change_owner_url}"
                             hx-target="#modalBox"
                             hx-swap="innerHTML"
                             onclick="openModal()"
                             """,
-                    },
-                    {
-                        "action": "Convert",
-                        "src": "assets/icons/a3.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": f"""
+            },
+            {
+                **lead_permission,
+                "action": "Convert",
+                "src": "assets/icons/a3.svg",
+                "img_class": "w-4 h-4",
+                "attrs": f"""
                             hx-get="{{get_lead_convert_url}}?{query_string}"
                             hx-target="#contentModalBox"
                             hx-swap="innerHTML"
                             onclick="openContentModal()"
                             """,
-                    },
-                ]
-            )
-
-        if self.request.user.has_perm("leads.delete_lead"):
-            actions.append(
-                {
-                    "action": "Delete",
-                    "src": "assets/icons/a4.svg",
-                    "img_class": "w-4 h-4",
-                    "attrs": """
+            },
+            {
+                "action": "Delete",
+                "src": "assets/icons/a4.svg",
+                "img_class": "w-4 h-4",
+                "permission": "leads.delete_lead",
+                "attrs": """
                         hx-post="{get_delete_url}"
                         hx-target="#deleteModeBox"
                         hx-swap="innerHTML"
@@ -269,22 +256,20 @@ class LeadListView(LoginRequiredMixin, HorillaListView):
                         hx-vals='{{"check_dependencies": "true"}}'
                         onclick="openDeleteModeModal()"
                     """,
-                }
-            )
-        if self.request.user.has_perm("leads.add_lead"):
-            actions.append(
-                {
-                    "action": _("Duplicate"),
-                    "src": "assets/icons/duplicate.svg",
-                    "img_class": "w-4 h-4",
-                    "attrs": """
+            },
+            {
+                "action": _("Duplicate"),
+                "src": "assets/icons/duplicate.svg",
+                "img_class": "w-4 h-4",
+                "permission": "leads.add_lead",
+                "attrs": """
                               hx-get="{get_duplicate_url}?duplicate=true"
                               hx-target="#modalBox"
                               hx-swap="innerHTML"
                               onclick="openModal()"
                              """,
-                },
-            )
+            },
+        ]
 
         return actions
 
@@ -331,80 +316,7 @@ class LeadKanbanView(LoginRequiredMixin, HorillaKanbanView):
     main_url = reverse_lazy("leads:leads_view")
     group_by_field = "industry"
 
-    @cached_property
-    def actions(self):
-        """
-        Return actions if user is superuser, has global perms, or owns any lead in the queryset.
-        Actions are shown globally (for all rows) but backend views enforce ownership/perms.
-        """
-        actions = []
-
-        show_actions = (
-            self.request.user.is_superuser
-            or self.request.user.has_perm("leads.change_lead")
-            or (
-                self.get_queryset().filter(lead_owner=self.request.user).exists()
-                and self.request.user.has_perm("leads.change_own_lead")
-            )
-        )
-
-        if show_actions:
-            actions.extend(
-                [
-                    {
-                        "action": "Edit",
-                        "src": "assets/icons/edit.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-get="{get_edit_url}?new=true"
-                            hx-target="#modalBox"
-                            hx-swap="innerHTML"
-                            onclick="openModal()"
-                            """,
-                    },
-                    {
-                        "action": "Change Owner",
-                        "src": "assets/icons/a2.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-get="{get_change_owner_url}"
-                            hx-target="#modalBox"
-                            hx-swap="innerHTML"
-                            onclick="openModal()"
-                            """,
-                    },
-                    {
-                        "action": "Convert",
-                        "src": "assets/icons/a3.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-get="{get_lead_convert_url}"
-                            hx-target="#contentModalBox"
-                            hx-swap="innerHTML"
-                            onclick="openContentModal()"
-                            """,
-                    },
-                ]
-            )
-
-            if self.request.user.has_perm("leads.delete_lead"):
-                actions.append(
-                    {
-                        "action": "Delete",
-                        "src": "assets/icons/a4.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-post="{get_delete_url}"
-                            hx-target="#deleteModeBox"
-                            hx-swap="innerHTML"
-                            hx-trigger="click"
-                            hx-vals='{{"check_dependencies": "true"}}'
-                            onclick="openDeleteModeModal()"
-                        """,
-                    }
-                )
-
-        return actions
+    actions = LeadListView.actions
 
     @cached_property
     def kanban_attrs(self):
@@ -414,18 +326,17 @@ class LeadKanbanView(LoginRequiredMixin, HorillaKanbanView):
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
         query_string = urlencode(query_params)
-        if self.request.user.has_perm("leads.view_lead") or self.request.user.has_perm(
-            "leads.view_own_lead"
-        ):
-            return f""""
-                    hx-get="{{get_detail_url}}?{query_string}"
-                    hx-target="#mainContent"
-                    hx-swap="outerHTML"
-                    hx-push-url="true"
-                    hx-select="#mainContent"
-                    style ="cursor:pointer",
 
-            """
+        return {
+            "hx-get": f"{{get_detail_url}}?{query_string}",
+            "hx-target": "#mainContent",
+            "hx-swap": "outerHTML",
+            "hx-push-url": "true",
+            "hx-select": "#mainContent",
+            "permission": "leads.view_lead",
+            "own_permission": "leads.view_own_lead",
+            "owner_field": "lead_owner",
+        }
 
     @cached_property
     def columns(self):
@@ -555,69 +466,7 @@ class LeadDetailView(RecentlyViewedMixin, LoginRequiredMixin, HorillaDetailView)
             "hx-on:click": "openContentModal();",
         }
 
-    @cached_property
-    def actions(self):
-        """
-        Return actions if user is superuser, has global perms, or owns any lead in the queryset.
-        Actions are shown globally (for all rows) but backend views enforce ownership/perms.
-        """
-        actions = []
-
-        show_actions = (
-            self.request.user.is_superuser
-            or self.request.user.has_perm("leads.change_lead")
-            or (
-                self.get_queryset().filter(lead_owner=self.request.user).exists()
-                and self.request.user.has_perm("leads.change_own_lead")
-            )
-        )
-
-        if show_actions:
-            actions.extend(
-                [
-                    {
-                        "action": "Edit",
-                        "src": "assets/icons/edit.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-get="{get_edit_url}?new=true"
-                            hx-target="#modalBox"
-                            hx-swap="innerHTML"
-                            onclick="openModal()"
-                            """,
-                    },
-                    {
-                        "action": "Change Owner",
-                        "src": "assets/icons/a2.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-get="{get_change_owner_url}"
-                            hx-target="#modalBox"
-                            hx-swap="innerHTML"
-                            onclick="openModal()"
-                            """,
-                    },
-                ]
-            )
-
-            if self.request.user.has_perm("leads.delete_lead"):
-                actions.append(
-                    {
-                        "action": "Delete",
-                        "src": "assets/icons/a4.svg",
-                        "img_class": "w-4 h-4",
-                        "attrs": """
-                            hx-post="{get_delete_url}"
-                            hx-target="#deleteModeBox"
-                            hx-swap="innerHTML"
-                            hx-trigger="click"
-                            hx-vals='{{"check_dependencies": "true"}}'
-                            onclick="openDeleteModeModal()"
-                        """,
-                    }
-                )
-
-        return actions
+    actions = LeadListView.actions
 
     def get_context_data(self, **kwargs):
         obj = self.get_object()
@@ -628,13 +477,6 @@ class LeadDetailView(RecentlyViewedMixin, LoginRequiredMixin, HorillaDetailView)
             context["pipeline_field"] = self.pipeline_field
             context["actions"] = self.actions
         return context
-
-    def get(self, request, *args, **kwargs):
-        if not self.model.objects.filter(
-            lead_owner_id=self.request.user, pk=self.kwargs["pk"]
-        ).first() and not self.request.user.has_perm("leads.view_lead"):
-            return render(self.request, "error/403.html")
-        return super().get(request, *args, **kwargs)
 
 
 @method_decorator(
@@ -660,18 +502,6 @@ class LeadsDetailTab(LoginRequiredMixin, HorillaDetailSectionView):
             self.edit_field = False
             context["edit_field"] = self.edit_field
         return context
-
-    def get(self, request, *args, **kwargs):
-        pk = kwargs.get("pk")
-        user = request.user
-
-        is_owner = Lead.objects.filter(lead_owner_id=user, pk=pk).exists()
-        has_permission = user.has_perm("leads.view_lead")
-
-        if not (is_owner or has_permission):
-            return render(request, "error/403.html", status=403)
-
-        return super().get(request, *args, **kwargs)
 
 
 @method_decorator(
@@ -712,20 +542,6 @@ class LeadsDetailViewTabView(LoginRequiredMixin, HorillaDetailTabView):
                 }
         super().__init__(**kwargs)
 
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        lead_id = self.object_id
-
-        is_owner = Lead.objects.filter(lead_owner_id=user, pk=lead_id).exists()
-        has_permission = user.has_perm("leads.view_lead") or user.has_perm(
-            "leads.view_own_lead"
-        )
-
-        if not (is_owner or has_permission):
-            return render(request, "error/403.html", status=403)
-
-        return super().get(request, *args, **kwargs)
-
 
 @method_decorator(
     permission_required_or_denied(["leads.view_lead", "leads.view_own_lead"]),
@@ -763,13 +579,9 @@ class LeadRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView):
     @cached_property
     def related_list_config(self):
         """Related list config for lead"""
-
-        # Check if user has permission to view campaign members
         can_view_members = self.request.user.has_perm(
             "campaigns.view_campaignmember"
         ) or self.request.user.has_perm("campaigns.view_own_campaignmember")
-
-        # If user doesn't have view permission, return empty config
         if not can_view_members:
             return {"custom_related_lists": {}}
 
@@ -779,44 +591,27 @@ class LeadRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView):
         query_string = urlencode(query_params)
         pk = self.request.GET.get("object_id")
         referrer_url = "leads_detail"
-        col_attrs = []
-        if self.request.user.has_perm(
-            "campaigns.view_campaign"
-        ) or self.request.user.has_perm("campaigns.view_own_campaign"):
-            col_attrs = [
-                {
-                    "campaign_name": {
-                        "style": "cursor:pointer",
-                        "class": "hover:text-primary-600",
-                        "hx-get": (
-                            f"{{get_detail_view_url}}?referrer_app={self.model._meta.app_label}"
-                            f"&referrer_model={self.model._meta.model_name}"
-                            f"&referrer_id={pk}&referrer_url={referrer_url}&{query_string}"
-                        ),
-                        "hx-target": "#mainContent",
-                        "hx-swap": "outerHTML",
-                        "hx-push-url": "true",
-                        "hx-select": "#mainContent",
-                    }
+        col_attrs = [
+            {
+                "campaign_name": {
+                    "style": "cursor:pointer",
+                    "class": "hover:text-primary-600",
+                    "hx-get": (
+                        f"{{get_detail_view_url}}?referrer_app={self.model._meta.app_label}"
+                        f"&referrer_model={self.model._meta.model_name}"
+                        f"&referrer_id={pk}&referrer_url={referrer_url}&{query_string}"
+                    ),
+                    "hx-target": "#mainContent",
+                    "hx-swap": "outerHTML",
+                    "hx-push-url": "true",
+                    "hx-select": "#mainContent",
+                    "permission": "campaigns.view_campaign",
+                    "own_permission": "campaigns.view_own_campaign",
+                    "owner_field": "campaign_owner",
                 }
-            ]
+            }
+        ]
 
-        # Check permission for adding CampaignMember
-        can_add_member = self.request.user.has_perm("campaigns.add_campaignmember")
-
-        # Check permission for editing - requires permissions for both Lead and CampaignMember
-        can_change_lead = self.request.user.has_perm(
-            "leads.change_lead"
-        ) or self.request.user.has_perm("leads.change_own_lead")
-        can_change_campaign_member = self.request.user.has_perm(
-            "campaigns.change_campaignmember"
-        ) or (
-            self.request.user.has_perm("campaigns.change_own_campaignmember")
-            and CampaignMember.user_has_owned_members(self.request.user)
-        )
-        can_change_member = can_change_lead and can_change_campaign_member
-
-        # Build config dictionary
         config = {
             "title": Lead._meta.get_field("lead_campaign_members")
             .related_model._meta.get_field("campaign")
@@ -851,29 +646,36 @@ class LeadRelatedLists(LoginRequiredMixin, HorillaRelatedListSectionView):
                 ),
             ],
             "col_attrs": col_attrs,
-        }
-
-        # Only add edit action if user has permission
-        if can_change_member:
-            config["actions"] = [
+            "can_add": self.request.user.has_perm("campaigns.add_campaignmember")
+            and (
+                (
+                    is_owner(Lead, pk)
+                    and self.request.user.has_perm("leads.change_own_lead")
+                )
+                or self.request.user.has_perm("leads.change_lead")
+            ),
+            "add_url": reverse_lazy("campaigns:add_to_campaign"),
+            "actions": [
                 {
                     "action": "edit",
                     "src": "/assets/icons/edit.svg",
                     "img_class": "w-4 h-4",
+                    "permission": "campaigns.change_campaignmember",
+                    "own_permission": "campaigns.change_own_campaignmember",
+                    "owner_field": "created_by",
+                    "intermediate_model": "CampaignMember",
+                    "intermediate_field": "campaign",
+                    "parent_field": "lead",
                     "attrs": """
-                        hx-get="{get_specific_member_edit_url}"
-                        hx-target="#modalBox"
-                        hx-swap="innerHTML"
-                        onclick="event.stopPropagation();openModal()"
-                        hx-indicator="#modalBox"
-                        """,
+                                        hx-get="{get_specific_member_edit_url}"
+                                        hx-target="#modalBox"
+                                        hx-swap="innerHTML"
+                                        onclick="event.stopPropagation();openModal()"
+                                        hx-indicator="#modalBox"
+                                        """,
                 },
-            ]
-
-        # Only add "can_add" and "add_url" if user has permission
-        if can_add_member:
-            config["can_add"] = True
-            config["add_url"] = reverse_lazy("campaigns:add_to_campaign")
+            ],
+        }
 
         return {
             "custom_related_lists": {

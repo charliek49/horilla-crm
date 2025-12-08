@@ -46,28 +46,31 @@
                     </button>
                 </div>
                 {% if actions %}
-                <div class="relative dropdown-wrapper">
-                  <button
-                    id="dropdownLeftEndButton"
-                    type="button"
-                    class="flex w-[30px] justify-end"
-                  >
-                    <img src="{% static '/assets/icons/dots.svg' %}" alt="" width="4" />
-                  </button>
-                  <div class="dropdown-content absolute z-10 bg-white rounded-lg [box-shadow:0px_0px_20px_0px_rgb(0_0_0_/_8%)] min-w-[150px] py-2 right-0">
-                    <ul class="text-sm">
-                      {% for action in actions %}
-                      <li>
-                        <a
-                        class="px-4 py-1.5 hover:text-primary-600 transition duration-300 text-sm gap-4 items-center flex w-full cursor-pointer"
-                        {% if action.attrs %}{{ action.attrs|format:obj|safe }}{% endif %}
-                        > {{ action.action }}</a
+                {% filter_actions_by_permission actions obj as allowed_actions %}
+                  {% if allowed_actions %}
+                    <div class="relative dropdown-wrapper">
+                      <button
+                        id="dropdownLeftEndButton"
+                        type="button"
+                        class="flex w-[30px] justify-end"
                       >
-                      </li>
-                    {% endfor %}
-                    </ul>
-                  </div>
-                </div>
+                        <img src="{% static '/assets/icons/dots.svg' %}" alt="" width="4" />
+                      </button>
+                      <div class="dropdown-content absolute z-10 bg-white rounded-lg [box-shadow:0px_0px_20px_0px_rgb(0_0_0_/_8%)] min-w-[150px] py-2 right-0">
+                        <ul class="text-sm">
+                          {% for action in allowed_actions %}
+                          <li>
+                            <a
+                            class="px-4 py-1.5 hover:text-primary-600 transition duration-300 text-sm gap-4 items-center flex w-full cursor-pointer"
+                            {% if action.attrs %}{{ action.attrs|format:obj|safe }}{% endif %}
+                            > {{ action.action }}</a
+                          >
+                          </li>
+                        {% endfor %}
+                        </ul>
+                      </div>
+                    </div>
+                  {% endif %}
               {% endif %}
             </div>
           </div>

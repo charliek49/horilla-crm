@@ -332,9 +332,22 @@
                             {% endfor %}
 
                             {% if visible_actions or action_method %}
-                                <th class="sticky top-0 right-0 font-bold text-left p-3 {% if table_class %} bg-primary-300 text-sm  {% else %} text-[.8rem] bg-white font-bold border-[.3px] border-[#e9e9e9] text-left p-2 rounded-tr-md {% endif %} z-50 w-[180px]">
-                                    {% trans 'Actions' %}
-                                </th>
+                                {% if visible_actions %}
+                                    {% has_any_actions_for_queryset visible_actions queryset as show_actions_column %}
+                                    {% if use_dropdown %}
+                                        {% has_any_actions_for_queryset dropdown_actions queryset as show_dropdown_actions %}
+                                    {% endif %}
+
+                                    {% if show_actions_column or show_dropdown_actions %}
+                                        <th class="sticky top-0 right-0 font-bold text-left p-3 {% if table_class %} bg-primary-300 text-sm  {% else %} text-[.8rem] bg-white font-bold border-[.3px] border-[#e9e9e9] text-left p-2 rounded-tr-md {% endif %} z-50 w-[180px]">
+                                            {% trans 'Actions' %}
+                                        </th>
+                                    {% endif %}
+                                {% else %}
+                                    <th class="sticky top-0 right-0 font-bold text-left p-3 {% if table_class %} bg-primary-300 text-sm  {% else %} text-[.8rem] bg-white font-bold border-[.3px] border-[#e9e9e9] text-left p-2 rounded-tr-md {% endif %} z-50 w-[180px]">
+                                        {% trans 'Actions' %}
+                                    </th>
+                                {% endif %}
                             {% endif %}
                         </tr>
                     </thead>

@@ -8,6 +8,7 @@ from django.db import models, transaction
 from django.db.models import QuerySet
 
 from horilla_core.models import FieldPermission, MultipleCurrency, RecycleBin
+from horilla_utils.middlewares import _thread_local
 
 logger = logging.getLogger(__name__)
 
@@ -445,3 +446,57 @@ def get_editable_fields(user, model, fields_list):
         for field_name in fields_list
         if field_permissions.get(field_name, "readwrite") == "readwrite"
     ]
+
+
+def is_owner(model_class, pk):
+    """
+    Generic method to check if the current user is the owner of a model instance.
+    Uses thread local to get the current user from the request.
+
+    Args:
+        model_class: The Django model class (e.g., Lead, Campaign)
+        pk: Primary key of the instance to check
+
+    Returns:
+        bool: True if user is an owner, False otherwise
+    """
+    request = getattr(_thread_local, "request", None)
+    user = request.user
+
+    if not user or not user.is_authenticated:
+        return False
+
+    # Check if model has OWNER_FIELDS defined
+    if not hasattr(model_class, "OWNER_FIELDS") or not model_class.OWNER_FIELDS:
+        return False
+
+    try:
+        instance = model_class.objects.get(pk=pk)
+    except Exception:
+        return False
+
+    for field_name in model_class.OWNER_FIELDS:
+        try:
+            field_value = getattr(instance, field_name, None)
+
+            if field_value is None:
+                continue
+
+            # Handle ForeignKey (single user)
+            if hasattr(field_value, "pk"):
+                if field_value.pk == user.pk:
+                    return True
+
+            # Handle ManyToManyField (multiple users)
+            elif hasattr(field_value, "filter"):
+                if field_value.filter(pk=user.pk).exists():
+                    return True
+
+            # Handle direct ID comparison
+            elif field_value == user.pk:
+                return True
+
+        except (AttributeError, TypeError):
+            continue
+
+    return False

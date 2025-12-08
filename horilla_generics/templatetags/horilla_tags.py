@@ -952,3 +952,352 @@ def get_field_permission(field_permissions, field_name):
     if not field_permissions:
         return "readwrite"
     return field_permissions.get(field_name, "readwrite")
+
+
+def get_app_labels_from_context(related_obj, request, action=None):
+    """
+    Dynamically discover app labels from context.
+
+    Args:
+        related_obj: The related model instance
+        request: The request object
+        action: Optional action dict that may contain intermediate_app_label
+
+    Returns:
+        list: Ordered list of app labels to try (most likely first)
+    """
+    from django.apps import apps
+
+    app_labels = []
+    seen = set()  # To avoid duplicates while preserving order
+
+    # 1. Explicit app label from action config (highest priority)
+    if action and action.get("intermediate_app_label"):
+        app_label = action.get("intermediate_app_label")
+        if app_label not in seen:
+            app_labels.append(app_label)
+            seen.add(app_label)
+
+    # 2. Related object's app label (very likely)
+    if related_obj and hasattr(related_obj, "_meta"):
+        app_label = related_obj._meta.app_label
+        if app_label not in seen:
+            app_labels.append(app_label)
+            seen.add(app_label)
+
+    # 3. Parent model's app from view class
+    if request and hasattr(request, "resolver_match") and request.resolver_match:
+        view_func = request.resolver_match.func
+        if hasattr(view_func, "view_class"):
+            view_class = view_func.view_class
+            if hasattr(view_class, "model") and view_class.model:
+                app_label = view_class.model._meta.app_label
+                if app_label not in seen:
+                    app_labels.append(app_label)
+                    seen.add(app_label)
+
+    # 4. App name from URL pattern
+    if request and hasattr(request, "resolver_match") and request.resolver_match:
+        url_name = request.resolver_match.url_name
+        if url_name:
+            # Extract app from URL pattern like "leads:detail"
+            if ":" in url_name:
+                app_name = url_name.split(":")[0]
+                if app_name not in seen:
+                    app_labels.append(app_name)
+                    seen.add(app_name)
+            # Extract from pattern like "leads_detail"
+            elif "_" in url_name:
+                app_name = url_name.split("_")[0]
+                if app_name not in seen:
+                    app_labels.append(app_name)
+                    seen.add(app_name)
+
+        # Also check namespace
+        namespace = getattr(request.resolver_match, "namespace", None)
+        if namespace and namespace not in seen:
+            app_labels.append(namespace)
+            seen.add(namespace)
+
+    # 5. All installed apps as fallback (least priority)
+    for app_config in apps.get_app_configs():
+        if app_config.label not in seen:
+            app_labels.append(app_config.label)
+            seen.add(app_config.label)
+
+    return app_labels
+
+
+def get_intermediate_instance(action, related_obj, request):
+    """
+    Get the intermediate model instance based on action config.
+
+    Args:
+        action: Action dictionary with intermediate_model config
+        related_obj: The related model instance (e.g., Campaign)
+        request: The request object to get parent object ID
+
+    Returns:
+        The intermediate model instance or None
+    """
+    import logging
+
+    from django.apps import apps
+
+    logger = logging.getLogger(__name__)
+
+    intermediate_model_name = action.get("intermediate_model")
+    if not intermediate_model_name:
+        return None
+
+    try:
+        # Get the parent object ID from the URL (e.g., Lead ID)
+        parent_id = None
+        if hasattr(request, "resolver_match") and request.resolver_match:
+            parent_id = request.resolver_match.kwargs.get("pk")
+
+        if not parent_id:
+            return None
+
+        # Get app labels to try dynamically
+        app_labels_to_try = get_app_labels_from_context(related_obj, request, action)
+
+        # Try to get the intermediate model
+        intermediate_model = None
+        for app_label in app_labels_to_try:
+            try:
+                intermediate_model = apps.get_model(app_label, intermediate_model_name)
+                logger.debug(
+                    f"Found intermediate model '{intermediate_model_name}' in app '{app_label}'"
+                )
+                break
+            except LookupError:
+                continue
+
+        if not intermediate_model:
+            logger.warning(
+                f"Could not find intermediate model '{intermediate_model_name}' "
+                f"in any of these apps: {app_labels_to_try[:5]}"  # Show first 5 for brevity
+            )
+            return None
+
+        # Get field names from action config with defaults
+        intermediate_field_name = action.get("intermediate_field")
+        parent_field_name = action.get("parent_field")
+
+        if not intermediate_field_name or not parent_field_name:
+            logger.error(
+                f"Action missing 'intermediate_field' or 'parent_field' configuration"
+            )
+            return None
+
+        # Build the filter kwargs
+        filter_kwargs = {
+            intermediate_field_name: related_obj,
+            f"{parent_field_name}_id": parent_id,
+        }
+
+        # Get the intermediate instance
+        intermediate_obj = intermediate_model.objects.filter(**filter_kwargs).first()
+
+        if not intermediate_obj:
+            logger.debug(
+                f"No {intermediate_model_name} found with filters: {filter_kwargs}"
+            )
+
+        return intermediate_obj
+
+    except Exception as e:
+        logger.error(f"Error getting intermediate instance: {e}", exc_info=True)
+        return None
+
+
+def has_action_permission(action, context):
+    """
+    Check if user has permission to perform an action on an object.
+    Supports both direct object permissions and intermediate model permissions.
+
+    Args:
+        action: Action dict with permission config
+        context: Dict with 'user', 'object', and optionally 'intermediate_object'
+
+    Returns:
+        bool: True if user has permission
+    """
+    user = context.get("user")
+    obj = context.get("object")
+
+    perm = action.get("permission")
+    own_perm = action.get("own_permission")
+    owner_field = action.get("owner_field")
+    owner_method = action.get("owner_method")
+
+    # Automatically detect if we should use intermediate model
+    intermediate_config = action.get("intermediate_model")
+
+    # If intermediate_model is specified, try to get the intermediate instance
+    target_obj = obj
+    if intermediate_config:
+        intermediate_obj = context.get("intermediate_object")
+        if intermediate_obj:
+            target_obj = (
+                intermediate_obj  # Use intermediate object for permission check
+            )
+
+    # If no permissions are defined, allow by default
+    if not perm and not own_perm and not owner_field:
+        return True
+
+    # Validation: own_permission requires owner_field or owner_method
+    if own_perm and not owner_field and not owner_method:
+        raise ValueError(
+            f"Action '{action.get('action')}' must define BOTH "
+            "'own_permission' and ('owner_field' OR 'owner_method')."
+        )
+
+    # Validation: cannot use both owner_field and owner_method
+    if owner_field and owner_method:
+        raise ValueError(
+            f"Action '{action.get('action')}' cannot define BOTH "
+            "'owner_field' AND 'owner_method'. Use only one."
+        )
+
+    # Check global permission first
+    if perm and user.has_perm(perm):
+        return True
+
+    # Check ownership-based permission
+    if own_perm and target_obj:
+        # Method-based ownership check
+        if owner_method:
+            if hasattr(target_obj, owner_method):
+                method = getattr(target_obj, owner_method)
+                if callable(method):
+                    is_owner = method(user)
+                    if is_owner and user.has_perm(own_perm):
+                        return True
+            else:
+                raise ValueError(
+                    f"Object {target_obj.__class__.__name__} does not have method '{owner_method}'"
+                )
+
+        elif owner_field:
+            # Convert single field to list for uniform processing
+            owner_fields = (
+                owner_field if isinstance(owner_field, list) else [owner_field]
+            )
+
+            # Check if user matches ANY of the owner fields
+            for field in owner_fields:
+                owner = getattr(target_obj, field, None)
+                if owner == user:
+                    if user.has_perm(own_perm):
+                        return True
+                    break
+
+    return False
+
+
+@register.simple_tag(takes_context=True)
+def filter_actions_by_permission(context, actions, data):
+    """
+    Filter actions based on user permissions.
+    Supports intermediate model lookups automatically.
+
+    Args:
+        context: Template context
+        actions: List of action dicts
+        data: The object being acted upon
+
+    Returns:
+        list: Filtered list of actions user has permission for
+    """
+    request = context.get("request")
+    user = request.user if request else None
+
+    if not user:
+        return []
+
+    filtered_actions = []
+
+    for action in actions:
+        action_context = {
+            "user": user,
+            "object": data,
+        }
+
+        # Handle intermediate model lookup automatically
+        intermediate_model_name = action.get("intermediate_model")
+        if intermediate_model_name:
+            # Try to get the intermediate instance
+            intermediate_obj = get_intermediate_instance(action, data, request)
+            if intermediate_obj:
+                action_context["intermediate_object"] = intermediate_obj
+
+        # Check permission
+        if has_action_permission(action, action_context):
+            filtered_actions.append(action)
+
+    return filtered_actions
+
+
+@register.simple_tag(takes_context=True)
+def has_any_actions_for_queryset(context, actions, queryset):
+    """
+    Check if any object in the queryset has at least one allowed action.
+    Used to determine if the Actions column should be shown in the table header.
+    Supports intermediate model permission checks automatically.
+
+    Args:
+        context: template context with request
+        actions: list of action dicts
+        queryset: queryset of objects to check
+
+    Returns:
+        bool: True if at least one object has at least one allowed action
+    """
+    request = context.get("request")
+    user = request.user if request else None
+
+    if not user:
+        return False
+
+    if not actions:
+        return False
+
+    for action in actions:
+        perm = action.get("permission")
+        if perm and user.has_perm(perm):
+            return True
+
+    sample_size = min(10, queryset.count())
+    sample_queryset = queryset[:sample_size]
+
+    for obj in sample_queryset:
+        action_context = {"user": user, "object": obj}
+
+        for action in actions:
+            # Handle intermediate model lookup automatically
+            intermediate_model_name = action.get("intermediate_model")
+            if intermediate_model_name:
+                intermediate_obj = get_intermediate_instance(action, obj, request)
+                if intermediate_obj:
+                    action_context["intermediate_object"] = intermediate_obj
+
+            if has_action_permission(action, action_context):
+                return True  # Found at least one allowed action
+
+    return False
+
+
+@register.filter
+def wrap_in_list(value):
+    """
+    Wrap a dict in a list so it can be passed to filter_actions_by_permission.
+    This allows reusing the same permission logic for col_attrs.
+
+    Usage: {{ col_attrs_for_field|wrap_in_list }}
+    """
+    if isinstance(value, dict):
+        return [value]
+    return value

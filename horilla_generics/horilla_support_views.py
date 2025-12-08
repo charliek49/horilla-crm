@@ -1111,12 +1111,15 @@ class KanbanLoadMoreView(LoginRequiredMixin, View):
                 messages.error(request, f"View class {model_name} not found")
                 return HttpResponse("<script>$('#reloadButton').click();")
 
+            # FIX: Properly initialize the view with model
             view = view_class()
             view.request = request
+            view.model = model
+            view.kwargs = kwargs  # Pass kwargs if needed
 
             return view.load_more_items(request)
         except Exception as e:
-            messages.error(request, f"Load More failed")
+            messages.error(request, f"Load More failed: {str(e)}")
             return HttpResponse("<script>$('#reloadButton').click();")
 
 
