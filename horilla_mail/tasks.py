@@ -1,3 +1,12 @@
+"""
+Celery tasks for asynchronous email sending in the Horilla mail system.
+
+This module provides background tasks for:
+- Sending scheduled emails at specified times
+- Processing and queueing scheduled emails
+- Sending emails asynchronously without blocking the main thread
+"""
+
 import logging
 
 from celery import shared_task
@@ -12,6 +21,14 @@ class MockRequest:
     """Mock request object for Celery tasks"""
 
     def __init__(self, user, company, request_info):
+        """
+        Initialize a mock request object for use in Celery tasks.
+
+        Args:
+            user: The user associated with the request
+            company: The active company for the request
+            request_info: Dictionary containing request metadata (meta, host, scheme)
+        """
         self.user = user
         self.active_company = company
         self.META = request_info.get("meta", {})
@@ -19,6 +36,7 @@ class MockRequest:
         self.scheme = request_info.get("scheme", "https")
 
     def get_host(self):
+        """Get host for use in templates"""
         return self._host
 
     def build_absolute_uri(self, location=None):
@@ -41,19 +59,21 @@ def send_scheduled_mail_task(self, mail_id):
     from horilla_mail.services import HorillaMailManager
 
     User = get_user_model()
-    logger.info(f"Processing scheduled mail {mail_id}")
+    logger.info("Processing scheduled mail %s", mail_id)
 
     try:
         mail = HorillaMail.objects.get(pk=mail_id)
 
         # Check if mail is still in scheduled status
         if mail.mail_status != "scheduled":
-            logger.info(f"Mail {mail_id} status is {mail.mail_status}, skipping send")
+            logger.info(
+                "Mail %s status is %s, skipping send", mail_id, mail.mail_status
+            )
             return f"Mail {mail_id} is not in scheduled status"
 
         # Check if scheduled time has arrived
         if mail.scheduled_at and mail.scheduled_at > timezone.now():
-            logger.info(f"Mail {mail_id} scheduled time not yet reached")
+            logger.info("Mail %s scheduled time not yet reached", mail_id)
             return f"Mail {mail_id} not yet time to send"
 
         # Set thread local for from_mail_id to use correct configuration
@@ -100,7 +120,7 @@ def send_scheduled_mail_task(self, mail_id):
         if HorillaMail.has_xss(mail.subject or "") or HorillaMail.has_xss(
             mail.body or ""
         ):
-            logger.warning(f"XSS detected in mail templates {mail_id}")
+            logger.warning("XSS detected in mail templates %s", mail_id)
             mail.mail_status = "failed"
             mail.mail_status_message = "XSS content detected in email templates"
             mail.save(update_fields=["mail_status", "mail_status_message"])
@@ -109,29 +129,29 @@ def send_scheduled_mail_task(self, mail_id):
         # Use HorillaMailManager to send the mail
         HorillaMailManager.send_mail(mail, context=context)
 
-        logger.info(f"Successfully sent mail {mail_id}")
+        logger.info("Successfully sent mail %s", mail_id)
         return f"Successfully sent mail {mail_id}"
 
     except HorillaMail.DoesNotExist:
-        logger.error(f"Mail {mail_id} does not exist")
+        logger.error("Mail %s does not exist", mail_id)
         return f"Mail {mail_id} not found"
 
     except ValueError as e:
         # Handle validation errors from HorillaMailManager
-        logger.error(f"Validation error sending mail {mail_id}: {str(e)}")
+        logger.error("Validation error sending mail %s: %s", mail_id, str(e))
 
         try:
             mail = HorillaMail.objects.get(pk=mail_id)
             mail.mail_status = "failed"
             mail.mail_status_message = str(e)
             mail.save(update_fields=["mail_status", "mail_status_message"])
-        except:
+        except Exception:
             pass
 
         return f"Failed to send mail {mail_id}: {str(e)}"
 
     except Exception as e:
-        logger.error(f"Error sending mail {mail_id}: {str(e)}")
+        logger.error("Error sending mail %s: %s", mail_id, str(e))
 
         try:
             mail = HorillaMail.objects.get(pk=mail_id)
@@ -141,7 +161,7 @@ def send_scheduled_mail_task(self, mail_id):
                 mail.mail_status = "failed"
                 mail.mail_status_message = str(e)
                 mail.save(update_fields=["mail_status", "mail_status_message"])
-        except:
+        except Exception:
             pass
 
         # Retry the task
@@ -167,8 +187,8 @@ def process_scheduled_mails():
         mail_status="scheduled", scheduled_at__lte=timezone.now()
     )
 
-    logger.info(f"Found {scheduled_mails.count()} scheduled mails to process")
-    logger.info(f"Current time: {timezone.now()}")
+    logger.info("Found %s scheduled mails to process", scheduled_mails.count())
+    logger.info("Current time: %s", timezone.now())
 
     count = 0
     for mail in scheduled_mails:
@@ -176,7 +196,7 @@ def process_scheduled_mails():
         send_scheduled_mail_task.delay(mail.pk)
         count += 1
 
-    logger.info(f"Queued {count} scheduled mails for sending")
+    logger.info("Queued %s scheduled mails for sending", count)
     return f"Queued {count} mails"
 
 
@@ -238,15 +258,15 @@ def send_mail_async(mail_id, context=None):
         # Use HorillaMailManager to send
         HorillaMailManager.send_mail(mail, context=context)
 
-        logger.info(f"Successfully sent mail {mail_id} asynchronously")
+        logger.info("Successfully sent mail %s asynchronously", mail_id)
         return f"Successfully sent mail {mail_id}"
 
     except HorillaMail.DoesNotExist:
-        logger.error(f"Mail {mail_id} does not exist")
+        logger.error("Mail %s does not exist", mail_id)
         return f"Mail {mail_id} not found"
 
     except Exception as e:
-        logger.error(f"Error sending mail {mail_id}: {str(e)}")
+        logger.error("Error sending mail %s: %s", mail_id, str(e))
         return f"Failed to send mail {mail_id}: {str(e)}"
 
     finally:

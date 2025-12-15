@@ -1,14 +1,20 @@
-from django.core.mail import EmailMessage
+"""
+horilla_mail services module
+"""
+
 from django.utils import timezone
 
 from horilla_mail.models import HorillaMail
 
 
 class HorillaMailManager:
+    """Service class to manage HorillaMail operations."""
+
     MAX_RETRIES = 3  # Optional retry limit
 
     @staticmethod
     def send_mail(mail: HorillaMail, context=None):
+        """Send the given HorillaMail instance."""
         context = context or {}
         try:
             subject = mail.render_subject(context)
@@ -45,13 +51,6 @@ class HorillaMailManager:
             # Attach the HTML version
             email.attach_alternative(body, "text/html")
 
-            # Add file attachments
-            # for attachment in mail.attachments.all():
-            #     email.attach(
-            #         attachment.file.name,
-            #         attachment.file.read(),
-            #         attachment.mime_type or "application/octet-stream",
-            #     )
             for attachment in mail.attachments.filter(is_inline=True):
                 from email.mime.image import MIMEImage
 

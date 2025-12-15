@@ -1,3 +1,5 @@
+"""Django admin configuration for horilla_mail models."""
+
 from django.contrib import admin
 
 from horilla_mail.models import (

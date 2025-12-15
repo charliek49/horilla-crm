@@ -1,3 +1,10 @@
+"""
+Custom Django model fields for the horilla_mail application.
+
+This module provides encrypted field implementations for storing sensitive
+data such as email passwords in an encrypted format.
+"""
+
 from django.db import models
 
 from .encryption_utils import encrypt_password

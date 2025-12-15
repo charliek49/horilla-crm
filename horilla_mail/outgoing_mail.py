@@ -1,3 +1,7 @@
+"""
+horilla_mail outgoing mail views
+"""
+
 import re
 from functools import cached_property
 
@@ -22,10 +26,9 @@ from horilla_generics.views import (
 )
 from horilla_mail.filters import HorillaMailServerFilter
 from horilla_mail.forms import DynamicMailTestForm, HorillaMailConfigurationForm
+from horilla_mail.horilla_backends import HorillaDefaultMailBackend
 from horilla_mail.models import HorillaMailConfiguration
 from horilla_utils.middlewares import _thread_local
-
-from .horilla_backends import HorillaDefaultMailBackend
 
 
 @method_decorator(
@@ -64,6 +67,7 @@ class MailServerNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
+        """Return new button configuration if user has permission"""
         if self.request.user.has_perm("horilla_mail.create_horillaemailconfiguration"):
             return {
                 "url": f"""{ reverse_lazy('horilla_mail:mail_server_type_selection')}?new=true""",
@@ -71,6 +75,7 @@ class MailServerNavbar(LoginRequiredMixin, HorillaNavView):
                 "onclick": "openhorillaModal()",
                 "target": "#horillaModalBox",
             }
+        return None
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -150,6 +155,7 @@ class OutgoingMailServerFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """url for form submission"""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy(
@@ -175,6 +181,9 @@ class OutgoingMailServerFormView(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class MailServerTestEmailView(LoginRequiredMixin, FormView):
+    """
+    View to send test email from mail server configuration"""
+
     template_name = "form_email_test.html"
     form_class = DynamicMailTestForm
 
@@ -337,6 +346,9 @@ class MailServerTestEmailView(LoginRequiredMixin, FormView):
     name="dispatch",
 )
 class MailServerDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    Delete view for mail server configuration
+    """
 
     model = HorillaMailConfiguration
 

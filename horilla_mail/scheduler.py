@@ -1,3 +1,6 @@
+"""
+horilla_mail scheduler module"""
+
 import logging
 import sys
 
@@ -18,7 +21,7 @@ def refresh_outlook_auth_token():
     for api in apis:
         try:
             refresh_outlook_token(api)
-            logger.info(f"Updated token for {api} outlook auth")
+            logger.info("Updated token for %s outlook auth", api)
         except Exception as e:
             logger.error("Error in refresh_outlook_auth_token: %s", e)
 

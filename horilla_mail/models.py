@@ -1,3 +1,5 @@
+"""Models for Horilla Mail App"""
+
 import mimetypes
 import re
 
@@ -5,6 +7,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.template import engines
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
@@ -40,7 +43,8 @@ class HorillaMailConfiguration(HorillaCoreModel):
         verbose_name=_("Mail Channel"),
         help_text=_(
             _(
-                "Specifies whether this configuration handles incoming, outgoing, or both types of emails."
+                "Specifies whether this configuration handles incoming,"
+                "outgoing, or both types of emails."
             )
         ),
     )
@@ -122,7 +126,13 @@ class HorillaMailConfiguration(HorillaCoreModel):
     )
     last_refreshed = models.DateTimeField(null=True, editable=False, blank=True)
 
+    def __init__(self, *args, **kwargs):
+        """Initialize the model instance."""
+        super().__init__(*args, **kwargs)
+        self._saving = False
+
     def custom_actions(self):
+        """Return custom action buttons for the admin interface."""
         return render_template(path="mail_actions.html", context={"instance": self})
 
     def clean(self):
@@ -153,7 +163,7 @@ class HorillaMailConfiguration(HorillaCoreModel):
         Enforce only one primary mail configuration across the system.
         Automatically makes the first entry primary.
         """
-        if hasattr(self, "_saving"):
+        if self._saving:
             return super().save(*args, **kwargs)
 
         self._saving = True
@@ -166,16 +176,22 @@ class HorillaMailConfiguration(HorillaCoreModel):
                 HorillaMailConfiguration.objects.exclude(pk=self.pk).filter(
                     is_primary=True
                 ).update(is_primary=False)
-            super().save(*args, **kwargs)
+            return super().save(*args, **kwargs)
         finally:
-            del self._saving
+            self._saving = False
 
     class Meta:
+        """Meta options for the mail configuration model."""
+
         verbose_name = _("Mail Configuration")
         verbose_name_plural = _("Mail Configurations")
 
 
 class HorillaMail(HorillaCoreModel):
+    """
+    Model to store each email details
+    """
+
     MAIL_STATUS_CHOICES = [
         ("draft", _("Draft")),
         ("scheduled", _("Scheduled")),
@@ -218,7 +234,9 @@ class HorillaMail(HorillaCoreModel):
         return f"[{self.mail_status}] {self.subject }"
 
     def render_subject(self, context=None):
-        from django.template import engines
+        """
+        Render the subject template with the given context.
+        """
 
         if not context:
             request = getattr(_thread_local, "request", None)
@@ -232,7 +250,9 @@ class HorillaMail(HorillaCoreModel):
         return django_engine.from_string(self.subject or "").render(context)
 
     def render_body(self, context=None):
-        from django.template import engines
+        """
+        Render the body template with the given context.
+        """
 
         if not context:
             request = getattr(_thread_local, "request", None)
@@ -245,6 +265,7 @@ class HorillaMail(HorillaCoreModel):
         django_engine = engines["django"]
         return django_engine.from_string(self.body or "").render(context)
 
+    @staticmethod
     def has_xss(value: str) -> bool:
         """Detect common XSS attempts (scripts, event handlers, js URLs, active content)."""
         if not isinstance(value, str):
@@ -269,18 +290,32 @@ class HorillaMail(HorillaCoreModel):
         return result
 
     def get_edit_url(self):
+        """
+        Get the URL to edit this mail.
+        """
         return reverse_lazy("horilla_mail:send_mail_draft_view", kwargs={"pk": self.pk})
 
     def get_view_url(self):
+        """
+        Get the URL to view this mail.
+        """
         return reverse_lazy("horilla_mail:sent_preview_mail", kwargs={"pk": self.pk})
 
     def get_delete_url(self):
+        """
+        Get the URL to delete this mail.
+        """
         return reverse_lazy("horilla_mail:horilla_mail_delete", kwargs={"pk": self.pk})
 
     def get_reschedule_url(self):
+        """
+        Get the URL to reschedule this mail.
+        """
         return reverse_lazy("horilla_mail:reschedule_mail_form", kwargs={"pk": self.pk})
 
     class Meta:
+        """Meta options for the mail model."""
+
         verbose_name = _("Mail")
         verbose_name_plural = _("Mails")
 
@@ -301,6 +336,7 @@ class HorillaMailAttachment(HorillaCoreModel):
         return f"Attachment for Mail {self.mail.id}: {self.file.name}"
 
     def file_name(self):
+        """Return the name of the file."""
         return self.file.name.split("/")[-1]
 
     def save(self, *args, **kwargs):
@@ -312,11 +348,15 @@ class HorillaMailAttachment(HorillaCoreModel):
         super().save(*args, **kwargs)
 
     class Meta:
+        """Meta options for the mail attachment model."""
+
         verbose_name = _("Mail Attachment")
         verbose_name_plural = _("Mail Attachments")
 
 
 class HorillaMailTemplate(HorillaCoreModel):
+    """Model to store mail templates."""
+
     title = models.CharField(max_length=100, verbose_name=_("Template title"))
     body = models.TextField(verbose_name=_("Body"))
     content_type = models.ForeignKey(
@@ -332,26 +372,32 @@ class HorillaMailTemplate(HorillaCoreModel):
         return f"{self.title}"
 
     class Meta:
+        """Meta options for the mail template model."""
+
         verbose_name = _("Mail Template")
         verbose_name_plural = _("Mail Templates")
         unique_together = ["title", "company"]
 
     def get_edit_url(self):
+        """Get the URL to edit this mail template."""
         return reverse_lazy(
             "horilla_mail:mail_template_update_view", kwargs={"pk": self.pk}
         )
 
     def get_delete_url(self):
+        """Get the URL to delete this mail template."""
         return reverse_lazy(
             "horilla_mail:mail_template_delete_view", kwargs={"pk": self.pk}
         )
 
     def get_detail_view_url(self):
+        """Get the URL to view this mail template."""
         return reverse_lazy(
             "horilla_mail:mail_template_detail_view", kwargs={"pk": self.pk}
         )
 
     def get_related_model(self):
+        """Return the related model's verbose name."""
         if self.content_type:
             return self.content_type.model_class()._meta.verbose_name.title()
         return "General"

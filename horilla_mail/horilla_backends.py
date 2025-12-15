@@ -1,3 +1,5 @@
+""" Custom email backend supporting SMTP and Outlook via Microsoft Graph API."""
+
 import logging
 from datetime import datetime, timedelta
 
@@ -7,17 +9,21 @@ from django.contrib import messages
 from django.core.cache import cache
 from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.core.mail.backends.smtp import EmailBackend
-from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from requests_oauthlib import OAuth2Session
 
+from horilla_mail.models import HorillaMailConfiguration
 from horilla_utils.middlewares import _thread_local
 
 logger = logging.getLogger(__name__)
 
 
 class HorillaDefaultMailBackend(EmailBackend):
+    """Custom email backend that dynamically selects email configuration
+    based on the current user's company or specified configuration.
+    Supports both SMTP and Outlook via Microsoft Graph API."""
+
     def __init__(
         self,
         host=None,
@@ -77,7 +83,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @staticmethod
     def get_dynamic_email_config():
-        from horilla_mail.models import HorillaMailConfiguration
+        """Retrieve the appropriate email configuration based on the current request context."""
 
         request = getattr(_thread_local, "request", None)
         from_mail_id = getattr(_thread_local, "from_mail_id", None)
@@ -94,7 +100,7 @@ class HorillaDefaultMailBackend(EmailBackend):
                 configuration = HorillaMailConfiguration.objects.filter(
                     pk=from_mail_id
                 ).first()
-            except:
+            except Exception:
                 messages.error(
                     request, f"Email configuration ID {from_mail_id} not found."
                 )
@@ -143,9 +149,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
         if self.configuration and self.configuration.type == "outlook":
             return self._send_outlook_messages(email_messages)
-        else:
-            # Use default SMTP for email
-            return super().send_messages(email_messages)
+        return super().send_messages(email_messages)
 
     def _send_outlook_messages(self, email_messages):
         """Send messages using Microsoft Graph API"""
@@ -159,8 +163,6 @@ class HorillaDefaultMailBackend(EmailBackend):
                     raise e
 
         return sent_count
-
-    from datetime import datetime
 
     def _get_outlook_access_token(self):
         """Get or refresh Outlook access token"""
@@ -184,7 +186,7 @@ class HorillaDefaultMailBackend(EmailBackend):
                     )
 
             except Exception as e:
-                logger.error("Error parsing expires_at:", e)
+                logger.error("Error parsing expires_at: %s", str(e))
                 return None
 
             if datetime.now() >= expires_at:
@@ -226,8 +228,7 @@ class HorillaDefaultMailBackend(EmailBackend):
                 self.configuration.save(update_fields=["token", "last_refreshed"])
 
                 return token_data.get("access_token")
-            else:
-                raise Exception(f"Token refresh failed: {response.text}")
+            raise Exception(f"Token refresh failed: {response.text}")
 
         except Exception as e:
             raise Exception(f"Failed to refresh token: {str(e)}")
@@ -336,7 +337,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
                     outlook_message["message"]["attachments"].append(attachment_data)
                 except Exception as e:
-                    logger.error(f"Error processing attachment: {e}")
+                    logger.error("Error processing attachment: %s", e)
                     import traceback
 
                     logger.error(traceback.format_exc())
@@ -379,13 +380,14 @@ class HorillaDefaultMailBackend(EmailBackend):
             return True
 
         except Exception as e:
-            logger.error(f"Error sending email: {str(e)}")
+            logger.error("Error sending email: %s", str(e))
             if not self.fail_silently:
                 raise e
             return False
 
     @property
     def dynamic_host(self):
+        """Get dynamic host from configuration or settings"""
         if self.configuration and self.configuration.type == "outlook":
             return None  # Not used for Outlook
         return (
@@ -396,6 +398,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_port(self):
+        """Get dynamic port from configuration or settings"""
         if self.configuration and self.configuration.type == "outlook":
             return None  # Not used for Outlook
         return (
@@ -406,6 +409,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_username(self):
+        """Get dynamic username from configuration or settings"""
         if self.configuration and self.configuration.type == "outlook":
             return self.configuration.from_email
         return (
@@ -416,6 +420,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_mail_sent_from(self):
+        """Get dynamic from email address from configuration or settings"""
         return (
             self.configuration.from_email
             if self.configuration
@@ -424,10 +429,12 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_display_name(self):
+        """Get dynamic display name from configuration"""
         return self.configuration.display_name if self.configuration else None
 
     @property
     def dynamic_from_email_with_display_name(self):
+        """Get from email address with display name formatted as 'Name <email>'"""
         return (
             f"{self.dynamic_display_name} <{self.dynamic_mail_sent_from}>"
             if self.dynamic_display_name
@@ -436,6 +443,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_password(self):
+        """Get dynamic password from configuration or settings"""
         if self.configuration and self.configuration.type == "outlook":
             return None
         return (
@@ -446,6 +454,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_use_tls(self):
+        """Get dynamic TLS setting from configuration or settings"""
         if self.configuration and self.configuration.type == "outlook":
             return False  # Not used for Outlook
         return (
@@ -456,6 +465,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_fail_silently(self):
+        """Get dynamic fail silently setting from configuration or settings"""
         return (
             self.configuration.fail_silently
             if self.configuration
@@ -464,6 +474,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_use_ssl(self):
+        """Get dynamic SSL setting from configuration or settings"""
         if self.configuration and self.configuration.type == "outlook":
             return False  # Not used for Outlook
         return (
@@ -474,6 +485,7 @@ class HorillaDefaultMailBackend(EmailBackend):
 
     @property
     def dynamic_timeout(self):
+        """Get dynamic timeout setting from configuration or settings"""
         return (
             self.configuration.timeout
             if self.configuration

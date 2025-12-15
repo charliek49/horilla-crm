@@ -1,8 +1,12 @@
+"""Django app configuration for the Horilla mail system."""
+
 from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
 
 
 class Horilla_mailConfig(AppConfig):
+    """Configuration class for the Horilla mail application."""
+
     default_auto_field = "django.db.models.BigAutoField"
     name = "horilla_mail"
     verbose_name = _("Mail System")
@@ -51,7 +55,6 @@ class Horilla_mailConfig(AppConfig):
         except Exception as e:
             import logging
 
-            logging.warning(f"Command.ready failed  :   ", e)
-            pass
+            logging.warning("Command.ready failed: %s", e)
 
         super().ready()

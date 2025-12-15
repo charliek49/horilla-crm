@@ -1,4 +1,4 @@
-import django_filters
+"""Filter classes for horilla_mail models."""
 
 from horilla_generics.filters import HorillaFilterSet
 from horilla_mail.models import HorillaMailConfiguration, HorillaMailTemplate
@@ -7,7 +7,11 @@ from horilla_mail.models import HorillaMailConfiguration, HorillaMailTemplate
 
 
 class HorillaMailServerFilter(HorillaFilterSet):
+    """Filter set for HorillaMailConfiguration model."""
+
     class Meta:
+        """Meta class for HorillaMailServerFilter."""
+
         model = HorillaMailConfiguration
         fields = "__all__"
         exclude = ["additional_info", "token"]
@@ -15,7 +19,11 @@ class HorillaMailServerFilter(HorillaFilterSet):
 
 
 class HorillaMailTemplateFilter(HorillaFilterSet):
+    """Filter set for HorillaMailTemplate model."""
+
     class Meta:
+        """Meta class for HorillaMailTemplateFilter."""
+
         model = HorillaMailTemplate
         fields = "__all__"
         exclude = ["additional_info"]

@@ -1,4 +1,7 @@
-from django.apps import apps
+"""
+horilla_mail helper methods.
+"""
+
 from django.db import models
 
 from horilla.registry.feature import FEATURE_REGISTRY

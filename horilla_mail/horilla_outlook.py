@@ -1,12 +1,15 @@
+"""
+horilla_mail Outlook mail server views.
+"""
+
 from datetime import datetime
 from functools import cached_property
 
-from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core import cache
-from django.http import Http404, HttpResponse, HttpResponseRedirect
-from django.shortcuts import redirect, render
+from django.http import HttpResponse, HttpResponseRedirect
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -15,13 +18,7 @@ from django.views import View
 from requests_oauthlib import OAuth2Session
 
 from horilla_core.decorators import htmx_required, permission_required_or_denied
-from horilla_generics.views import (
-    HorillaListView,
-    HorillaNavView,
-    HorillaSingleFormView,
-    HorillaView,
-)
-from horilla_mail.filters import HorillaMailServerFilter
+from horilla_generics.views import HorillaSingleFormView
 from horilla_mail.forms import OutlookMailConfigurationForm
 from horilla_mail.models import HorillaMailConfiguration
 
@@ -62,6 +59,7 @@ class OutlookMailServerFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Get the URL for the form view."""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy(
@@ -85,7 +83,8 @@ class OutlookLoginView(View):
     Handles Outlook login OAuth flow
     """
 
-    def get(self, request, pk=None, *args, **kwargs):
+    def get(self, request, *args, pk=None, **kwargs):
+        """Get the Outlook login URL."""
         selected_company = request.active_company
 
         if pk:
@@ -130,6 +129,7 @@ class OutlookCallbackView(View):
     """
 
     def get(self, request, *args, **kwargs):
+        """Handle the OAuth callback and fetch the token."""
         selected_company = request.active_company
         pk = self.request.session.get("outlook_pk")
 
@@ -205,12 +205,13 @@ class OutlookRefreshTokenView(View):
     """
 
     def get(self, request, pk, *args, **kwargs):
+        """Refresh the Outlook token for the given configuration."""
         try:
             api = HorillaMailConfiguration.objects.get(pk=pk)
-        except:
+        except Exception as e:
             messages.error(
                 request,
-                f"{HorillaMailConfiguration._meta.verbose_name.title()} not found or no longer exists.",
+                e,
             )
             return HttpResponse(
                 "<script>$('#reloadButton').click();closeModal();</script>"
