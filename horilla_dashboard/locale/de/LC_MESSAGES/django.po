@@ -1,0 +1,352 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-19 10:06+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Module for building and customizing interactive dashboards."
+msgstr "Modul zum Erstellen und Anpassen interaktiver Dashboards."
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Home"
+msgstr "Startseite"
+
+msgid "Dashboards"
+msgstr "Dashboards"
+
+msgid "Folder Name"
+msgstr "Ordnername"
+
+msgid "Description"
+msgstr "Beschreibung"
+
+msgid "Folder"
+msgstr "Ordner"
+
+msgid "Favourited By"
+msgstr "Als Favorit markiert von"
+
+msgid "Folder Owner"
+msgstr "Ordnerinhaber"
+
+msgid "Dashboard Folder"
+msgstr "Dashboard-Ordner"
+
+msgid "Dashboard Folders"
+msgstr "Dashboard-Ordner"
+
+msgid "Dashboard Owner"
+msgstr "Dashboard-Inhaber"
+
+msgid "Dashboard Name"
+msgstr "Dashboard-Name"
+
+msgid "Is Default"
+msgstr "Standard"
+
+msgid "Charts"
+msgstr "Diagramme"
+
+msgid "Table Data"
+msgstr "Tabellendaten"
+
+msgid "KPI"
+msgstr "KPI"
+
+msgid "Column Chart"
+msgstr "Säulendiagramm"
+
+msgid "Line Chart"
+msgstr "Liniendiagramm"
+
+msgid "Pie Chart"
+msgstr "Kreisdiagramm"
+
+msgid "Funnel"
+msgstr "Trichter"
+
+msgid "Bar Chart"
+msgstr "Balkendiagramm"
+
+msgid "Donut"
+msgstr "Ringdiagramm"
+
+msgid "Stacked Vertical Chart"
+msgstr "Gestapeltes vertikales Diagramm"
+
+msgid "Stacked Horizontal Chart"
+msgstr "Gestapeltes horizontales Diagramm"
+
+msgid "Count"
+msgstr "Anzahl"
+
+msgid "Sum"
+msgstr "Summe"
+
+msgid "Average"
+msgstr "Durchschnitt"
+
+msgid "Minimum"
+msgstr "Minimum"
+
+msgid "Maximum"
+msgstr "Maximum"
+
+msgid "Component Name"
+msgstr "Komponentenname"
+
+msgid "Component Type"
+msgstr "Komponententyp"
+
+msgid "Chart Type"
+msgstr "Diagrammtyp"
+
+msgid "Reports"
+msgstr "Berichte"
+
+msgid "Module"
+msgstr "Modul"
+
+msgid "Metric Type"
+msgstr "Metriktyp"
+
+msgid "Grouping Field"
+msgstr "Gruppierungsfeld"
+
+msgid "Secondary Grouping (For Stacked)"
+msgstr "Sekundäre Gruppierung (für gestapelte Diagramme)"
+
+msgid "Table Columns"
+msgstr "Tabellenspalten"
+
+msgid "Sequence"
+msgstr "Reihenfolge"
+
+msgid "KPI Icon"
+msgstr "KPI-Symbol"
+
+msgid "Component Owner"
+msgstr "Komponenteninhaber"
+
+msgid "Dashboard Component"
+msgstr "Dashboard-Komponente"
+
+msgid "Dashboard Components"
+msgstr "Dashboard-Komponenten"
+
+msgid "Component"
+msgstr "Komponente"
+
+msgid "Field Name"
+msgstr "Feldname"
+
+msgid "Operator"
+msgstr "Operator"
+
+msgid "Value"
+msgstr "Wert"
+
+msgid "Component Criteria"
+msgstr "Komponentenkriterien"
+
+msgid "Edit"
+msgstr ""
+
+#, fuzzy
+#| msgid "Component Owner"
+msgid "Change Owner"
+msgstr "Komponenteninhaber"
+
+msgid "Delete"
+msgstr "Löschen"
+
+msgid "Close"
+msgstr ""
+
+msgid "Preview"
+msgstr "Vorschau"
+
+msgid "Select component type to see preview"
+msgstr "Wählen Sie einen Komponententyp, um eine Vorschau zu sehen"
+
+msgid "Choose File"
+msgstr "Datei auswählen"
+
+msgid "No file chosen"
+msgstr "Keine Datei ausgewählt"
+
+msgid "Conditions"
+msgstr "Bedingungen"
+
+msgid "Remove"
+msgstr ""
+
+msgid "Save"
+msgstr "Speichern"
+
+msgid "Add components"
+msgstr "Komponenten hinzufügen"
+
+msgid "Reorder"
+msgstr "Neu anordnen"
+
+msgid "Loading KPI..."
+msgstr "KPI wird geladen..."
+
+msgid "Charts & Data"
+msgstr "Diagramme & Daten"
+
+msgid "Export as PNG"
+msgstr "Als PNG exportieren"
+
+msgid "Export as PDF"
+msgstr "Als PDF exportieren"
+
+msgid "Update"
+msgstr "Aktualisieren"
+
+msgid "Add to Another Dashboard"
+msgstr "Zu einem anderen Dashboard hinzufügen"
+
+msgid " Loading chart..."
+msgstr " Diagramm wird geladen..."
+
+msgid "Created From report"
+msgstr "Aus Bericht erstellt"
+
+msgid "No Components Added"
+msgstr "Keine Komponenten hinzugefügt"
+
+msgid ""
+"This dashboard doesn't have any components yet. Add charts, tables, KPIs, or "
+"targets to visualize your data."
+msgstr ""
+"Dieses Dashboard enthält noch keine Komponenten. Fügen Sie Diagramme, "
+"Tabellen, KPIs oder Ziele hinzu, um Ihre Daten zu visualisieren."
+
+msgid "Reorder Components"
+msgstr "Komponenten neu anordnen"
+
+msgid "Reorder KPIs"
+msgstr "KPIs neu anordnen"
+
+msgid "Chart"
+msgstr "Diagramm"
+
+msgid "No components to reorder"
+msgstr "Keine Komponenten zum Neuordnen"
+
+msgid "Save Component Order"
+msgstr "Komponentenreihenfolge speichern"
+
+msgid "No KPI components to reorder"
+msgstr "Keine KPI-Komponenten zum Neuordnen"
+
+msgid "Save KPI Order"
+msgstr "KPI-Reihenfolge speichern"
+
+msgid "All Dashboards"
+msgstr "Alle Dashboards"
+
+msgid "Folders"
+msgstr "Ordner"
+
+msgid "All Folders"
+msgstr "Alle Ordner"
+
+msgid "Favourites"
+msgstr "Favoriten"
+
+msgid "Welcome"
+msgstr "Willkommen"
+
+msgid "View All Dashboards"
+msgstr "Alle Dashboards anzeigen"
+
+msgid ""
+"Get started by creating your first dashboard or explore the overview below."
+msgstr ""
+"Beginnen Sie mit der Erstellung Ihres ersten Dashboards oder erkunden Sie "
+"die Übersicht unten."
+
+msgid ""
+"You currently don't have access to dashboard. Please contact your "
+"administrator to request permissions or explore available features."
+msgstr ""
+"Sie haben derzeit keinen Zugriff auf das Dashboard. Bitte wenden Sie sich an "
+"Ihren Administrator, um Berechtigungen anzufordern oder verfügbare "
+"Funktionen zu erkunden."
+
+msgid "Records"
+msgstr "Datensätze"
+
+msgid " Delete"
+msgstr " Löschen"
+
+msgid " Add to Another Dashboard"
+msgstr " Zu einem anderen Dashboard hinzufügen"
+
+#, fuzzy
+#| msgid "KPI Icon"
+msgid "KPI icon"
+msgstr "KPI-Symbol"
+
+msgid "New Dashboard"
+msgstr "Neues Dashboard"
+
+msgid "New Folder"
+msgstr "Neuer Ordner"
+
+msgid "Component updated successfully!"
+msgstr "Komponente erfolgreich aktualisiert!"
+
+msgid "Component added successfully!"
+msgstr "Komponente erfolgreich hinzugefügt!"
+
+msgid "Move to Dashboard"
+msgstr "In Dashboard verschieben"
+
+msgid "Original component not found."
+msgstr "Ursprüngliche Komponente nicht gefunden."
+
+msgid "Chart successfully added to another dashboard!"
+msgstr "Diagramm erfolgreich zu einem anderen Dashboard hinzugefügt!"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Type"
+msgstr "Typ"
+
+#, fuzzy
+#| msgid "View All Dashboards"
+msgid "Favourite Dashboards"
+msgstr "Alle Dashboards anzeigen"
+
+msgid "Add to Dashboard"
+msgstr "Zum Dashboard hinzufügen"
+
+msgid "This report '{}' is already added to the '{}' dashboard."
+msgstr "Dieser Bericht '{}' ist bereits dem Dashboard '{}' hinzugefügt."
+
+msgid "Report added to dashboard successfully!"
+msgstr "Bericht erfolgreich zum Dashboard hinzugefügt!"
+
+msgid "Report not found."
+msgstr "Bericht nicht gefunden."

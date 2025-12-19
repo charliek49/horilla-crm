@@ -1,0 +1,350 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-19 10:06+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+msgid "Module for building and customizing interactive dashboards."
+msgstr "وحدة لبناء لوحات تحكم تفاعلية وتخصيصها."
+
+msgid "Dashboard"
+msgstr "لوحة التحكم"
+
+msgid "Home"
+msgstr "الرئيسية"
+
+msgid "Dashboards"
+msgstr "لوحات التحكم"
+
+msgid "Folder Name"
+msgstr "اسم المجلد"
+
+msgid "Description"
+msgstr "الوصف"
+
+msgid "Folder"
+msgstr "المجلد"
+
+msgid "Favourited By"
+msgstr "مُضاف إلى المفضلة بواسطة"
+
+msgid "Folder Owner"
+msgstr "مالك المجلد"
+
+msgid "Dashboard Folder"
+msgstr "مجلد لوحة التحكم"
+
+msgid "Dashboard Folders"
+msgstr "مجلدات لوحة التحكم"
+
+msgid "Dashboard Owner"
+msgstr "مالك لوحة التحكم"
+
+msgid "Dashboard Name"
+msgstr "اسم لوحة التحكم"
+
+msgid "Is Default"
+msgstr "افتراضي"
+
+msgid "Charts"
+msgstr "الرسوم البيانية"
+
+msgid "Table Data"
+msgstr "بيانات الجدول"
+
+msgid "KPI"
+msgstr "مؤشر الأداء الرئيسي"
+
+msgid "Column Chart"
+msgstr "مخطط أعمدة"
+
+msgid "Line Chart"
+msgstr "مخطط خطي"
+
+msgid "Pie Chart"
+msgstr "مخطط دائري"
+
+msgid "Funnel"
+msgstr "قمع"
+
+msgid "Bar Chart"
+msgstr "مخطط شريطي"
+
+msgid "Donut"
+msgstr "مخطط حلقي"
+
+msgid "Stacked Vertical Chart"
+msgstr "مخطط عمودي متراكم"
+
+msgid "Stacked Horizontal Chart"
+msgstr "مخطط أفقي متراكم"
+
+msgid "Count"
+msgstr "العدد"
+
+msgid "Sum"
+msgstr "المجموع"
+
+msgid "Average"
+msgstr "المتوسط"
+
+msgid "Minimum"
+msgstr "الحد الأدنى"
+
+msgid "Maximum"
+msgstr "الحد الأقصى"
+
+msgid "Component Name"
+msgstr "اسم المكوّن"
+
+msgid "Component Type"
+msgstr "نوع المكوّن"
+
+msgid "Chart Type"
+msgstr "نوع المخطط"
+
+msgid "Reports"
+msgstr "التقارير"
+
+msgid "Module"
+msgstr "الوحدة"
+
+msgid "Metric Type"
+msgstr "نوع المقياس"
+
+msgid "Grouping Field"
+msgstr "حقل التجميع"
+
+msgid "Secondary Grouping (For Stacked)"
+msgstr "التجميع الثانوي (للمخططات المتراكمة)"
+
+msgid "Table Columns"
+msgstr "أعمدة الجدول"
+
+msgid "Sequence"
+msgstr "التسلسل"
+
+msgid "KPI Icon"
+msgstr "أيقونة مؤشر الأداء"
+
+msgid "Component Owner"
+msgstr "مالك المكوّن"
+
+msgid "Dashboard Component"
+msgstr "مكوّن لوحة التحكم"
+
+msgid "Dashboard Components"
+msgstr "مكوّنات لوحة التحكم"
+
+msgid "Component"
+msgstr "المكوّن"
+
+msgid "Field Name"
+msgstr "اسم الحقل"
+
+msgid "Operator"
+msgstr "المشغّل"
+
+msgid "Value"
+msgstr "القيمة"
+
+msgid "Component Criteria"
+msgstr "معايير المكوّن"
+
+msgid "Edit"
+msgstr ""
+
+#, fuzzy
+#| msgid "Component Owner"
+msgid "Change Owner"
+msgstr "مالك المكوّن"
+
+msgid "Delete"
+msgstr "حذف"
+
+msgid "Close"
+msgstr ""
+
+msgid "Preview"
+msgstr "معاينة"
+
+msgid "Select component type to see preview"
+msgstr "اختر نوع المكوّن لعرض المعاينة"
+
+msgid "Choose File"
+msgstr "اختر ملفًا"
+
+msgid "No file chosen"
+msgstr "لم يتم اختيار ملف"
+
+msgid "Conditions"
+msgstr "الشروط"
+
+msgid "Remove"
+msgstr ""
+
+msgid "Save"
+msgstr "حفظ"
+
+msgid "Add components"
+msgstr "إضافة مكوّنات"
+
+msgid "Reorder"
+msgstr "إعادة الترتيب"
+
+msgid "Loading KPI..."
+msgstr "جارٍ تحميل مؤشر الأداء..."
+
+msgid "Charts & Data"
+msgstr "الرسوم والبيانات"
+
+msgid "Export as PNG"
+msgstr "تصدير كـ PNG"
+
+msgid "Export as PDF"
+msgstr "تصدير كـ PDF"
+
+msgid "Update"
+msgstr "تحديث"
+
+msgid "Add to Another Dashboard"
+msgstr "إضافة إلى لوحة تحكم أخرى"
+
+msgid " Loading chart..."
+msgstr " جارٍ تحميل المخطط..."
+
+msgid "Created From report"
+msgstr "تم الإنشاء من التقرير"
+
+msgid "No Components Added"
+msgstr "لم تتم إضافة أي مكوّنات"
+
+msgid ""
+"This dashboard doesn't have any components yet. Add charts, tables, KPIs, or "
+"targets to visualize your data."
+msgstr ""
+"لا تحتوي لوحة التحكم هذه على أي مكوّنات بعد. أضف مخططات أو جداول أو مؤشرات "
+"أداء أو أهداف لعرض بياناتك."
+
+msgid "Reorder Components"
+msgstr "إعادة ترتيب المكوّنات"
+
+msgid "Reorder KPIs"
+msgstr "إعادة ترتيب مؤشرات الأداء"
+
+msgid "Chart"
+msgstr "مخطط"
+
+msgid "No components to reorder"
+msgstr "لا توجد مكوّنات لإعادة ترتيبها"
+
+msgid "Save Component Order"
+msgstr "حفظ ترتيب المكوّنات"
+
+msgid "No KPI components to reorder"
+msgstr "لا توجد مكوّنات لمؤشرات الأداء لإعادة ترتيبها"
+
+msgid "Save KPI Order"
+msgstr "حفظ ترتيب مؤشرات الأداء"
+
+msgid "All Dashboards"
+msgstr "جميع لوحات التحكم"
+
+msgid "Folders"
+msgstr "المجلدات"
+
+msgid "All Folders"
+msgstr "جميع المجلدات"
+
+msgid "Favourites"
+msgstr "المفضلة"
+
+msgid "Welcome"
+msgstr "مرحبًا"
+
+msgid "View All Dashboards"
+msgstr "عرض جميع لوحات التحكم"
+
+msgid ""
+"Get started by creating your first dashboard or explore the overview below."
+msgstr "ابدأ بإنشاء لوحة التحكم الأولى أو استكشف النظرة العامة أدناه."
+
+msgid ""
+"You currently don't have access to dashboard. Please contact your "
+"administrator to request permissions or explore available features."
+msgstr ""
+"لا تملك حاليًا صلاحية الوصول إلى لوحة التحكم. يرجى التواصل مع المسؤول لطلب "
+"الأذونات أو استكشاف الميزات المتاحة."
+
+msgid "Records"
+msgstr "السجلات"
+
+msgid " Delete"
+msgstr " حذف"
+
+msgid " Add to Another Dashboard"
+msgstr " إضافة إلى لوحة تحكم أخرى"
+
+#, fuzzy
+#| msgid "KPI Icon"
+msgid "KPI icon"
+msgstr "أيقونة مؤشر الأداء"
+
+msgid "New Dashboard"
+msgstr "لوحة تحكم جديدة"
+
+msgid "New Folder"
+msgstr "مجلد جديد"
+
+msgid "Component updated successfully!"
+msgstr "تم تحديث المكوّن بنجاح!"
+
+msgid "Component added successfully!"
+msgstr "تمت إضافة المكوّن بنجاح!"
+
+msgid "Move to Dashboard"
+msgstr "نقل إلى لوحة التحكم"
+
+msgid "Original component not found."
+msgstr "لم يتم العثور على المكوّن الأصلي."
+
+msgid "Chart successfully added to another dashboard!"
+msgstr "تمت إضافة المخطط بنجاح إلى لوحة تحكم أخرى!"
+
+msgid "Name"
+msgstr "الاسم"
+
+msgid "Type"
+msgstr "النوع"
+
+#, fuzzy
+#| msgid "View All Dashboards"
+msgid "Favourite Dashboards"
+msgstr "عرض جميع لوحات التحكم"
+
+msgid "Add to Dashboard"
+msgstr "إضافة إلى لوحة التحكم"
+
+msgid "This report '{}' is already added to the '{}' dashboard."
+msgstr "هذا التقرير '{}' مضاف بالفعل إلى لوحة التحكم '{}'."
+
+msgid "Report added to dashboard successfully!"
+msgstr "تمت إضافة التقرير إلى لوحة التحكم بنجاح!"
+
+msgid "Report not found."
+msgstr "لم يتم العثور على التقرير."
