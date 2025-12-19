@@ -1,13 +1,15 @@
-from django.db.models.signals import post_save, pre_save
+"""Signal handlers for horilla_activity app."""
+
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from horilla_core.models import HorillaUser
+from horilla.auth.models import User
 from horilla_keys.models import ShortcutKey
 
 
-# Define your activity signals here
-@receiver(post_save, sender=HorillaUser)
+@receiver(post_save, sender=User)
 def create_activity_shortcuts(sender, instance, created, **kwargs):
+    """Create default activity shortcuts for new users."""
     predefined = [
         {"page": "/activity/activity-view/", "key": "Y", "command": "alt"},
     ]
