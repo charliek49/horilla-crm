@@ -191,6 +191,18 @@ class OpportunityListView(LoginRequiredMixin, HorillaListView):
                             onclick="openDeleteModeModal()"
                         """,
             },
+            {
+                "action": _("Duplicate"),
+                "src": "assets/icons/duplicate.svg",
+                "img_class": "w-4 h-4",
+                "permission": "opportunities.add_opportunity",
+                "attrs": """
+                              hx-get="{get_duplicate_url}?duplicate=true"
+                              hx-target="#modalBox"
+                              hx-swap="innerHTML"
+                              onclick="openModal()"
+                             """,
+            },
         ]
         return actions
 
@@ -239,7 +251,7 @@ class OpportunityKanbanView(LoginRequiredMixin, HorillaKanbanView):
 
         query_string = urlencode(query_params)
         return {
-            "hx-get": f"{self.get_detail_url}?{query_string}",
+            "hx-get": f"{{get_detail_url}}?{query_string}",
             "hx-target": "#mainContent",
             "hx-swap": "outerHTML",
             "hx-push-url": "true",

@@ -68,24 +68,28 @@ class HorillaActivitySectionView(DetailView):
         return super().dispatch(request, *args, **kwargs)
 
     def add_task_button(self):
+        """Return button configuration for creating a new task."""
         return {
             "url": f"""{ reverse_lazy('horilla_activity:task_create_form')}""",
             "attrs": 'id="task-create"',
         }
 
     def add_meetings_button(self):
+        """Return button configuration for creating a new meeting."""
         return {
             "url": f"""{ reverse_lazy('horilla_activity:meeting_create_form')}""",
             "attrs": 'id="meeting-create"',
         }
 
     def add_call_button(self):
+        """Return button configuration for creating a new call log."""
         return {
             "url": f"""{ reverse_lazy('horilla_activity:call_create_form')}""",
             "attrs": 'id="call-create"',
         }
 
     def add_email_button(self):
+        """Return button configuration for sending an email."""
         return {
             "url": f"""{ reverse_lazy('horilla_mail:send_mail_view')}""",
             "attrs": 'id="email-create"',
@@ -93,6 +97,7 @@ class HorillaActivitySectionView(DetailView):
         }
 
     def add_event_button(self):
+        """Return button configuration for creating a new event."""
         return {
             "url": f"""{ reverse_lazy('horilla_activity:event_create_form')}""",
             "attrs": 'id="event-create"',
@@ -133,7 +138,7 @@ class ActivityView(LoginRequiredMixin, HorillaView):
 )
 class ActivityNavbar(LoginRequiredMixin, HorillaNavView):
     """
-    Navigation view for managing Activity-related pages, including list, Kanban, and creation options.
+    Navigation view for managing activity.
     """
 
     nav_title = Activity._meta.verbose_name_plural
@@ -148,13 +153,13 @@ class ActivityNavbar(LoginRequiredMixin, HorillaNavView):
     @cached_property
     def new_button(self):
         """
-        Returns a dictionary containing the URL for creating a new Activity if the user has the required permission.
+        URL for creating a new Activity..
         """
-
         if self.request.user.has_perm("horilla_activity.add_activity"):
             return {
                 "url": f"""{ reverse_lazy('horilla_activity:activity_create_form')}?new=true""",
             }
+        return None
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -181,7 +186,8 @@ class AllActivityListView(LoginRequiredMixin, HorillaListView):
     @cached_property
     def col_attrs(self):
         """
-        Defines column attributes for rendering clickable Activity entries that load detailed views dynamically using HTMX.
+        Defines column attributes for rendering clickable Activity entries
+        that load detailed views dynamically using HTMX.
         """
 
         query_params = {}
@@ -250,6 +256,18 @@ class AllActivityListView(LoginRequiredMixin, HorillaListView):
                             onclick="openDeleteModeModal()"
                         """,
             },
+            {
+                "action": _("Duplicate"),
+                "src": "assets/icons/duplicate.svg",
+                "img_class": "w-4 h-4",
+                "permission": "horilla_activity.add_activity",
+                "attrs": """
+                              hx-get="{get_activity_edit_url}?duplicate=true"
+                              hx-target="#modalBox"
+                              hx-swap="innerHTML"
+                              onclick="openModal()"
+                             """,
+            },
         ]
 
         return actions
@@ -285,7 +303,8 @@ class AcivityKanbanView(LoginRequiredMixin, HorillaKanbanView):
     @cached_property
     def kanban_attrs(self):
         """
-        Defines column attributes for rendering clickable Activity entries that load detailed views dynamically using HTMX.
+        Defines column attributes for rendering clickable Activity entries
+        that load detailed views dynamically using HTMX.
         """
 
         query_params = {}
@@ -633,22 +652,26 @@ class ActivityDeleteView(HorillaSingleDeleteView):
             )
         if activity_type == "task":
             return HttpResponse(
-                "<script>$('#TaskTab').click();closeDeleteModeModal();$('#reloadButton').click();</script>"
+                "<script>$('#TaskTab').click();closeDeleteModeModal();"
+                "$('#reloadButton').click();</script>"
             )
-        elif activity_type == "meeting":
+        if activity_type == "meeting":
             return HttpResponse(
-                "<script>$'#MeetingsTab').click();closeDeleteModeModal();$('#reloadButton').click();;</script>"
+                "<script>$'#MeetingsTab').click();closeDeleteModeModal();"
+                "$('#reloadButton').click();;</script>"
             )
-        elif activity_type == "event":
+        if activity_type == "event":
             return HttpResponse(
-                "<script>$('#EventTab').click();closeDeleteModeModal();$('#reloadButton').click();</script>"
+                "<script>$('#EventTab').click();closeDeleteModeModal();"
+                "$('#reloadButton').click();</script>"
             )
-        elif activity_type == "log_call":
+        if activity_type == "log_call":
             return HttpResponse(
-                "<script>$('#CallsTab).click();closeDeleteModeModal();$('#reloadButton').click();</script>"
+                "<script>$('#CallsTab).click();closeDeleteModeModal();"
+                "$('#reloadButton').click();</script>"
             )
-        else:
-            return HttpResponse("<script>$('#reloadButton').click();</script>")
+
+        return HttpResponse("<script>$('#reloadButton').click();</script>")
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -1405,8 +1428,7 @@ class MeetingsCreateForm(LoginRequiredMixin, HorillaSingleFormView):
                 initial["is_all_day"] = False
 
             elif all_day is not None:
-                all_days = True if all_day == "on" else False
-                initial["is_all_day"] = all_days
+                initial["is_all_day"] = all_day == "on"
 
             elif hasattr(self, "object") and self.object:
                 initial["is_all_day"] = self.object.is_all_day
@@ -1418,7 +1440,7 @@ class MeetingsCreateForm(LoginRequiredMixin, HorillaSingleFormView):
                 initial["activity_type"] = "meeting"
                 initial["owner"] = self.request.user
 
-            return initial
+        return initial
 
     def get(self, request, *args, **kwargs):
         pk = self.kwargs.get("pk")
@@ -1766,8 +1788,7 @@ class EventCreateForm(LoginRequiredMixin, HorillaSingleFormView):
 
             # If we have GET parameter for is_all_day, use it
             elif all_day is not None:
-                all_days = True if all_day == "on" else False
-                initial["is_all_day"] = all_days
+                initial["is_all_day"] = all_day == "on"
 
             # If we're editing an existing event and no GET parameter, use the model value
             elif hasattr(self, "object") and self.object:
@@ -1780,7 +1801,7 @@ class EventCreateForm(LoginRequiredMixin, HorillaSingleFormView):
                 initial["activity_type"] = "event"
                 initial["owner"] = self.request.user
 
-            return initial
+        return initial
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -1930,8 +1951,7 @@ class ActivityCreateView(LoginRequiredMixin, HorillaSingleFormView):
             if toggle_is_all_day == "true" and self.kwargs.get("pk"):
                 initial["is_all_day"] = False
             elif all_day is not None:
-                all_days = True if all_day == "on" else False
-                initial["is_all_day"] = all_days
+                initial["is_all_day"] = all_day == "on"
             elif hasattr(self, "object") and self.object:
                 initial["is_all_day"] = self.object.is_all_day
 
@@ -2027,6 +2047,15 @@ class ActivityCreateView(LoginRequiredMixin, HorillaSingleFormView):
                 kwargs["initial"]["content_type"] = self.request.GET.get("content_type")
             if "object_id" in self.request.GET:
                 kwargs["initial"]["object_id"] = self.request.GET.get("object_id")
+
+            if (
+                self.duplicate_mode
+                and "initial" in kwargs
+                and "content_type" in kwargs["initial"]
+            ):
+                content_type_value = kwargs["initial"]["content_type"]
+                if hasattr(content_type_value, "id"):
+                    kwargs["initial"]["content_type"] = content_type_value.id
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -2039,7 +2068,8 @@ class ActivityCreateView(LoginRequiredMixin, HorillaSingleFormView):
     @cached_property
     def form_url(self):
         """
-        Returns the appropriate form URL for creating or editing an Activity based on the presence of a primary key (pk).
+        Returns the appropriate form URL for creating or editing an Activity
+        based on the presence of a primary key (pk).
         """
 
         pk = self.kwargs.get("pk") or self.request.GET.get("id")

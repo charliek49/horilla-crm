@@ -205,6 +205,18 @@ class CampaignListView(LoginRequiredMixin, HorillaListView):
                             onclick="openDeleteModeModal()"
                         """,
             },
+            {
+                "action": _("Duplicate"),
+                "src": "assets/icons/duplicate.svg",
+                "img_class": "w-4 h-4",
+                "permission": "campaigns.add_campaign",
+                "attrs": """
+                              hx-get="{get_duplicate_url}?duplicate=true"
+                              hx-target="#modalBox"
+                              hx-swap="innerHTML"
+                              onclick="openModal()"
+                             """,
+            },
         ]
         return actions
 
@@ -299,9 +311,9 @@ class CampaignFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     fullwidth_fields = ["number_sent", "description"]
     total_steps = 3
     step_titles = {
-        "1": "Campaign Information",
-        "2": "Financial Information",
-        "3": "Additional Information",
+        "1": _("Campaign Information"),
+        "2": _("Financial Information"),
+        "3": _("Additional Information"),
     }
 
     single_step_url_name = {
@@ -733,10 +745,8 @@ class AddChildCampaignFormView(LoginRequiredMixin, FormView):
     def get(self, request, *args, **kwargs):
 
         campaign_id = request.GET.get("id")
-        if (
-            request.user.has_perm("campaigns.change_campaign")
-            or request.user.has_perm("campaigns.create_campaign")
-            or request.user.is_superuser
+        if request.user.has_perm("campaigns.change_campaign") or request.user.has_perm(
+            "campaigns.create_campaign"
         ):
             return super().get(request, *args, **kwargs)
 

@@ -394,6 +394,12 @@ class Campaign(HorillaCoreModel):
 
         return reverse_lazy("campaigns:campaign_detail_view", kwargs={"pk": self.pk})
 
+    def get_duplicate_url(self):
+        """
+        This method to get edit url
+        """
+        return reverse_lazy("campaigns:campaign_single_edit", kwargs={"pk": self.pk})
+
     def get_specific_member_edit_url(self, object_model=None, object_id=None):
         """
         Returns the edit URL for the CampaignMember linked to the given object_model and object_id.
