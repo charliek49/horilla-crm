@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Horilla CRM - Login</title>
+    <title>{{ TITLE }} - Login</title>
 
     <!-- Theme Initialization (Blocking) -->
     <script>
@@ -73,10 +73,10 @@
         {% block login %}
         <!-- LOGIN FORM -->
         <div id="sec1" class="bg-white p-[50px] rounded-md shadow w-[450px]">
-            <img src="{% static 'assets/img/logo.svg' %}" alt="Horilla Logo" class="m-auto mb-4" />
-            <h1 class="text-3xl font-bold mb-2 text-center">{% trans "Welcome to Horilla CRM" %}</h1>
+            <img src="{% static LOGO_PATH %}" alt="{% trans 'Logo' %}" class="m-auto mb-4" />
+            <h1 class="text-3xl font-bold mb-2 text-center">{{ LOGIN_WELCOME_LINE }}</h1>
             <p class="mb-5 text-center text-sm text-color-600">
-                {% trans "Please sign in to access your dashboard" %}
+                {{ LOGIN_TAG_LINE }}
             </p>
 
             <form method="post" action="{% url 'horilla_core:login' %}">
@@ -108,8 +108,8 @@
                         class="text-color-600 p-3 pr-[40px] w-full border border-dark-50 rounded-md mt-1 placeholder:text-dark-100 text-sm focus:border-primary-600 focus-visible:outline-0"
                     />
                     <button type="button" onclick="togglePassword()" class="absolute right-3 top-0 bottom-0 m-auto cursor-pointer">
-                        <img id="eyeIcon" src="{% static 'assets/icons/eye.svg' %}" alt="Toggle visibility" />
-                        <img id="eyeHideIcon" src="{% static 'assets/icons/eye-hide.svg' %}" width="21" alt="Toggle visibility" class="hidden" />
+                        <img id="eyeIcon" src="{% static 'assets/icons/eye.svg' %}" alt="{% trans 'Toggle visibility' %}" />
+                        <img id="eyeHideIcon" src="{% static 'assets/icons/eye-hide.svg' %}" width="21" alt="{% trans 'Toggle visibility' %}" class="hidden" />
                     </button>
                 </div>
 
@@ -133,7 +133,7 @@
                     type="submit"
                     class="p-3 bg-primary-600 hover:bg-secondary-600 w-full flex gap-3 justify-center rounded-md text-white transition duration-300"
                 >
-                    <img src="{% static 'assets/icons/sign.svg' %}" alt="" />
+                    <img src="{% static 'assets/icons/sign.svg' %}" alt="{% trans 'Arrow' %}" />
                     {% trans "Sign In" %}
                 </button>
             </form>
@@ -149,7 +149,7 @@
                     hx-select="#load-sec"
                 >
                     {% trans "Load Demo Data" %}
-                    <img src="{% static 'assets/icons/ar1.svg' %}" alt="" />
+                    <img src="{% static 'assets/icons/ar1.svg' %}" alt="{% trans 'Arrow' %}" />
                 </button>
                 <button
                     class="btn-with-icon flex gap-3 text-sm px-[15px] py-[13px] rounded-md text-[#E54F38] bg-[#ffefed] hover:bg-[#e54f38] hover:text-[white] transition duration-300 cursor-pointer whitespace-nowrap"
@@ -160,7 +160,7 @@
                     hx-select="#initialize-sec"
                 >
                     {% trans "Initialize Database" %}
-                    <img src="{% static 'assets/icons/ar2.svg' %}" alt="" />
+                    <img src="{% static 'assets/icons/ar2.svg' %}" alt="{% trans 'Arrow' %}" />
                 </button>
             </div>
             {% endif %}

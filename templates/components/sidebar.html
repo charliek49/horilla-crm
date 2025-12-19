@@ -3,7 +3,7 @@
 <div class="fixed inset-y-0 left-0 w-auto bg-white border-r border-r-primary-400 z-40">
     <div class="p-4">
         <div class="flex items-center justify-center gap-2 mb-8">
-            <img src="{% static '/assets/img/horilla-logo.png' %}" alt="Logo" class="w-8 h-8" />
+            <img src="{% static LOGO_PATH %}" alt="{% trans 'Logo' %}" class="w-8 h-8" />
         </div>
 
         <nav class="relative space-y-2">
@@ -30,7 +30,7 @@
             <ul class="floating-nav">
                 {% for menu in floating_menu %}
                     <li hx-get="{{ menu.url }}?{{ request.GET.urlencode }}" {% for key, value in menu.items.items %} {{ key }}="{{ value }}" {% endfor %}>
-                        <img src="{% static menu.icon %}" alt="" width="17" class="w-4 h-4 brightness-0 invert" />
+                        <img src="{% static menu.icon %}" alt="{% trans 'Icon' %}" width="17" class="w-4 h-4 brightness-0 invert" />
                         <span class="text">{{ menu.title }}</span>
                     </li>
                 {% endfor %}

@@ -17,6 +17,7 @@ from horilla.menu.main_section_menu import get_main_section_menu
 from horilla.menu.my_settings_menu import get_my_settings_menu
 from horilla.menu.settings_menu import get_settings_menu
 from horilla.menu.sub_section_menu import get_sub_section_menu
+from horilla.utils.branding import load_branding
 from horilla_core.models import Company, RecentlyViewed
 from horilla_notifications.models import Notification
 
@@ -111,3 +112,12 @@ def currency_context(request):
         "user_currency": user_currency,
         "default_currency": default_currency,
     }
+
+
+def branding(request):
+    """
+    Django context processor function that retrun
+    dictionary containing branding configuration values such as
+    TITLE, LOGIN_WELCOME_LINE, LOGO_PATH, etc.
+    """
+    return load_branding()
