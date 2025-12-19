@@ -33,9 +33,10 @@ urlpatterns = [
     path("login/", views.LoginUserView.as_view(), name="login"),
     path("logout/", views.LogoutView.as_view(), name="logout"),
     path("active-tab/", views.SaveActiveTabView.as_view(), name="active_tab"),
-    path(
-        "favicon.ico", RedirectView.as_view(url=staticfiles_storage.url("favicon.ico"))
-    ),
+    # path(
+    #     "favicon.ico", RedirectView.as_view(url=staticfiles_storage.url("favicon.ico"))
+    # ),
+    path("favicon.ico", views.FaviconRedirectView.as_view()),
     path("settings-view/", views.SettingView.as_view(), name="settings_view"),
     path("my-settings-view/", views.MySettingView.as_view(), name="my_settings_view"),
     path(
@@ -231,6 +232,16 @@ urlpatterns = [
         "user-edit-form/<int:pk>/",
         user_views.UserFormView.as_view(),
         name="user_edit_form",
+    ),
+    path(
+        "user-create-single-form/",
+        user_views.UserFormViewSingle.as_view(),
+        name="user_create_single_form",
+    ),
+    path(
+        "user-edit-single-form/<int:pk>/",
+        user_views.UserFormViewSingle.as_view(),
+        name="user_edit_single_form",
     ),
     path(
         "user-delete-view/<int:pk>/",
