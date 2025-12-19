@@ -10,7 +10,7 @@ class HorillaCalendarConfig(AppConfig):
 
     default_auto_field = "django.db.models.BigAutoField"
     name = "horilla_calendar"
-    verbose_name = _("Horilla Calendar")
+    verbose_name = _("Calendar")
 
     def get_api_paths(self):
         """
