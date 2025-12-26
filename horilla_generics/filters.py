@@ -1,6 +1,7 @@
 import logging
 
 import django_filters
+from django.db import models
 from django.db.models import Q
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,29 @@ class HorillaFilterSet(django_filters.FilterSet):
         """Return appropriate operators for a given field type"""
         return OPERATOR_CHOICES.get(field_type, OPERATOR_CHOICES["other"])
 
+    def _convert_boolean_value(self, value, model, field_name):
+        """Convert boolean string values to proper format for filtering"""
+        if value is None:
+            return None
+
+        # Check if the field is a BooleanField
+        try:
+            field = model._meta.get_field(field_name)
+            if isinstance(field, models.BooleanField):
+                # Convert lowercase "true"/"false" to proper boolean or capitalized string
+                value_lower = str(value).lower()
+                if value_lower == "true":
+                    return True
+                elif value_lower == "false":
+                    return False
+                # If already "True" or "False", return as is
+                elif value in ("True", "False"):
+                    return value == "True"
+        except (models.FieldDoesNotExist, AttributeError):
+            pass
+
+        return value
+
     def filter_queryset(self, queryset):
         """
         Override the default filter_queryset to handle our custom filtering approach.
@@ -116,9 +140,14 @@ class HorillaFilterSet(django_filters.FilterSet):
                 continue
 
             try:
+                # Get the model from queryset
+                model = queryset.model
+
                 if operator == "ne":
                     value = values[i] if i < len(values) else None
                     if value is not None:
+                        # Convert boolean value if needed
+                        value = self._convert_boolean_value(value, model, field)
                         queryset = queryset.exclude(**{field: value})
 
                 elif operator == "between":
@@ -143,6 +172,8 @@ class HorillaFilterSet(django_filters.FilterSet):
                 else:
                     value = values[i] if i < len(values) else None
                     if value is not None:
+                        # Convert boolean value if needed
+                        value = self._convert_boolean_value(value, model, field)
                         queryset = queryset.filter(**{f"{field}__{operator}": value})
 
             except Exception as e:

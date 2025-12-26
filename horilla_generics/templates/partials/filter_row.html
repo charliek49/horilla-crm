@@ -215,23 +215,21 @@
 
   {% elif row.type == 'boolean' %}
   <!-- Boolean field uses radio buttons -->
-  <div class="flex gap-4">
-    <label class="inline-flex items-center">
-      <input
-        type="radio"
-        name="value[{{ row_id }}]"
+  <div class="radio-group flex gap-4 mt-2">
+    <label class="flex items-center gap-2">
+      <input hidden type="radio" name="value"
         value="true"
-        class="mr-2"
+        {% if row.value == 'true' or row.value == 'True' %}checked{% endif %}
       />
+      <span class="custom-radio"></span>
       <span>True</span>
     </label>
-    <label class="inline-flex items-center">
-      <input
-        type="radio"
-        name="value[{{ row_id }}]"
+    <label class="flex items-center gap-2">
+      <input hidden type="radio" name="value"
         value="false"
-        class="mr-2"
+        {% if row.value == 'false' or row.value == 'False' %}checked{% endif %}
       />
+      <span class="custom-radio"></span>
       <span>False</span>
     </label>
   </div>
