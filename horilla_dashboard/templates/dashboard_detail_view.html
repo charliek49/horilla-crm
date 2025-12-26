@@ -31,7 +31,7 @@
                             <button
                                 hx-get="{% url 'horilla_dashboard:component_create' %}?{{ request.GET.urlencode}}&dashboard={{current_obj.pk}}"
                                 onclick="openModal()" hx-target="#modalBox" hx-swap="innerHTML"
-                                class="border border-primary-500 btn-with-icon flex items-center gap-3 text-sm px-4 py-2 rounded-md text-[#E54F38] bg-[#ffefed] hover:bg-[#e54f38] hover:text-[white] transition duration-300 cursor-pointer">
+                                class="border border-primary-500 btn-with-icon flex items-center gap-3 text-sm px-4 py-2 rounded-md text-primary-600 bg-primary-100 hover:bg-primary-600 hover:text-[white] transition duration-300 cursor-pointer">
                                 <i class="fa-solid fa-plus"></i>
                                 {% trans "Add components" %}
                             </button>
