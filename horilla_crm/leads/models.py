@@ -284,8 +284,8 @@ class Lead(HorillaCoreModel):
     lead_score = models.IntegerField(
         default=0, verbose_name=_("Lead Score"), null=True, blank=True
     )
-    email_message_id = models.CharField(
-        max_length=255, unique=True, null=True, blank=True
+    message_id = models.CharField(
+        max_length=255, unique=True, null=True, blank=True, editable=False
     )
 
     OWNER_FIELDS = ["lead_owner"]
