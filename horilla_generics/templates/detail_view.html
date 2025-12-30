@@ -35,13 +35,13 @@
                     <button class="disabled:opacity-50 cursor-pointer" {% if not has_previous %}disabled{% endif %}>
                         <a hx-get="{% if has_previous %}{% url app_label|add:':'|add:url_name previous_id %}?{{request.GET.urlencode}}{% endif %}" hx-target="#mainContent"
                             hx-swap = "outerHTML" hx-push-url= "true" hx-select ="#mainContent">
-                            <img src="{% static 'assets/icons/menuarrow.svg' %}" alt="{% trans 'Previous' %}" />
+                            <img class="svg-themed" src="{% static 'assets/icons/menuarrow.svg' %}" alt="{% trans 'Previous' %}" />
                         </a>
                     </button>
                     <button class="-rotate-180 disabled:opacity-50 cursor-pointer" {% if not has_next %}disabled{% endif %}>
                         <a hx-get="{% if has_next %}{% url app_label|add:':'|add:url_name next_id %}?{{request.GET.urlencode}}{% endif %}" hx-target="#mainContent"
                         hx-swap = "outerHTML" hx-push-url= "true" hx-select ="#mainContent">
-                          <img src="{% static '/assets/icons/menuarrow.svg' %}" alt="{% trans 'Next' %}" />
+                          <img class="svg-themed" src="{% static '/assets/icons/menuarrow.svg' %}" alt="{% trans 'Next' %}" />
                         </a>
                     </button>
                 </div>

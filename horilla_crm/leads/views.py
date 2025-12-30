@@ -467,7 +467,7 @@ class LeadsDetailTab(LoginRequiredMixin, HorillaDetailSectionView):
         self.excluded_fields.append("lead_status")
         self.excluded_fields.append("is_convert")
         self.excluded_fields.append("lead_owner")
-        self.excluded_fields.append("email_message_id")
+        self.excluded_fields.append("message_id")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

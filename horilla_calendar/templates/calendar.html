@@ -30,7 +30,7 @@
                     <div class="flex items-center gap-10">
                     <div class="flex items-center gap-2">
                         <button id="prevBtn"
-                            class="group text-xs p-2 w-8 h-8 flex justify-center items-center  bg-[#2996e33d] rounded-md hover:bg-[#3681b6] transition duration-300 text-[white] ">
+                            class="group text-xs p-2 w-8 h-8 flex justify-center items-center rounded-md transition duration-300 bg-primary-300 text-primary-600 hover:bg-primary-600 hover:text-white">
                             <img
                                 src="{% static 'assets/icons/prev.svg' %}"
                                 alt="{% trans 'preview' %}"
@@ -39,11 +39,11 @@
                             />
                         </button>
                         <button id="todayBtn"
-                            class="text-xs px-3 py-2 bg-[#2995e3] rounded-md hover:bg-[#3681b6] transition duration-300 text-[white] h-8">
+                            class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-primary-300 text-primary-600 hover:bg-primary-600 hover:text-white">
                             {% trans 'Today' %}
                         </button>
                         <button id="nextBtn"
-                            class="group text-xs p-2 w-8 h-8 flex justify-center items-center  bg-[#2996e33d] rounded-md hover:bg-[#3681b6] transition duration-300 text-[white] ">
+                            class="group text-xs p-2 w-8 h-8 flex justify-center items-center rounded-md transition duration-300 bg-primary-300 text-primary-600 hover:bg-primary-600 hover:text-white">
                             <img
                                 src="{% static 'assets/icons/next.svg' %}"
                                 alt="{% trans 'next' %}"
@@ -55,19 +55,19 @@
                     <div>
                         <div class="flex gap-2">
                             <button id="dayView"
-                                class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-[#2995e3] text-white">
+                                class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-primary-300 text-primary-600 hover:bg-primary-600 hover:text-white">
                                 {% trans 'Day' %}
                             </button>
                             <button id="weekView"
-                                class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-[#2996e33d] text-[#2995e3] hover:bg-[#2995e3] hover:text-white">
+                                class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-primary-300 text-primary-600 hover:bg-primary-600 hover:text-white">
                                 {% trans 'Week' %}
                             </button>
                             <button id="monthView"
-                                class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-[#2996e33d] text-[#2995e3] hover:bg-[#2995e3] hover:text-white">
+                                class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-primary-300 text-primary-600 hover:bg-primary-600 hover:text-white">
                                 {% trans 'Month' %}
                             </button>
                             <button id="yearView"
-                                class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-[#2996e33d] text-[#2995e3] hover:bg-[#2995e3] hover:text-white">
+                                class="tab-btn text-xs px-3 py-2 rounded-md transition duration-300 h-8 w-16 bg-primary-300 text-primary-600 hover:bg-primary-600 hover:text-white">
                                 {% trans 'Year' %}
                             </button>
                         </div>
@@ -496,11 +496,11 @@
                     tabButtons.each(function() {
                         const $btn = $(this);
                         if ($btn.attr("id") === activeId) {
-                            $btn.addClass("bg-[#2995e3] text-white")
-                                .removeClass("bg-[#2996e33d] text-[#2995e3]");
+                            $btn.addClass("bg-primary-600 text-white")
+                                .removeClass("bg-primary-300 text-primary-600");
                         } else {
-                            $btn.addClass("bg-[#2996e33d] text-[#2995e3]")
-                                .removeClass("bg-[#2995e3] text-white");
+                            $btn.addClass("bg-primary-300 text-primary-600")
+                                .removeClass("bg-primary-600 text-white");
                         }
                     });
                 }

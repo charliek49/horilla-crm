@@ -6,7 +6,7 @@
             hx-post="{% url 'horilla_reports:mark_report_favourite' instance.id %}?{{ request.GET.urlencode}}"
             hx-swap="outerHTML"
             hx-trigger="click">
-            <i class="fa-solid fa-star {% if instance.is_favourite %}text-primary-600{% else %}text-primary-300 {% endif %}"></i>
+            <i class="fa-solid fa-star {% if instance.is_favourite %}text-primary-600{% endif %}"></i>
         </button>
         {% comment %} <button
             hx-swap="outerHTML"

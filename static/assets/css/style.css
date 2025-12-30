@@ -1,3 +1,7 @@
+img.svg-themed {
+  filter: var(--svg-filter, contrast(1.1) saturate(1.3) hue-rotate(var(--svg-hue, 345deg)));
+}
+
 .btn-with-icon:hover img {
   filter: brightness(0) invert();
   transition: 0.3s;
@@ -721,7 +725,7 @@ canvas {
   min-width: 160px;
   box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
   border-radius: 8px;
-  border: 1px solid #fbe5e1;
+  border: 1px solid;
 }
 
 .dropdown-wrapper {
@@ -751,7 +755,7 @@ canvas {
 
 .dropdown-content a:hover {
   background-color: #f9fafb;
-  color: #e54f38;
+  /* color: #e54f38; Comment this line for dynamic theme */
 }
 
 /* Ensure FontAwesome icons work */
@@ -1288,7 +1292,8 @@ input[type="radio"] {
   content: "";
   width: 10px;
   height: 10px;
-  background: #e54f38;
+  /* Comment this line for dynamic theme */
+  /* background: #e54f38; */
   border-radius: 50%;
   position: absolute;
   top: 50%;
@@ -1686,7 +1691,7 @@ img {
 }
 
 .core-module {
-  background: linear-gradient(135deg, #e54f38 0%, #c5311b 100%);
+  /* background: linear-gradient(135deg, #e54f38 0%, #c5311b 100%); */
   border-radius: 16px;
   padding: 25px;
   margin-bottom: 40px;

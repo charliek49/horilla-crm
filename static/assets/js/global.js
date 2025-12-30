@@ -169,8 +169,8 @@ const SidebarManager = {
 
     setActiveNavLink($link, sectionId) {
         const $navLinks = $("nav a.nav-link");
-        $navLinks.removeClass('bg-primary-600').find("img").css("filter", "");
-        $link.addClass('bg-primary-600').find("img").css("filter", this.ACTIVE_FILTER);
+        $navLinks.removeClass('bg-primary-600 hover:bg-primary-800').find("img").css("filter", "");
+        $link.addClass('bg-primary-600 hover:bg-primary-800').find("img").css("filter", this.ACTIVE_FILTER);
         localStorage.setItem("activeNavLinkId", sectionId);
         localStorage.setItem("currentActiveSection", sectionId);
 
