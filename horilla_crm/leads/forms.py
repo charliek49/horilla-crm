@@ -93,7 +93,7 @@ class LeadFormClass(OwnerQuerysetMixin, HorillaMultiStepForm):
             return []
 
 
-class LeadSingleForm(HorillaModelForm):
+class LeadSingleForm(OwnerQuerysetMixin, HorillaModelForm):
     """
     Custom form for Lead to add HTMX attributes
     Inherits from HorillaModelForm to preserve all existing behavior.
