@@ -31,9 +31,10 @@ class PermissionUtils:
         "change",
         "view",
         "delete",
-        "can_import",
+        "add_own",
         "change_own",
         "view_own",
+        "delete_own",
     ]
 
     PERMISSION_MAP = {
@@ -41,9 +42,10 @@ class PermissionUtils:
         "change": _("Change"),
         "view": _("View"),
         "delete": _("Delete"),
-        "view_own": _("View Own"),
+        "add_own": _("Create Own"),
         "change_own": _("Change Own"),
-        "can_import": _("Import"),
+        "view_own": _("View Own"),
+        "delete_own": _("Delete Own"),
     }
 
     @staticmethod

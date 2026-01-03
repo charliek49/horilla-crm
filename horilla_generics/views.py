@@ -194,7 +194,7 @@ class HorillaNavView(TemplateView):
         """Actions"""
         view_perm = f"{self.model_app_label}.view_{self.model_name.lower()}"
         view_own_perm = f"{self.model_app_label}.view_own_{self.model_name.lower()}"
-        can_import_perm = f"{self.model_app_label}.can_import_{self.model_name.lower()}"
+        can_create_perm = f"{self.model_app_label}.add_{self.model_name.lower()}"
         resolved = resolve(str(self.search_url))
         single_import = True
         url_name = resolved.url_name
@@ -203,7 +203,7 @@ class HorillaNavView(TemplateView):
         if self.request.user.has_perm(view_perm) or self.request.user.has_perm(
             view_own_perm
         ):
-            if self.request.user.has_perm(can_import_perm):
+            if self.request.user.has_perm(can_create_perm):
                 actions.append(
                     {
                         "action": "Import",
@@ -708,7 +708,32 @@ class HorillaListView(ListView):
                     or is_filter_form_trigger
                     or value_field
                 ):
-                    related_objects = field.related_model.objects.all().order_by("id")
+                    # Try to get queryset from filterset if available (e.g., for OwnerFiltersetMixin)
+                    related_objects_queryset = None
+                    if self.filterset_class and field.name:
+                        try:
+                            # Create a temporary filterset instance to trigger mixins like OwnerFiltersetMixin
+                            temp_filterset = self.filterset_class(
+                                request=self.request, data={}
+                            )
+                            if field.name in temp_filterset.filters:
+                                filter_obj = temp_filterset.filters[field.name]
+                                # Check if the filter has a queryset set (e.g., by OwnerFiltersetMixin)
+                                if hasattr(filter_obj, "field") and hasattr(
+                                    filter_obj.field, "queryset"
+                                ):
+                                    related_objects_queryset = filter_obj.field.queryset
+                                elif hasattr(filter_obj, "queryset"):
+                                    related_objects_queryset = filter_obj.queryset
+                        except Exception:
+                            # If filterset instantiation fails, fall back to default
+                            pass
+
+                    # Fall back to default queryset if filterset didn't provide one
+                    if related_objects_queryset is None:
+                        related_objects_queryset = field.related_model.objects.all()
+
+                    related_objects = related_objects_queryset.order_by("id")
                     paginator = Paginator(related_objects, 10)
 
                     try:
@@ -723,7 +748,7 @@ class HorillaListView(ListView):
                     ]
                     if value_field:
                         try:
-                            value_obj = field.related_model.objects.get(pk=value_field)
+                            value_obj = related_objects_queryset.get(pk=value_field)
                             value_choice = {
                                 "value": str(value_obj.pk),
                                 "label": str(value_obj),
@@ -832,7 +857,25 @@ class HorillaListView(ListView):
         if not field_info:
             return HttpResponse("Field not found", status=404)
 
-        context = {"field_info": field_info, "operator": operator, "row_id": row_id}
+        # NEW: Add filter_class_path and parent_model_path for select2
+        filter_class_path = None
+        parent_model_path = None
+
+        if self.filterset_class:
+            filter_class_path = (
+                f"{self.filterset_class.__module__}.{self.filterset_class.__name__}"
+            )
+            parent_model_path = (
+                f"{self.model._meta.app_label}.{self.model._meta.model_name}"
+            )
+
+        context = {
+            "field_info": field_info,
+            "operator": operator,
+            "row_id": row_id,
+            "filter_class_path": filter_class_path,
+            "parent_model_path": parent_model_path,
+        }
 
         return render(request, "partials/value_field.html", context)
 
@@ -2370,6 +2413,18 @@ class HorillaListView(ListView):
 
         context["filter_rows"] = filter_rows
         context["last_row_id"] = len(filter_rows) - 1
+
+        # Add filter_class_path and parent_model_path for Select2 pagination
+        if self.filterset_class:
+            context["filter_class_path"] = (
+                f"{self.filterset_class.__module__}.{self.filterset_class.__name__}"
+            )
+            context["parent_model_path"] = (
+                f"{self.model._meta.app_label}.{self.model._meta.model_name}"
+            )
+        else:
+            context["filter_class_path"] = None
+            context["parent_model_path"] = None
 
         if hasattr(self, "filterset"):
             context["filterset"] = self.filterset
@@ -5021,7 +5076,10 @@ class HorillaMultiStepFormView(FormView):
         if is_edit_mode:
             return [f"{app_label}.change_{model_name}"]
         else:
-            return [f"{app_label}.add_{model_name}"]
+            return [
+                f"{app_label}.add_{model_name}",
+                f"{app_label}.add_own_{model_name}",
+            ]
 
     def has_permission(self):
         """
@@ -5048,6 +5106,14 @@ class HorillaMultiStepFormView(FormView):
 
             if user.has_perm(change_own_perm):
                 return self.has_object_permission()
+        elif not self.kwargs.get("pk") and self.model:
+            # Check for add_own permission in create mode
+            app_label = self.model._meta.app_label
+            model_name = self.model._meta.model_name
+            add_own_perm = f"{app_label}.add_own_{model_name}"
+
+            if user.has_perm(add_own_perm):
+                return True
 
         return False
 
@@ -5759,16 +5825,16 @@ class HorillaSingleFormView(FormView):
         app_label = self.model._meta.app_label
         model_name = self.model._meta.model_name
 
-        if self.duplicate_mode:
-            return [f"{app_label}.add_{model_name}"]
-
         # Check if this is edit mode or create mode
         is_edit_mode = bool(self.kwargs.get("pk"))
 
-        if is_edit_mode:
+        if is_edit_mode and not self.duplicate_mode:
             return [f"{app_label}.change_{model_name}"]
         else:
-            return [f"{app_label}.add_{model_name}"]
+            return [
+                f"{app_label}.add_{model_name}",
+                f"{app_label}.add_own_{model_name}",
+            ]
 
     def has_permission(self):
         """
@@ -5795,6 +5861,14 @@ class HorillaSingleFormView(FormView):
 
             if user.has_perm(change_own_perm):
                 return self.has_object_permission()
+        elif (not self.kwargs.get("pk") or self.duplicate_mode) and self.model:
+            # Check for add_own permission in create mode or duplicate mode
+            app_label = self.model._meta.app_label
+            model_name = self.model._meta.model_name
+            add_own_perm = f"{app_label}.add_own_{model_name}"
+
+            if user.has_perm(add_own_perm):
+                return True
         return False
 
     def has_object_permission(self):
@@ -6331,6 +6405,7 @@ class HorillaSingleDeleteView(DeleteView):
     success_url = None
     success_message = "The record was deleted successfully."
     reassign_all_visibility = True
+    check_delete_permission = True
     reassign_individual_visibility = True
     hx_target = None
     excluded_dependency_model_labels = [
@@ -6879,6 +6954,54 @@ class HorillaSingleDeleteView(DeleteView):
         except Exception as e:
             logger.error(f"Error in get method: {str(e)}")
             raise HorillaHttp404(e)
+
+    def get_object(self, queryset=None):
+        """
+        Override to check delete permissions on the specific object.
+        - delete_<model>: can delete any record
+        - delete_own_<model>: can only delete own records
+        """
+        if queryset is None:
+            queryset = self.get_queryset()
+
+        obj = super().get_object(queryset)
+
+        if self.check_delete_permission:
+            user = self.request.user
+            app_label = self.model._meta.app_label
+            model_name = self.model._meta.model_name
+
+            delete_perm = f"{app_label}.delete_{model_name}"
+            delete_own_perm = f"{app_label}.delete_own_{model_name}"
+
+            has_delete_all = user.has_perm(delete_perm)
+            has_delete_own = user.has_perm(delete_own_perm)
+
+            if has_delete_all:
+                return obj
+            elif has_delete_own:
+                owner_fields = getattr(self.model, "OWNER_FIELDS", None)
+                if owner_fields:
+                    is_owner = any(
+                        getattr(obj, field_name, None) == user
+                        for field_name in owner_fields
+                    )
+                    if is_owner:
+                        return obj
+
+                from django.core.exceptions import PermissionDenied
+
+                raise PermissionDenied(
+                    f"You don't have permission to delete this {self.model._meta.verbose_name}."
+                )
+            else:
+                from django.core.exceptions import PermissionDenied
+
+                raise PermissionDenied(
+                    f"You don't have permission to delete {self.model._meta.verbose_name_plural}."
+                )
+
+        return obj
 
     def post(self, request, *args, **kwargs):
         try:

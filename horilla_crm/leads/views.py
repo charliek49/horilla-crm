@@ -108,7 +108,9 @@ class LeadNavbar(LoginRequiredMixin, HorillaNavView):
     @cached_property
     def new_button(self):
         """New button for lead"""
-        if self.request.user.has_perm("leads.add_lead"):
+        if self.request.user.has_perm("leads.add_lead") or self.request.user.has_perm(
+            "leads.add_own_lead"
+        ):
             return {
                 "url": f"""{ reverse_lazy('leads:leads_create')}?new=true""",
                 "attrs": {"id": "lead-create"},
@@ -175,7 +177,9 @@ class LeadListView(LoginRequiredMixin, HorillaListView):
 
     def no_record_add_button(self):
         """No record add button for lead"""
-        if self.request.user.has_perm("leads.add_lead"):
+        if self.request.user.has_perm("leads.add_lead") or self.request.user.has_perm(
+            "leads.add_own_lead"
+        ):
             return {
                 "url": f"""{ reverse_lazy('leads:leads_create')}?new=true""",
                 "attrs": 'id="lead-create"',
@@ -227,7 +231,9 @@ class LeadListView(LoginRequiredMixin, HorillaListView):
             "action": "Delete",
             "src": "assets/icons/a4.svg",
             "img_class": "w-4 h-4",
-            "permission": "leads.delete_lead",
+            "permissions": "leads.delete_lead",
+            "owner_field": "lead_owner",
+            "own_permission": "leads.delete_own_lead",
             "attrs": """
                     hx-post="{get_delete_url}"
                     hx-target="#deleteModeBox"
@@ -242,6 +248,8 @@ class LeadListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/duplicate.svg",
             "img_class": "w-4 h-4",
             "permission": "leads.add_lead",
+            "owner_field": "lead_owner",
+            "own_permission": "leads.add_own_lead",
             "attrs": """
                             hx-get="{get_duplicate_url}?duplicate=true"
                             hx-target="#modalBox"
@@ -691,26 +699,6 @@ class LeadsSingleFormView(LoginRequiredMixin, HorillaSingleFormView):
         if pk:
             return reverse_lazy("leads:leads_edit_single", kwargs={"pk": pk})
         return reverse_lazy("leads:leads_create_single")
-
-    def get(self, request, *args, **kwargs):
-        lead_id = self.kwargs.get("pk")
-        if request.user.has_perm("leads.change_lead") or request.user.has_perm(
-            "leads.add_lead"
-        ):
-            return super().get(request, *args, **kwargs)
-
-        if lead_id:
-            try:
-                lead = get_object_or_404(Lead, pk=lead_id)
-            except Http404:
-                messages.error(self.request, "Lead not found.")
-                return HttpResponse(
-                    "<script>$('#reloadButton').click();closeModal();</script>"
-                )
-            if lead.lead_owner == request.user:
-                return super().get(request, *args, **kwargs)
-
-        return render(request, "error/403.html")
 
 
 @method_decorator(htmx_required, name="dispatch")

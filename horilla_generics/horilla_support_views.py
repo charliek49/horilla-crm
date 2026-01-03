@@ -1148,6 +1148,28 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
         per_page = 10
 
         queryset = None
+
+        # Try to get queryset from filter class first (NEW CODE)
+        filter_class = self._get_filter_class_from_request(
+            request, app_label, model_name
+        )
+        if filter_class and field_name:
+            try:
+                # Initialize filter with request to trigger OwnerFiltersetMixin
+                filterset = filter_class(request=request, data={})
+                if field_name in filterset.filters:
+                    filter_obj = filterset.filters[field_name]
+                    if hasattr(filter_obj, "field") and hasattr(
+                        filter_obj.field, "queryset"
+                    ):
+                        queryset = filter_obj.field.queryset
+                        logger.info(
+                            f"[Select2] Using queryset from filter class for {field_name}"
+                        )
+            except Exception as e:
+                logger.error(f"[Select2] Could not resolve queryset from filter: {e}")
+
+        # Fallback to form class (EXISTING CODE)
         form_class = self._get_form_class_from_request(request)
         if form_class and field_name:
             try:
@@ -1159,20 +1181,6 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
 
         if queryset is None:
             queryset = model.objects.all()
-
-        # owner filtration
-
-        if model is User:
-            queryset = self._apply_owner_filter(request.user, queryset)
-        elif hasattr(model, "OWNER_FIELDS") and model.OWNER_FIELDS:
-            allowed_user_ids = self._get_allowed_user_ids(request.user)
-            if allowed_user_ids:
-                query = Q()
-                for owner_field in model.OWNER_FIELDS:
-                    query |= Q(**{f"{owner_field}__id__in": allowed_user_ids})
-                queryset = queryset.filter(query)
-            else:
-                queryset = queryset.none()
 
         if dependency_value and dependency_model and dependency_field:
             try:
@@ -1242,6 +1250,36 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
             {"results": results, "pagination": {"more": page_obj.has_next()}}
         )
 
+    def _get_filter_class_from_request(self, request, app_label, model_name):
+        """Get the filter class for the model (NEW METHOD)"""
+        filter_path = request.GET.get("filter_class")
+        if filter_path:
+            try:
+                module_path, class_name = filter_path.rsplit(".", 1)
+                module = importlib.import_module(module_path)
+                return getattr(module, class_name)
+            except Exception as e:
+                logger.error(
+                    f"[Select2] Could not import filter_class {filter_path}: {e}"
+                )
+
+        # Try to auto-discover filter class by convention
+        try:
+            filters_module = importlib.import_module(f"{app_label}.filters")
+            # Try common naming conventions
+            model_class_name = model_name.replace("_", " ").title().replace(" ", "")
+            for class_name in [
+                f"{model_class_name}Filter",
+                f"{model_class_name}FilterSet",
+            ]:
+                if hasattr(filters_module, class_name):
+                    logger.info(f"[Select2] Auto-discovered filter class: {class_name}")
+                    return getattr(filters_module, class_name)
+        except Exception as e:
+            logger.debug(f"[Select2] Could not auto-discover filter class: {e}")
+
+        return None
+
     def _get_form_class_from_request(self, request):
         """
         Optional: resolve which form is being used.
@@ -1260,45 +1298,6 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
         except Exception as e:
             logger.error(f"[Select2] Could not import form_class {form_path}: {e}")
             return None
-
-    # owner filtration
-    def _get_allowed_user_ids(self, user):
-        """
-        Get list of allowed user IDs (self + subordinates) for filtering.
-        """
-        if not user or not user.is_authenticated:
-            return []
-
-        if user.is_superuser:
-            return list(User.objects.values_list("id", flat=True))
-
-        user_role = getattr(user, "role", None)
-        if not user_role:
-            return [user.id]
-
-        def get_subordinate_roles(role):
-            sub_roles = role.subroles.all()
-            all_sub_roles = []
-            for sub_role in sub_roles:
-                all_sub_roles.append(sub_role)
-                all_sub_roles.extend(get_subordinate_roles(sub_role))
-            return all_sub_roles
-
-        subordinate_roles = get_subordinate_roles(user_role)
-        subordinate_users = User.objects.filter(role__in=subordinate_roles).distinct()
-
-        allowed_user_ids = [user.id] + list(
-            subordinate_users.values_list("id", flat=True)
-        )
-        return allowed_user_ids
-
-    # owner filtration
-    def _apply_owner_filter(self, user, queryset):
-        """
-        Filter User queryset based on user permissions.
-        """
-        allowed_user_ids = self._get_allowed_user_ids(user)
-        return queryset.filter(id__in=allowed_user_ids)
 
 
 @method_decorator(htmx_required, name="dispatch")
