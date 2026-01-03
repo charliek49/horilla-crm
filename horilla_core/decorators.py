@@ -78,19 +78,6 @@ def permission_required(perms, require_all=False):
     return decorator
 
 
-def htmx_required(view_func, login=True):
-    @wraps(view_func)
-    def _wrapped_view(request, *args, **kwargs):
-        if login and not request.user.is_authenticated:
-            login_url = f"{reverse_lazy('horilla_core:login')}?next={request.path}"
-            return redirect(login_url)
-        if not request.headers.get("HX-Request") == "true":
-            return render(request, "error/405.html")
-        return view_func(request, *args, **kwargs)
-
-    return _wrapped_view
-
-
 def htmx_required(view_func=None, login=True):
     def decorator(func):
         @wraps(func)

@@ -184,9 +184,10 @@ class EnsureSectionMiddleware(MiddlewareMixin):
         # Check if this is an HTMX request
         is_htmx = request.headers.get("HX-Request") == "true"
 
+        is_export = request.method == "POST" and "export_format" in request.POST
         # If it's HTMX request, skip all section validation/modification
         # (whether hx-push-url is true or false, we don't modify sections for HTMX)
-        if is_htmx:
+        if is_htmx or is_export:
             return None
 
         # Get current section value
