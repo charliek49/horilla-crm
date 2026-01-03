@@ -791,7 +791,6 @@ function isElementChecked(element) {
         });
 }
 
-// Select2 Pagination
 function initializeSelect2Pagination() {
     const select2Elements = $('.select2-pagination:not(.select2-hidden-accessible)');
     if (select2Elements.length === 0) return;
@@ -813,6 +812,11 @@ function initializeSelect2Pagination() {
         const dependencyField = $this.data('dependency');
         const dependencyModel = $this.data('dependency-model');
         const dependencyFieldName = $this.data('dependency-field');
+
+        // NEW: Get filter class and parent model from data attributes
+        const filterClass = $this.data('filter-class');
+        const parentModel = $this.data('parent-model');
+
         const isMultiple = $this.prop('multiple');
         const elementId = $this.attr('id') || `select2_${fieldName}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -845,7 +849,8 @@ function initializeSelect2Pagination() {
                             dependencyValue = $dependentField.length ? $dependentField.val() : undefined;
                         }
 
-                        return {
+                        // Build the data object
+                        const requestData = {
                             q: params.term || '',
                             page: params.page || 1,
                             field_name: fieldName,
@@ -854,6 +859,16 @@ function initializeSelect2Pagination() {
                             dependency_model: dependencyModel,
                             dependency_field: dependencyFieldName,
                         };
+
+                        // NEW: Add filter_class and parent_model if available
+                        if (filterClass) {
+                            requestData.filter_class = filterClass;
+                        }
+                        if (parentModel) {
+                            requestData.parent_model = parentModel;
+                        }
+
+                        return requestData;
                     },
                     processResults: function (data, params) {
                         params.page = params.page || 1;

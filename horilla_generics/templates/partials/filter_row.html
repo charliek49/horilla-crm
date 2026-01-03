@@ -245,7 +245,12 @@
 
   {% elif row.type == 'foreignkey' %}
   <!-- Choice field uses dropdown -->
-  <select name="value" class="select2-pagination w-full" data-url="{% url 'horilla_generics:model_select2' row.app_label row.model %}">
+  <select name="value"
+          class="select2-pagination w-full"
+          data-url="{% url 'horilla_generics:model_select2' row.app_label row.model %}"
+          data-field-name="{{ row.field }}"
+          {% if filter_class_path %}data-filter-class="{{ filter_class_path }}"{% endif %}
+          {% if parent_model_path %}data-parent-model="{{ parent_model_path }}"{% endif %}>
     <option value="">{%  trans 'Select an option' %}</option>
     {% for choice in row.choices %}
     <option value="{{ choice.value }}"{% if row.value == choice.value %}selected {% endif %}>{{ choice.label }}</option>
