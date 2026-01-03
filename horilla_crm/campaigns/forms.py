@@ -48,7 +48,7 @@ class CampaignFormClass(OwnerQuerysetMixin, HorillaMultiStepForm):
             self.fields["updated_by"].required = False
 
 
-class CampaignSingleForm(HorillaModelForm):
+class CampaignSingleForm(OwnerQuerysetMixin, HorillaModelForm):
     """
     Custom form for campaign to add HTMX attributes
     Inherits from HorillaModelForm to preserve all existing behavior.
