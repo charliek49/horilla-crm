@@ -10,7 +10,7 @@
     <div class="flex gap-2 flex-wrap justify-between items-center h-auto sm:h-14 mb-5 sm:mb-2">
       <h3 class="text-md font-semibold">{% trans 'Fiscal Year' %}</h3>
       <div class="flex flex-wrap gap-2">
-        <button class="text-sm border-[1px] border-[solid] rounded-[5px] px-4 py-2 text-primary-600 hover:bg-secondary-600 hover:text-[white] flex gap-3 btn-with-icon transition-[.3s]"
+        <button class="text-sm border-[1px] border-[solid] rounded-[5px] px-4 py-2 text-primary-600 hover:bg-primary-600 hover:text-[white] flex gap-3 btn-with-icon transition-[.3s]"
             hx-get="{% url 'horilla_core:fiscal_year_calendar' obj.id %}"
             hx-target="#calendarPreviewModal"
             hx-swap="innerHTML"
