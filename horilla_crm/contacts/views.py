@@ -85,7 +85,9 @@ class ContactNavbar(LoginRequiredMixin, HorillaNavView):
     @cached_property
     def new_button(self):
         """Create a new contact button"""
-        if self.request.user.has_perm("contacts.add_contact"):
+        if self.request.user.has_perm(
+            "contacts.add_contact"
+        ) or self.request.user.has_perm("contacts.add_own_contact"):
             return {
                 "url": f"""{ reverse_lazy('contacts:contact_create_form')}?new=true""",
                 "attrs": {"id": "contact-create"},
@@ -114,7 +116,9 @@ class ContactListView(LoginRequiredMixin, HorillaListView):
 
     def no_record_add_button(self):
         """Button to add a new contact if no records exist"""
-        if self.request.user.has_perm("contacts.add_contact"):
+        if self.request.user.has_perm(
+            "contacts.add_contact"
+        ) or self.request.user.has_perm("contacts.add_own_contact"):
             return {
                 "url": f"""{ reverse_lazy('contacts:contact_create_form')}?new=true""",
                 "attrs": 'id="contact-create"',
@@ -173,6 +177,8 @@ class ContactListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/a4.svg",
             "img_class": "w-4 h-4",
             "permission": "contacts.delete_contact",
+            "own_permission": "contacts.delete_own_contact",
+            "owner_field": "contact_owner",
             "attrs": """
                         hx-post="{get_delete_url}"
                         hx-target="#deleteModeBox"
@@ -187,6 +193,8 @@ class ContactListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/duplicate.svg",
             "img_class": "w-4 h-4",
             "permission": "contacts.add_contact",
+            "own_permission": "contacts.add_own_contact",
+            "owner_field": "contact_owner",
             "attrs": """
                             hx-get="{get_duplicate_url}?duplicate=true"
                             hx-target="#modalBox"

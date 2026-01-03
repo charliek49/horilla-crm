@@ -191,7 +191,9 @@ class DashboardNavbar(LoginRequiredMixin, HorillaNavView):
     @cached_property
     def new_button(self):
         """Button for creating new dashboard"""
-        if self.request.user.has_perm("horilla_dashboard.add_dashboard"):
+        if self.request.user.has_perm(
+            "horilla_dashboard.add_dashboard"
+        ) or self.request.user.has_perm("horilla_dashboard.add_own_dashboard"):
             return {
                 "title": _("New Dashboard"),
                 "url": f"""{ reverse_lazy('horilla_dashboard:dashboard_create')}""",
@@ -201,7 +203,9 @@ class DashboardNavbar(LoginRequiredMixin, HorillaNavView):
     @cached_property
     def second_button(self):
         """Button for creating dashboard folder"""
-        if self.request.user.has_perm("horilla_dashboard.add_dashboardfolder"):
+        if self.request.user.has_perm(
+            "horilla_dashboard.add_dashboardfolder"
+        ) or self.request.user.has_perm("horilla_dashboard.add_own_dashboardfolder"):
             return {
                 "title": _("New Folder"),
                 "url": f"{reverse_lazy('horilla_dashboard:dashboard_folder_create')}?pk={self.request.GET.get('pk', '')}",

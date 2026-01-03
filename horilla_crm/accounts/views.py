@@ -99,7 +99,9 @@ class AccountsNavbar(LoginRequiredMixin, HorillaNavView):
     @cached_property
     def new_button(self):
         """Return the 'New Account' button if the user has add permission."""
-        if self.request.user.has_perm("accounts.add_account"):
+        if self.request.user.has_perm(
+            "accounts.add_account"
+        ) or self.request.user.has_perm("accounts.add_own_account"):
             return {
                 "url": f"""{ reverse_lazy('accounts:account_create_form_view')}?new=true""",
                 "attrs": {"id": "account-create"},
@@ -127,7 +129,9 @@ class AccountListView(LoginRequiredMixin, HorillaListView):
 
     def no_record_add_button(self):
         """Return the 'New Account' button if the user has add permission."""
-        if self.request.user.has_perm("accounts.add_account"):
+        if self.request.user.has_perm(
+            "accounts.add_account"
+        ) or self.request.user.has_perm("accounts.add_own_account"):
             return {
                 "url": f"""{reverse_lazy('accounts:account_create_form_view') }?new=true""",
                 "attrs": 'id="account-create"',
@@ -206,6 +210,8 @@ class AccountListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/a4.svg",
             "img_class": "w-4 h-4",
             "permission": "accounts.delete_account",
+            "own_permission": "accounts.delete_own_account",
+            "owner_field": "account_owner",
             "attrs": """
                         hx-post="{get_delete_url}"
                         hx-target="#deleteModeBox"
@@ -220,6 +226,8 @@ class AccountListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/duplicate.svg",
             "img_class": "w-4 h-4",
             "permission": "accounts.add_account",
+            "own_permission": "accounts.add_own_account",
+            "owner_field": "account_owner",
             "attrs": """
                             hx-get="{get_duplicate_url}?duplicate=true"
                             hx-target="#modalBox"

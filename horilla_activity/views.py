@@ -155,7 +155,9 @@ class ActivityNavbar(LoginRequiredMixin, HorillaNavView):
         """
         URL for creating a new Activity..
         """
-        if self.request.user.has_perm("horilla_activity.add_activity"):
+        if self.request.user.has_perm(
+            "horilla_activity.add_activity"
+        ) or self.request.user.has_perm("horilla_activity.add_own_activity"):
             return {
                 "url": f"""{ reverse_lazy('horilla_activity:activity_create_form')}?new=true""",
             }

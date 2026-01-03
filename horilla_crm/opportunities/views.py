@@ -75,7 +75,9 @@ class OpportunityNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
-        if self.request.user.has_perm("opportunities.add_opportunity"):
+        if self.request.user.has_perm(
+            "opportunities.add_opportunity"
+        ) or self.request.user.has_perm("opportunities.add_own_opportunity"):
             return {
                 "url": f"""{reverse_lazy("opportunities:opportunity_create")}?new=true""",
                 "attrs": {"id": "opportunity-create"},
@@ -129,7 +131,9 @@ class OpportunityListView(LoginRequiredMixin, HorillaListView):
         ]
 
     def no_record_add_button(self):
-        if self.request.user.has_perm("opportunities.add_opportunity"):
+        if self.request.user.has_perm(
+            "opportunities.add_opportunity"
+        ) or self.request.user.has_perm("opportunities.add_own_opportunity"):
             return {
                 "url": f"""{ reverse_lazy('opportunities:opportunity_create')}?new=true""",
                 "attrs": 'id="opportunity-create"',
@@ -180,6 +184,8 @@ class OpportunityListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/a4.svg",
             "img_class": "w-4 h-4",
             "permission": "opportunities.delete_opportunity",
+            "own_permission": "opportunities.delete_own_opportunity",
+            "owner_field": "owner",
             "attrs": """
                         hx-post="{get_delete_url}"
                         hx-target="#deleteModeBox"
@@ -194,6 +200,8 @@ class OpportunityListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/duplicate.svg",
             "img_class": "w-4 h-4",
             "permission": "opportunities.add_opportunity",
+            "own_permission": "opportunities.add_own_opportunity",
+            "owner_field": "owner",
             "attrs": """
                             hx-get="{get_duplicate_url}?duplicate=true"
                             hx-target="#modalBox"

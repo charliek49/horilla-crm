@@ -88,7 +88,9 @@ class CampaignNavbar(LoginRequiredMixin, HorillaNavView):
         """
         Function to return new button configuration
         """
-        if self.request.user.has_perm("campaigns:add_campaign"):
+        if self.request.user.has_perm(
+            "campaigns:add_campaign"
+        ) or self.request.user.has_perm("campaigns.add_own_campaign"):
             return {
                 "url": f"""{ reverse_lazy('campaigns:campaign_create')}?new=true""",
                 "attrs": {"id": "campaign-create"},
@@ -191,6 +193,8 @@ class CampaignListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/a4.svg",
             "img_class": "w-4 h-4",
             "permission": "campaigns.delete_campaign",
+            "own_permission": "campaigns.delete_own_campaign",
+            "owner_field": "campaign_owner",
             "attrs": """
                         hx-post="{get_delete_url}"
                         hx-target="#deleteModeBox"
@@ -205,6 +209,8 @@ class CampaignListView(LoginRequiredMixin, HorillaListView):
             "src": "assets/icons/duplicate.svg",
             "img_class": "w-4 h-4",
             "permission": "campaigns.add_campaign",
+            "own_permission": "campaigns.add_own_campaign",
+            "owner_field": "campaign_owner",
             "attrs": """
                             hx-get="{get_duplicate_url}?duplicate=true"
                             hx-target="#modalBox"
@@ -218,7 +224,9 @@ class CampaignListView(LoginRequiredMixin, HorillaListView):
         """
         Function to return no record add button configuration
         """
-        if self.request.user.has_perm("campaigns.add_campaign"):
+        if self.request.user.has_perm(
+            "campaigns.add_campaign"
+        ) or self.request.user.has_perm("campaigns.add_own_campaign"):
             return {
                 "url": f"""{ reverse_lazy('campaigns:campaign_create')}?new=true""",
                 "attrs": 'id="campaign-create"',

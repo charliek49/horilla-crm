@@ -93,7 +93,9 @@ class ReportNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
-        if self.request.user.has_perm("horilla_reports.add_report"):
+        if self.request.user.has_perm(
+            "horilla_reports.add_report"
+        ) or self.request.user.has_perm("horilla_reports.add_own_report"):
             return {
                 "title": _("New Report"),
                 "url": f"""{ reverse_lazy('horilla_reports:create_report')}""",
@@ -103,7 +105,9 @@ class ReportNavbar(LoginRequiredMixin, HorillaNavView):
     @cached_property
     def actions(self):
         """Actions for reports"""
-        if self.request.user.has_perm("horilla_reports.view_report"):
+        if self.request.user.has_perm(
+            "horilla_reports.add_report"
+        ) or self.request.user.has_perm("horilla_reports.add_own_reports"):
             return [
                 {
                     "action": _("Load Default Reports"),
@@ -119,7 +123,9 @@ class ReportNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def second_button(self):
-        if self.request.user.has_perm("horilla_reports.add_reportfolder"):
+        if self.request.user.has_perm(
+            "horilla_reports.add_reportfolder"
+        ) or self.request.user.has_perm("horilla_reports.add_own_reportfolder"):
             return {
                 "title": _("New Folder"),
                 "url": f"""{ reverse_lazy('horilla_reports:create_folder')}?pk={self.request.GET.get('pk', '')}""",
@@ -151,7 +157,9 @@ class ReportsListView(LoginRequiredMixin, HorillaListView):
         return context
 
     def no_record_add_button(self):
-        if self.request.user.has_perm("horilla_reports.add_reports"):
+        if self.request.user.has_perm(
+            "horilla_reports.add_reports"
+        ) or self.request.user.has_perm("horilla_reports.add_own_reports"):
             return {
                 "url": f"""{ reverse_lazy('horilla_reports:load_default_reports')}?new=true""",
                 "attrs": 'id="reports-load"',
