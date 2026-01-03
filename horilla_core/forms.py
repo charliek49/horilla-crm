@@ -1104,6 +1104,7 @@ class AddUsersToRoleForm(forms.Form):
         self.condition_model = kwargs.pop("condition_model", None)
         self.condition_field_choices = kwargs.pop("condition_field_choices", {})
         self.request = kwargs.pop("request", None)
+        self.condition_hx_include = kwargs.pop("condition_hx_include", "")
         super().__init__(*args, **kwargs)
         for field_name in self.hidden_fields:
             if field_name in self.fields:
