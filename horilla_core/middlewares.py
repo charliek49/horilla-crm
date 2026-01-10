@@ -177,17 +177,31 @@ class HTMXRedirectMiddleware:
 
 class EnsureSectionMiddleware(MiddlewareMixin):
     def process_request(self, request):
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return None
+
         # Skip for static files, admin, etc.
         if request.path.startswith("/static/") or request.path.startswith("/admin/"):
+            return None
+
+        # Skip all POST requests (API endpoints, form submissions, etc.)
+        if request.method == "POST":
             return None
 
         # Check if this is an HTMX request
         is_htmx = request.headers.get("HX-Request") == "true"
 
-        is_export = request.method == "POST" and "export_format" in request.POST
-        # If it's HTMX request, skip all section validation/modification
-        # (whether hx-push-url is true or false, we don't modify sections for HTMX)
-        if is_htmx or is_export:
+        # Check if this is an AJAX/API request
+        is_ajax = (
+            request.headers.get("X-Requested-With") == "XMLHttpRequest"
+            or request.content_type == "application/json"
+            or "application/json" in request.headers.get("Accept", "")
+        )
+
+        # If it's HTMX request or AJAX request, skip all section validation/modification
+        # (whether hx-push-url is true or false, we don't modify sections for HTMX/AJAX)
+        if is_htmx or is_ajax:
             return None
 
         # Get current section value
