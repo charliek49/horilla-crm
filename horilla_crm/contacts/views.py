@@ -299,6 +299,7 @@ class ContactFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     model = Contact
     total_steps = 3
     fullwidth_fields = ["languages", "description"]
+    detail_url_name = "contacts:contact_detail_view"
     step_titles = {
         "1": _("Contact Information"),
         "2": _("Address Information"),
@@ -326,6 +327,7 @@ class ContactsSingleFormView(LoginRequiredMixin, HorillaSingleFormView):
     model = Contact
     form_class = ContactSingleForm
     full_width_fields = ["description"]
+    detail_url_name = "contacts:contact_detail_view"
 
     multi_step_url_name = {
         "create": "contacts:contact_create_form",
@@ -353,6 +355,7 @@ class RelatedContactFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     model = Contact
     total_steps = 3
     fullwidth_fields = ["languages", "description"]
+    save_and_new = False
     step_titles = {
         "1": _("Contact Information"),
         "2": _("Address Information"),
@@ -983,6 +986,7 @@ class AddRelatedAccountsFormView(LoginRequiredMixin, HorillaSingleFormView):
     form_title = _("Add Account Contact Relationships")
     full_width_fields = ["account", "contact", "role"]
     hidden_fields = ["contact"]
+    save_and_new = False
 
     def get(self, request, *args, **kwargs):
         contact_id = request.GET.get("id")

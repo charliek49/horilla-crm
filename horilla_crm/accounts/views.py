@@ -324,6 +324,7 @@ class AccountFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     form_class = AccountFormClass
     model = Account
     fullwidth_fields = ["description"]
+    detail_url_name = "accounts:account_detail_view"
     total_steps = 4
     step_titles = {
         "1": _("Account Information"),
@@ -353,6 +354,7 @@ class AccountsSingleFormView(LoginRequiredMixin, HorillaSingleFormView):
     model = Account
     form_class = AccountSingleForm
     full_width_fields = ["description"]
+    detail_url_name = "accounts:account_detail_view"
 
     multi_step_url_name = {
         "create": "accounts:account_create_form_view",
@@ -890,6 +892,7 @@ class AddRelatedContactFormView(LoginRequiredMixin, HorillaSingleFormView):
     form_title = _("Add Contact Relationships")
     full_width_fields = ["account", "contact", "role"]
     hidden_fields = ["account"]
+    save_and_new = False
 
     def get(self, request, *args, **kwargs):
 
@@ -1089,6 +1092,7 @@ class AccountPartnerFormView(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_title = _("Account Partner")
     hidden_fields = ["account"]
+    save_and_new = False
 
     def get(self, request, *args, **kwargs):
 

@@ -282,6 +282,7 @@ class OpportunityMultiStepFormView(LoginRequiredMixin, HorillaMultiStepFormView)
     total_steps = 3
     fullwidth_fields = ["description"]
     dynamic_create_fields = ["stage"]
+    detail_url_name = "opportunities:opportunity_detail_view"
     dynamic_create_field_mapping = {
         "stage": {"full_width_fields": ["description"]},
     }
@@ -319,6 +320,7 @@ class OpportunitySingleFormView(LoginRequiredMixin, HorillaSingleFormView):
     form_class = OpportunitySingleForm
     full_width_fields = ["description"]
     dynamic_create_fields = ["stage"]
+    detail_url_name = "opportunities:opportunity_detail_view"
     dynamic_create_field_mapping = {
         "stage": {"full_width_fields": ["description"]},
     }
@@ -355,6 +357,7 @@ class RelatedOpportunityFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     total_steps = 3
     fullwidth_fields = ["description"]
     dynamic_create_fields = ["stage"]
+    save_and_new = False
     dynamic_create_field_mapping = {
         "stage": {"full_width_fields": ["description"]},
     }
@@ -870,6 +873,7 @@ class OpportunityContactRoleFormview(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_title = _("Add Contact Role")
     hidden_fields = ["opportunity"]
+    save_and_new = False
 
     def form_valid(self, form):
         super().form_valid(form)

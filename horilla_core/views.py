@@ -411,7 +411,7 @@ class CompanyMultiFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     form_class = CompanyMultistepFormClass
     model = Company
     view_id = "company-form-view"
-
+    save_and_new = False
     single_step_url_name = {
         "create": "horilla_core:create_company",
         "edit": "horilla_core:edit_company",
@@ -496,6 +496,7 @@ class CompanyFormView(LoginRequiredMixin, HorillaSingleFormView):
     model = Company
     view_id = "company-form-view"
     form_class = CompanyFormClassSingle
+    save_and_new = False
 
     def get_signal_kwargs(self):
         """

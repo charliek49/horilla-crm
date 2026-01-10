@@ -312,6 +312,7 @@ class CampaignFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     model = Campaign
     fullwidth_fields = ["number_sent", "description"]
     total_steps = 3
+    detail_url_name = "campaigns:campaign_detail_view"
     step_titles = {
         "1": _("Campaign Information"),
         "2": _("Financial Information"),
@@ -341,7 +342,7 @@ class CampaignSingleFormView(LoginRequiredMixin, HorillaSingleFormView):
     model = Campaign
     form_class = CampaignSingleForm
     full_width_fields = ["description"]
-
+    detail_url_name = "campaigns:campaign_detail_view"
     multi_step_url_name = {
         "create": "campaigns:campaign_create",
         "edit": "campaigns:campaign_edit",
@@ -942,6 +943,7 @@ class AddToCampaignFormview(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_title = _("Add to Campaign")
     hidden_fields = ["lead"]
+    save_and_new = False
 
     def get(self, request, *args, **kwargs):
         lead_id = request.GET.get("id")
@@ -1000,6 +1002,7 @@ class AddCampaignMemberFormview(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_title = _("Add Campaign Members")
     full_width_fields = ["member_status", "member_type", "lead", "contact"]
+    save_and_new = False
 
     def get_initial(self):
         initial = super().get_initial()
@@ -1063,6 +1066,7 @@ class AddContactToCampaignFormView(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_title = _("Add to Campaign")
     hidden_fields = ["contact"]
+    save_and_new = False
 
     def form_valid(self, form):
         form.instance.member_type = "contact"

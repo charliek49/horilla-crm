@@ -243,6 +243,7 @@ class UserFormView(LoginRequiredMixin, HorillaMultiStepFormView):
         "create": "horilla_core:user_create_single_form",
         "edit": "horilla_core:user_edit_single_form",
     }
+    detail_url_name = "horilla_core:user_detail_view"
 
     @cached_property
     def form_url(self):
@@ -275,6 +276,7 @@ class UserFormViewSingle(LoginRequiredMixin, HorillaSingleFormView):
     model = User
     view_id = "user-form-view"
     form_class = UserFormSingle
+    detail_url_name = "horilla_core:user_detail_view"
 
     multi_step_url_name = {
         "create": "horilla_core:user_create_form",
