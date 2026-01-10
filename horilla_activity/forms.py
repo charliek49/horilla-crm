@@ -10,6 +10,10 @@ from django.forms import ValidationError
 from django.urls import reverse_lazy
 
 from horilla.auth.models import User
+from horilla_activity.methods import (
+    get_activity_content_types_queryset,
+    limit_content_types,
+)
 from horilla_activity.models import Activity
 from horilla_core.mixins import OwnerQuerysetMixin
 from horilla_generics.forms import HorillaModelForm
@@ -284,6 +288,40 @@ class EventForm(OwnerQuerysetMixin, HorillaModelForm):
         return cleaned_data
 
 
+class ActivityContentTypeForm(forms.Form):
+    """
+    Importable form class for Activity content_type Select2.
+    This form is used by the Select2 endpoint to get the restricted content_type queryset.
+    """
+
+    content_type = forms.ModelChoiceField(
+        queryset=ContentType.objects.none(),  # Will be set in __init__
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        request = kwargs.pop("request", None)
+        super().__init__(*args, **kwargs)
+
+        # Set restricted queryset for content_type
+        restricted_queryset = get_activity_content_types_queryset()
+        field = self.fields["content_type"]
+        field.queryset = restricted_queryset
+
+        # Override label_from_instance to show only model name (not app_label.model)
+        # Note: ContentType.__str__ is patched at class level in methods.py
+        # so Select2 AJAX will also show only model names
+        def label_from_instance(ct):
+            """Return only the model's verbose name, not app_label.model"""
+            model_cls = ct.model_class()
+            if model_cls:
+                return model_cls._meta.verbose_name.title()
+            # Fallback: format model name nicely
+            return ct.model.replace("_", " ").title()
+
+        field.label_from_instance = label_from_instance
+
+
 class ActivityCreateForm(OwnerQuerysetMixin, HorillaModelForm):
     """
     Activity creation and update form
@@ -395,7 +433,49 @@ class ActivityCreateForm(OwnerQuerysetMixin, HorillaModelForm):
         if hasattr(self, "initial") and "activity_type" in self.initial:
             self.fields["activity_type"].initial = self.initial["activity_type"]
 
-        self.fields["content_type"].queryset = ContentType.objects.all()
+        # Limit content_type choices to models registered for activity_related feature
+        # Must set queryset AFTER parent initialization to override any default queryset
+        if "content_type" in self.fields:
+            restricted_queryset = get_activity_content_types_queryset()
+
+            # Set the queryset on the ModelChoiceField - this controls what options are available
+            field = self.fields["content_type"]
+            if hasattr(field, "queryset"):
+                # Set restricted queryset
+                field.queryset = restricted_queryset
+
+                # Override label_from_instance to show only model name (not app_label.model)
+                # Note: ContentType.__str__ is patched at class level in methods.py
+                # so Select2 AJAX will also show only model names
+                def label_from_instance(ct):
+                    """Return only the model's verbose name, not app_label.model"""
+                    model_cls = ct.model_class()
+                    if model_cls:
+                        return model_cls._meta.verbose_name.title()
+                    # Fallback: format model name nicely
+                    return ct.model.replace("_", " ").title()
+
+                field.label_from_instance = label_from_instance
+
+                # Force widget to regenerate choices from the new queryset
+                field.widget.choices = field.choices
+
+                # Configure Select2 for content_type (if using AJAX pagination)
+                # Add form_class so Select2 endpoint can use restricted queryset
+                field.widget.attrs["data-form-class"] = (
+                    "horilla_activity.forms.ActivityContentTypeForm"
+                )
+
+                # If Select2 pagination is used, add URL
+                if "select2-pagination" in field.widget.attrs.get("class", ""):
+                    field.widget.attrs["data-url"] = reverse_lazy(
+                        "horilla_generics:model_select2",
+                        kwargs={
+                            "app_label": "contenttypes",
+                            "model_name": "contenttype",
+                        },
+                    )
+                    field.widget.attrs["data-field-name"] = "content_type"
 
         content_type_id = (
             self.data.get("content_type")

@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 class HorillaActivityConfig(AppConfig):
     """
-    Configuration class for the Activity app in Horilla CRM.
+    Configuration class for the Activity app in Horilla.
     """
 
     default_auto_field = "django.db.models.BigAutoField"
@@ -22,7 +22,7 @@ class HorillaActivityConfig(AppConfig):
         """
         return [
             {
-                "pattern": "/horilla_activity/",
+                "pattern": "/activity/",
                 "view_or_include": "horilla_activity.api.urls",
                 "name": "horilla_activity_api",
                 "namespace": "horilla_activity",
@@ -31,7 +31,6 @@ class HorillaActivityConfig(AppConfig):
 
     def ready(self):
         try:
-            # Auto-register this app's URLs and add to installed apps
             from django.urls import include, path
 
             from horilla.urls import urlpatterns
@@ -40,6 +39,8 @@ class HorillaActivityConfig(AppConfig):
                 path("activity/", include("horilla_activity.urls")),
             )
 
+            __import__("horilla_activity.registration")
+            __import__("horilla_activity.methods")
             __import__("horilla_activity.menu")  # noqa: F401
             __import__("horilla_activity.signals")  # noqa:F401
         except Exception as e:

@@ -1,7 +1,7 @@
 """
-Models for the CRM utilities module.
+Models for the utilities module.
 
-This file defines the database models used in the CRM application.
+This file defines the database models used in the application.
 These models represent the structure of the data and include any
 relationships, constraints, and behaviors.
 """
@@ -13,11 +13,9 @@ from django.db import models
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
-from horilla.registry.feature import feature_enabled
 from horilla_core.models import HorillaCoreModel
 
 
-@feature_enabled(global_search=True, dashboard_component=True)
 class Activity(HorillaCoreModel):
     """
     Model representing various types of activities such as events, meetings, tasks, and log calls.
@@ -53,9 +51,9 @@ class Activity(HorillaCoreModel):
     content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
+        verbose_name=_("Related Content Type"),
         null=True,
         blank=True,
-        verbose_name=_("Related Content Type"),
     )
 
     object_id = models.PositiveIntegerField(
