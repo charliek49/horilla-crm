@@ -663,6 +663,8 @@ class HorillaListView(ListView):
         ]
         if self.filterset_class:
             exclude_fields = getattr(self.filterset_class.Meta, "exclude", [])
+        # Exclude histories and full_histories from export additional columns
+        exclude_from_export = ["histories", "full_histories"]
         model_fields = []
         is_bulk_update_trigger = False
         trigger_name = self.request.headers.get("Hx-Trigger-Name")
@@ -679,6 +681,8 @@ class HorillaListView(ListView):
         for field in self.model._meta.fields:
 
             if field.auto_created or field.name == "id":
+                continue
+            if field.name in exclude_from_export:
                 continue
             if self.filterset_class:
                 if field.name in exclude_fields:
@@ -798,6 +802,9 @@ class HorillaListView(ListView):
             self.model, predicate=lambda x: isinstance(x, property)
         ):
             label_key = name.replace("get_", "", 1) if name.startswith("get_") else name
+            # Exclude histories and full_histories properties from export additional columns
+            if name in exclude_from_export or label_key in exclude_from_export:
+                continue
             if label_key in property_labels:
                 model_fields.append(
                     {
@@ -1609,12 +1616,19 @@ class HorillaListView(ListView):
 
             # Get table columns from _get_columns
             table_columns = self._get_columns()
+            # Filter out histories and full_histories columns from export
+            exclude_from_export = ["histories", "full_histories"]
+            table_columns = [
+                col for col in table_columns if col[1] not in exclude_from_export
+            ]
             table_column_names = [
                 col[1] for col in table_columns
             ]  # Field names of table columns
 
             # Use selected columns if provided, otherwise use table columns
             if columns:
+                # Filter out histories and full_histories from selected columns
+                columns = [col for col in columns if col not in exclude_from_export]
                 column_headers = [
                     field[0] for field in model_fields if field[1] in columns
                 ]
@@ -1864,12 +1878,6 @@ class HorillaListView(ListView):
                                 except ValueError:
                                     row.append("")
 
-                            # row = [
-                            #     data[row_idx][selected_fields.index(field)]
-                            #     for field in chunk_fields
-                            # ]
-
-                            # Calculate row height and center the text
                             max_lines_in_row = 1
                             for value in row:
                                 wrapped_value = wrap_text(value, max_chars_per_line)
@@ -4975,6 +4983,8 @@ class HorillaMultiStepFormView(FormView):
     skip_permission_check = False
     view_id = ""
     single_step_url_name = None
+    detail_url_name = None
+    save_and_new = True
 
     def get_filtered_dynamic_create_fields(self):
         """Filter dynamic_create_fields based on user's add permissions"""
@@ -5039,6 +5049,19 @@ class HorillaMultiStepFormView(FormView):
                 url_name = self.single_step_url_name.get("create")
                 return reverse(url_name) if url_name else None
             return reverse(self.single_step_url_name)
+
+    def get_create_url(self):
+        """Get the create URL for the form"""
+        # Use form_url_name to get create URL
+        if self.form_url_name:
+            if isinstance(self.form_url_name, dict):
+                url_name = self.form_url_name.get("create")
+                if url_name:
+                    return reverse(url_name)
+            else:
+                return reverse(self.form_url_name)
+        # Fallback: use request path
+        return self.request.path
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -5236,6 +5259,13 @@ class HorillaMultiStepFormView(FormView):
         kwargs["full_width_fields"] = self.fullwidth_fields
         kwargs["dynamic_create_fields"] = self.get_filtered_dynamic_create_fields()
 
+        # Add field permissions to form kwargs
+        if self.model:
+            field_permissions = get_field_permissions_for_model(
+                self.request.user, self.model
+            )
+            kwargs["field_permissions"] = field_permissions
+
         if self.object:
             kwargs["instance"] = self.object
 
@@ -5384,6 +5414,7 @@ class HorillaMultiStepFormView(FormView):
         context = super().get_context_data(**kwargs)
         self.current_step = getattr(self, "current_step", self.get_initial_step())
         context["step_titles"] = self.step_titles
+        context["save_and_new"] = self.save_and_new
         context["total_steps"] = self.total_steps
         context["current_step"] = self.current_step
         context["form_title"] = self.form_title or self.get_form_title()
@@ -5480,6 +5511,16 @@ class HorillaMultiStepFormView(FormView):
 
         context["single_step_url"] = self.get_single_step_url()
         context["view_id"] = self.view_id or f"{self.model._meta.model_name}-form-view"
+
+        # Add field permissions to context
+        if self.model:
+            field_permissions = get_field_permissions_for_model(
+                self.request.user, self.model
+            )
+            context["field_permissions"] = field_permissions
+        else:
+            context["field_permissions"] = {}
+
         return context
 
     def form_valid(self, form):
@@ -5509,6 +5550,13 @@ class HorillaMultiStepFormView(FormView):
                 "dynamic_create_fields": self.dynamic_create_fields,
                 "request": self.request,
             }
+
+            # Add field permissions to form kwargs
+            if self.model:
+                field_permissions = get_field_permissions_for_model(
+                    self.request.user, self.model
+                )
+                next_step_form_kwargs["field_permissions"] = field_permissions
 
             if final_files:
                 next_step_form_kwargs["files"] = final_files
@@ -5558,6 +5606,13 @@ class HorillaMultiStepFormView(FormView):
                 "request": self.request,
             }
 
+            # Add field permissions to form kwargs
+            if self.model:
+                field_permissions = get_field_permissions_for_model(
+                    self.request.user, self.model
+                )
+                final_form_kwargs["field_permissions"] = field_permissions
+
             if final_files:
                 final_form_kwargs["files"] = final_files
 
@@ -5595,11 +5650,38 @@ class HorillaMultiStepFormView(FormView):
 
                     self.cleanup_session_data()
 
-                    action = "updated" if self.object else "created"
+                    action = (
+                        "updated" if self.kwargs.get(self.pk_url_kwarg) else "created"
+                    )
                     messages.success(
                         self.request,
                         f"{self.model.__name__} was successfully {action}.",
                     )
+
+                    # Check if "save_and_new" button was clicked (only in create mode, last step)
+                    if "save_and_new" in self.request.POST and not self.kwargs.get(
+                        self.pk_url_kwarg
+                    ):
+                        create_url = self.get_create_url()
+                        return HttpResponse(
+                            f"<div hx-get='{create_url}' "
+                            f"hx-target='#modalBox' "
+                            f"hx-swap='innerHTML' "
+                            f"hx-trigger='load'>"
+                            f"</div>"
+                            f"<script>$('#reloadButton').click();</script>"
+                        )
+
+                    # Check if detail_url_name is provided and this is a create operation
+                    if self.detail_url_name and not self.kwargs.get(self.pk_url_kwarg):
+                        detail_url = reverse(
+                            self.detail_url_name,
+                            kwargs={self.pk_url_kwarg: self.object.pk},
+                        )
+                        response = HttpResponse()
+                        response["HX-Redirect"] = detail_url
+                        return response
+
                     return HttpResponse(
                         "<script>$('#reloadButton').click();closeModal();</script>"
                     )
@@ -5614,6 +5696,13 @@ class HorillaMultiStepFormView(FormView):
                         "dynamic_create_fields": self.dynamic_create_fields,
                         "request": self.request,
                     }
+
+                    # Add field permissions to form kwargs
+                    if self.model:
+                        field_permissions = get_field_permissions_for_model(
+                            self.request.user, self.model
+                        )
+                        error_form_kwargs["field_permissions"] = field_permissions
 
                     if final_files:
                         error_form_kwargs["files"] = final_files
@@ -5678,6 +5767,13 @@ class HorillaMultiStepFormView(FormView):
                     "data": form_data,
                 }
 
+                # Add field permissions to form kwargs
+                if self.model:
+                    field_permissions = get_field_permissions_for_model(
+                        self.request.user, self.model
+                    )
+                    form_kwargs["field_permissions"] = field_permissions
+
                 if final_files:
                     form_kwargs["files"] = final_files
 
@@ -5722,6 +5818,11 @@ class HorillaSingleFormView(FormView):
     condition_field_choices = None
     condition_field_title = None
     condition_hx_include = None
+    condition_related_name = None  # Name of the related manager (e.g., "conditions", "criteria", "team_members")
+    condition_order_by = ["order", "created_at"]  # Default ordering for conditions
+    content_type_field = (
+        None  # Field name that contains ContentType (e.g., "content_type", "model")
+    )
     header = True
     modal_height_class = None
     hx_attrs: dict = {}
@@ -5732,6 +5833,8 @@ class HorillaSingleFormView(FormView):
 
     multi_step_url_name = None
     duplicate_mode = False
+    detail_url_name = None
+    save_and_new = True
 
     def get_filtered_dynamic_create_fields(self):
         """Filter dynamic_create_fields based on user's add permissions"""
@@ -5926,17 +6029,75 @@ class HorillaSingleFormView(FormView):
 
     def get_existing_conditions(self):
         """Retrieve existing conditions for the current object in edit mode."""
-        if self.kwargs.get("pk") and hasattr(self, "object") and self.object:
-            existing_conditions = getattr(self.object, "team_members", None) or getattr(
-                self.object, "conditions", None
-            )
-            if existing_conditions and hasattr(existing_conditions, "all"):
-                return existing_conditions.all().order_by("created_at")
+        if not (self.kwargs.get("pk") and hasattr(self, "object") and self.object):
+            return None
+
+        # Use condition_related_name if specified, otherwise auto-detect
+        related_name = self.condition_related_name
+        if not related_name:
+            # Try common names in order of preference
+            for name in ["conditions", "criteria", "team_members"]:
+                if hasattr(self.object, name):
+                    related_name = name
+                    break
+
+        if related_name:
+            related_manager = getattr(self.object, related_name, None)
+            if related_manager and hasattr(related_manager, "all"):
+                # Use condition_order_by if specified, otherwise default
+                order_by = getattr(self, "condition_order_by", ["order", "created_at"])
+                if isinstance(order_by, list):
+                    return related_manager.all().order_by(*order_by)
+                return related_manager.all().order_by(order_by)
+
         return None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.session_keys_to_clear_on_edit = ["condition_row_count"]
+
+    def get_model_name_from_content_type(self, request=None):
+        """Helper method to extract model_name from content_type field.
+
+        Supports both POST and GET requests (for add_condition_row).
+        Checks content_type_field attribute. Handles both direct ContentType fields
+        and ForeignKey fields pointing to HorillaContentType.
+
+        Args:
+            request: Optional request object. If not provided, uses self.request.
+        """
+        if not self.content_type_field:
+            return None
+
+        req = request or self.request
+        model_name = None
+
+        # Try POST first, then GET (for add_condition_row)
+        content_type_id = (
+            req.POST.get(self.content_type_field)
+            if req.method == "POST"
+            else req.GET.get(self.content_type_field)
+        )
+
+        if content_type_id:
+            try:
+                from horilla_core.models import HorillaContentType
+
+                content_type = HorillaContentType.objects.get(pk=content_type_id)
+                model_name = content_type.model
+            except Exception:
+                pass
+        elif self.object and hasattr(self.object, self.content_type_field):
+            content_type = getattr(self.object, self.content_type_field)
+            if content_type:
+                # Handle HorillaContentType ForeignKey (e.g., model.model)
+                if hasattr(content_type, "model"):
+                    model_name = content_type.model
+                # Handle Django ContentType
+                elif hasattr(content_type, "model_class"):
+                    model_name = content_type.model_class()._meta.model_name
+
+        return model_name
 
     def get_submitted_condition_data(self):
         """Extract condition field data from submitted form data"""
@@ -5971,24 +6132,158 @@ class HorillaSingleFormView(FormView):
             except ValueError:
                 new_row_id = "1"
 
+        # Temporarily set request to allow get_form_kwargs to work properly
+        original_request = self.request
+        self.request = request
+
         form_kwargs = self.get_form_kwargs()
         form_kwargs["row_id"] = new_row_id
+
+        # Extract model_name if content_type_field is set
+        model_name = None
+        model_id = None
+        if self.content_type_field:
+            # Use the passed request parameter directly
+            model_name = self.get_model_name_from_content_type(request)
+            if model_name:
+                if "initial" not in form_kwargs:
+                    form_kwargs["initial"] = {}
+                form_kwargs["initial"]["model_name"] = model_name
+                # Also set the content_type_field value if available
+                content_type_id = request.GET.get(
+                    self.content_type_field
+                ) or request.POST.get(self.content_type_field)
+                if content_type_id:
+                    model_id = content_type_id
+                    form_kwargs["initial"][self.content_type_field] = model_id
+
+        # Restore original request
+        self.request = original_request
 
         if "pk" in self.kwargs:
             try:
                 instance = self.model.objects.get(pk=self.kwargs["pk"])
                 form_kwargs["instance"] = instance
+                # If model_name wasn't found from request, try from instance
+                if (
+                    not model_name
+                    and self.content_type_field
+                    and hasattr(instance, self.content_type_field)
+                ):
+                    content_type = getattr(instance, self.content_type_field)
+                    if content_type and hasattr(content_type, "model"):
+                        model_name = content_type.model
+                        if "initial" not in form_kwargs:
+                            form_kwargs["initial"] = {}
+                        form_kwargs["initial"]["model_name"] = model_name
             except self.model.DoesNotExist:
                 pass
 
+        # Get existing condition data for this row before creating form
+        existing_field_value = None
+        existing_value_value = None
+        if "pk" in self.kwargs and hasattr(self, "object") and self.object:
+            existing_conditions = self.get_existing_conditions()
+            if existing_conditions and existing_conditions.exists():
+                try:
+                    row_index = int(new_row_id) if new_row_id.isdigit() else 0
+                    conditions_list = list(existing_conditions)
+                    if 0 <= row_index < len(conditions_list):
+                        condition = conditions_list[row_index]
+                        existing_field_value = getattr(condition, "field", "")
+                        existing_value_value = getattr(condition, "value", "")
+                        # Store in form_kwargs so form can use it
+                        if "initial" not in form_kwargs:
+                            form_kwargs["initial"] = {}
+                        form_kwargs["initial"]["_existing_field"] = existing_field_value
+                        form_kwargs["initial"]["_existing_value"] = existing_value_value
+                except (ValueError, IndexError):
+                    pass
+
         form = self.get_form_class()(**form_kwargs)
+
+        # Update form's condition_field_choices if model_name is available
+        if (
+            model_name
+            and hasattr(form, "condition_field_choices")
+            and hasattr(form, "_get_model_field_choices")
+        ):
+            form.model_name = model_name
+            form.condition_field_choices["field"] = form._get_model_field_choices(
+                model_name
+            )
+            if "field" in form.fields:
+                form.fields["field"].choices = form.condition_field_choices["field"]
+
+        # Update field select's hx-vals and initial value to include existing field and value for this row
+        if existing_field_value is not None and "field" in form.fields:
+            from django.utils.html import escape
+
+            field_widget = form.fields["field"].widget
+            if hasattr(field_widget, "attrs"):
+                # Rebuild hx-vals string with existing field and value
+                hx_vals_parts = [
+                    f'"model_name": "{model_name or ""}"',
+                    f'"row_id": "{new_row_id}"',
+                ]
+                if existing_field_value:
+                    hx_vals_parts.append(
+                        f'"field_{new_row_id}": "{escape(str(existing_field_value))}"'
+                    )
+                if existing_value_value:
+                    hx_vals_parts.append(
+                        f'"value_{new_row_id}": "{escape(str(existing_value_value))}"'
+                    )
+                field_widget.attrs["hx-vals"] = "{" + ", ".join(hx_vals_parts) + "}"
+                # Ensure hx-trigger includes "load" so it triggers on page load
+                if "hx-trigger" not in field_widget.attrs:
+                    field_widget.attrs["hx-trigger"] = "change,load"
+                elif "load" not in field_widget.attrs["hx-trigger"]:
+                    field_widget.attrs["hx-trigger"] = (
+                        field_widget.attrs["hx-trigger"] + ",load"
+                    )
+
+            # Set initial value on field select
+            form.fields["field"].initial = existing_field_value
+
+        # Get submitted condition data
+        submitted_condition_data = self.get_submitted_condition_data()
+
+        # If editing and this row has existing condition data, add it to submitted_condition_data
+        if "pk" in self.kwargs and hasattr(self, "object") and self.object:
+            existing_conditions = self.get_existing_conditions()
+            if existing_conditions and existing_conditions.exists():
+                try:
+                    # Get the condition for this specific row_id (row_id corresponds to order/index)
+                    row_index = int(new_row_id) if new_row_id.isdigit() else 0
+                    conditions_list = list(existing_conditions)
+                    if 0 <= row_index < len(conditions_list):
+                        condition = conditions_list[row_index]
+                        # Add condition data to submitted_condition_data for this row
+                        if new_row_id not in submitted_condition_data:
+                            submitted_condition_data[new_row_id] = {}
+                        for field_name in self.condition_fields:
+                            value = getattr(condition, field_name, "")
+                            if value is not None:
+                                submitted_condition_data[new_row_id][field_name] = str(
+                                    value
+                                )
+                except (ValueError, IndexError):
+                    pass
 
         context = {
             "form": form,
             "condition_fields": self.condition_fields or [],
             "row_id": new_row_id,
-            "submitted_condition_data": self.get_submitted_condition_data(),  # Add this
+            "submitted_condition_data": submitted_condition_data,
         }
+
+        # Add condition_field_choices and model_name to context if available
+        if hasattr(form, "condition_field_choices"):
+            context["condition_field_choices"] = form.condition_field_choices
+        if model_name:
+            context["model_name"] = model_name
+
         html = render_to_string("partials/condition_row.html", context, request=request)
         return HttpResponse(html)
 
@@ -6001,6 +6296,7 @@ class HorillaSingleFormView(FormView):
             condition_model = self.condition_model
             condition_field_choices = self.condition_field_choices or {}
             condition_hx_include = self.condition_hx_include
+            save_and_new = self.save_and_new
 
             class DynamicForm(OwnerQuerysetMixin, HorillaModelForm):
                 class Meta:
@@ -6033,6 +6329,13 @@ class HorillaSingleFormView(FormView):
                     }
 
                 def __init__(self, *args, **kwargs):
+                    # Get field permissions from kwargs and store them
+                    field_permissions = kwargs.pop("field_permissions", {})
+                    self.field_permissions = field_permissions
+
+                    # Get duplicate_mode to determine if readonly fields should be hidden
+                    duplicate_mode = kwargs.pop("duplicate_mode", False)
+
                     kwargs["dynamic_create_fields"] = dynamic_create_fields
                     kwargs["full_width_fields"] = full_width_fields
                     kwargs["hidden_fields"] = hidden_fields
@@ -6040,7 +6343,357 @@ class HorillaSingleFormView(FormView):
                     kwargs["condition_model"] = condition_model
                     kwargs["condition_field_choices"] = condition_field_choices
                     kwargs["condition_hx_include"] = condition_hx_include
+                    kwargs["save_and_new"] = save_and_new
                     super().__init__(*args, **kwargs)
+
+                    # Check if we're in create mode or duplicate mode
+                    # In these modes, readonly fields should be hidden (not shown)
+                    is_create_mode = not (self.instance and self.instance.pk)
+                    is_duplicate_mode = duplicate_mode
+
+                    # Apply field permissions: remove hidden fields and make readonly fields non-editable
+                    # Do this in two passes: first remove hidden, then apply readonly
+                    fields_to_remove = []
+                    readonly_fields = []
+
+                    # First pass: identify fields to remove and fields to make readonly
+                    for field_name, field in self.fields.items():
+                        # Skip condition fields and already hidden fields
+                        if (
+                            field_name in condition_fields
+                            or field_name in hidden_fields
+                        ):
+                            continue
+
+                        permission = field_permissions.get(field_name, "readwrite")
+
+                        # Remove hidden fields
+                        if permission == "hidden":
+                            # In create/duplicate mode, don't hide mandatory fields (user needs to fill them)
+                            if is_create_mode or is_duplicate_mode:
+                                # Check if field is mandatory (required)
+                                is_mandatory = False
+                                try:
+                                    model_field = self._meta.model._meta.get_field(
+                                        field_name
+                                    )
+                                    # Field is mandatory if it doesn't allow null and doesn't allow blank
+                                    is_mandatory = (
+                                        not model_field.null and not model_field.blank
+                                    )
+                                except:
+                                    # If we can't get the model field, check form field's required attribute
+                                    is_mandatory = field.required
+
+                                # Only hide if NOT mandatory in create/duplicate mode
+                                if not is_mandatory:
+                                    fields_to_remove.append(field_name)
+                            else:
+                                # In edit mode, always hide fields with "hidden" permission
+                                fields_to_remove.append(field_name)
+                        # Mark readonly fields for processing
+                        elif permission == "readonly":
+                            # Check if field is mandatory (required)
+                            is_mandatory = False
+                            try:
+                                model_field = self._meta.model._meta.get_field(
+                                    field_name
+                                )
+                                # Field is mandatory if it doesn't allow null and doesn't allow blank
+                                is_mandatory = (
+                                    not model_field.null and not model_field.blank
+                                )
+                            except:
+                                # If we can't get the model field, check form field's required attribute
+                                is_mandatory = field.required
+
+                            # In create mode or duplicate mode:
+                            # - Hide readonly fields ONLY if they are NOT mandatory
+                            # - Show readonly fields if they ARE mandatory (user needs to fill them)
+                            if (
+                                is_create_mode or is_duplicate_mode
+                            ) and not is_mandatory:
+                                fields_to_remove.append(field_name)
+                            else:
+                                # In edit mode, or if mandatory in create/duplicate mode, show readonly fields
+                                readonly_fields.append(field_name)
+
+                    # Remove hidden fields first
+                    for field_name in fields_to_remove:
+                        del self.fields[field_name]
+
+                    # Second pass: apply readonly to remaining fields (after all widget setup is complete)
+                    for field_name in readonly_fields:
+                        if field_name not in self.fields:
+                            continue
+
+                        field = self.fields[field_name]
+
+                        # Check if we're in create mode or duplicate mode
+                        is_create_mode = not (self.instance and self.instance.pk)
+                        is_duplicate_mode = duplicate_mode
+
+                        # Check if field is mandatory (required)
+                        is_mandatory = False
+                        try:
+                            model_field = self._meta.model._meta.get_field(field_name)
+                            # Field is mandatory if it doesn't allow null and doesn't allow blank
+                            is_mandatory = (
+                                not model_field.null and not model_field.blank
+                            )
+                        except:
+                            # If we can't get the model field, check form field's required attribute
+                            is_mandatory = field.required
+
+                        # In create/duplicate mode, if field is mandatory, don't make it readonly
+                        # User needs to be able to fill mandatory fields
+                        if (is_create_mode or is_duplicate_mode) and is_mandatory:
+                            # Remove any readonly/disabled attributes that might have been set by parent class
+                            if hasattr(field.widget, "attrs"):
+                                if "readonly" in field.widget.attrs:
+                                    del field.widget.attrs["readonly"]
+                                if "readOnly" in field.widget.attrs:
+                                    del field.widget.attrs["readOnly"]
+                                if "data-readonly" in field.widget.attrs:
+                                    del field.widget.attrs["data-readonly"]
+                                if "disabled" in field.widget.attrs:
+                                    del field.widget.attrs["disabled"]
+                                if "data-disabled" in field.widget.attrs:
+                                    del field.widget.attrs["data-disabled"]
+                            field.disabled = False
+                            # Remove readonly/disabled styling
+                            if (
+                                hasattr(field.widget, "attrs")
+                                and "class" in field.widget.attrs
+                            ):
+                                field.widget.attrs["class"] = (
+                                    field.widget.attrs["class"]
+                                    .replace("bg-gray-200", "")
+                                    .replace("bg-gray-100", "")
+                                    .replace("border-gray-300", "")
+                                    .replace("cursor-not-allowed", "")
+                                    .replace("opacity-75", "")
+                                    .replace("opacity-60", "")
+                                    .strip()
+                                )
+                            # Skip making this field readonly - it should be editable in create/duplicate mode
+                            continue
+
+                        # Get the model field to determine the actual field type
+                        try:
+                            model_field = self._meta.model._meta.get_field(field_name)
+                        except:
+                            model_field = None
+
+                        # Check if field has choices (CharField with choices renders as Select)
+                        has_choices = (
+                            model_field
+                            and hasattr(model_field, "choices")
+                            and model_field.choices
+                        )
+
+                        # Determine if it's a text-based field or select-based field
+                        is_text_field = (
+                            model_field
+                            and isinstance(
+                                model_field,
+                                (
+                                    models.CharField,
+                                    models.TextField,
+                                    models.IntegerField,
+                                    models.BigIntegerField,
+                                    models.SmallIntegerField,
+                                    models.PositiveIntegerField,
+                                    models.DecimalField,
+                                    models.FloatField,
+                                    models.EmailField,
+                                    models.URLField,
+                                    models.SlugField,
+                                    models.DateField,
+                                    models.DateTimeField,
+                                    models.TimeField,
+                                ),
+                            )
+                            and not has_choices
+                        )  # Exclude CharField with choices
+
+                        # Check widget type
+                        is_select_widget = isinstance(
+                            field.widget, (forms.Select, forms.SelectMultiple)
+                        )
+                        is_text_widget = isinstance(
+                            field.widget,
+                            (
+                                forms.TextInput,
+                                forms.Textarea,
+                                forms.NumberInput,
+                                forms.EmailInput,
+                                forms.URLInput,
+                                forms.DateInput,
+                                forms.DateTimeInput,
+                                forms.TimeInput,
+                            ),
+                        )
+
+                        # For text-based fields (without choices), use readonly attribute
+                        if (
+                            (is_text_field or is_text_widget)
+                            and not has_choices
+                            and not is_select_widget
+                        ):
+                            # Directly set readonly on widget attrs - this is the most reliable way
+                            if not hasattr(field.widget, "attrs"):
+                                field.widget.attrs = {}
+
+                            # FORCE readonly - set it multiple ways to ensure it sticks
+                            field.widget.attrs["readonly"] = "readonly"
+
+                            # Remove disabled (readonly is better - allows form submission)
+                            if "disabled" in field.widget.attrs:
+                                del field.widget.attrs["disabled"]
+                            field.disabled = False
+
+                            # Prevent tab navigation
+                            field.widget.attrs["tabindex"] = "-1"
+
+                            # Add strong visual styling to make readonly obvious
+                            existing_class = field.widget.attrs.get("class", "")
+                            # Remove existing color classes that might conflict
+                            existing_class = (
+                                existing_class.replace("bg-white", "")
+                                .replace("bg-gray-50", "")
+                                .strip()
+                            )
+                            # Add distinct readonly styling
+                            readonly_classes = "bg-gray-200 border-gray-300 cursor-not-allowed opacity-75"
+                            if readonly_classes not in existing_class:
+                                field.widget.attrs["class"] = (
+                                    f"{existing_class} {readonly_classes}".strip()
+                                )
+                            # Add style attribute for additional visual indication
+                            field.widget.attrs["style"] = (
+                                field.widget.attrs.get("style", "")
+                                + " background-color: #e5e7eb !important; border-color: #d1d5db !important;"
+                            )
+                            # Mark as readonly for template use
+                            field.widget.attrs["data-readonly"] = "true"
+
+                            # Mark field as readonly for reference
+                            field._readonly_permission = True
+
+                            # Override widget's get_context to ensure readonly is always included
+                            original_get_context = field.widget.get_context
+
+                            def readonly_get_context(name, value, attrs):
+                                context = original_get_context(name, value, attrs)
+                                if "widget" in context and "attrs" in context["widget"]:
+                                    context["widget"]["attrs"]["readonly"] = "readonly"
+                                return context
+
+                            field.widget.get_context = readonly_get_context
+                        else:
+                            # For select fields (ForeignKey/ManyToMany, CharField with choices, or any Select widget), use disabled
+                            field.disabled = True
+                            if not hasattr(field.widget, "attrs"):
+                                field.widget.attrs = {}
+                            field.widget.attrs["disabled"] = "disabled"
+
+                            # Update class
+                            existing_class = field.widget.attrs.get("class", "")
+                            if "bg-gray-100" not in existing_class:
+                                field.widget.attrs["class"] = (
+                                    f"{existing_class} bg-gray-100 cursor-not-allowed opacity-60".strip()
+                                )
+                            elif "cursor-not-allowed" not in existing_class:
+                                field.widget.attrs["class"] = (
+                                    f"{existing_class} cursor-not-allowed opacity-60".strip()
+                                )
+
+                def clean(self):
+                    cleaned_data = super().clean()
+
+                    # SECURITY: Prevent readonly fields from being changed - restore original values
+                    # This prevents users from removing readonly attribute in browser and editing the field
+                    if self.instance and self.instance.pk:
+                        for field_name, permission in self.field_permissions.items():
+                            if permission == "readonly" and field_name in self.fields:
+                                # Get the model field to determine the type
+                                try:
+                                    model_field = self._meta.model._meta.get_field(
+                                        field_name
+                                    )
+                                except:
+                                    # Field might not exist in model (could be a property)
+                                    continue
+
+                                # Get original value from instance
+                                if isinstance(model_field, models.ManyToManyField):
+                                    # ManyToMany field
+                                    original_value = list(
+                                        getattr(self.instance, field_name).all()
+                                    )
+                                elif isinstance(model_field, models.ForeignKey):
+                                    # ForeignKey field
+                                    original_value = getattr(
+                                        self.instance, field_name, None
+                                    )
+                                else:
+                                    # Regular field (CharField, IntegerField, etc.)
+                                    original_value = getattr(
+                                        self.instance, field_name, None
+                                    )
+
+                                # Check if the value was changed
+                                submitted_value = cleaned_data.get(field_name)
+                                value_changed = False
+
+                                if isinstance(model_field, models.ManyToManyField):
+                                    # Compare ManyToMany by comparing lists of PKs
+                                    original_pks = (
+                                        set([obj.pk for obj in original_value])
+                                        if original_value
+                                        else set()
+                                    )
+                                    submitted_pks = (
+                                        set([obj.pk for obj in submitted_value])
+                                        if submitted_value
+                                        else set()
+                                    )
+                                    value_changed = original_pks != submitted_pks
+                                elif isinstance(model_field, models.ForeignKey):
+                                    # Compare ForeignKey by comparing PKs
+                                    original_pk = (
+                                        original_value.pk if original_value else None
+                                    )
+                                    submitted_pk = (
+                                        submitted_value.pk if submitted_value else None
+                                    )
+                                    value_changed = original_pk != submitted_pk
+                                else:
+                                    # Compare regular fields
+                                    value_changed = original_value != submitted_value
+
+                                # If value was changed, restore original and add validation error
+                                if value_changed:
+                                    cleaned_data[field_name] = original_value
+                                    from django.utils.translation import (
+                                        gettext_lazy as _,
+                                    )
+
+                                    self.add_error(
+                                        field_name,
+                                        forms.ValidationError(
+                                            _(
+                                                "This field is read-only and cannot be modified."
+                                            ),
+                                            code="readonly_field",
+                                        ),
+                                    )
+                                else:
+                                    # Ensure original value is set even if not changed
+                                    cleaned_data[field_name] = original_value
+
+                    return cleaned_data
 
             return DynamicForm
         return super().get_form_class()
@@ -6055,6 +6708,33 @@ class HorillaSingleFormView(FormView):
         kwargs["condition_field_choices"] = self.condition_field_choices or {}
         kwargs["hidden_fields"] = getattr(self, "hidden_fields", [])
         kwargs["condition_hx_include"] = self.condition_hx_include
+
+        # Auto-add request if form accepts it
+        form_class = self.get_form_class()
+        if (
+            form_class
+            and "request" in inspect.signature(form_class.__init__).parameters
+        ):
+            kwargs["request"] = self.request
+
+        # Auto-extract model_name if content_type_field is set
+        if self.content_type_field:
+            model_name = self.get_model_name_from_content_type()
+            if model_name:
+                if "initial" not in kwargs:
+                    kwargs["initial"] = {}
+                kwargs["initial"]["model_name"] = model_name
+
+        # Add field permissions to form kwargs
+        if self.model:
+            field_permissions = get_field_permissions_for_model(
+                self.request.user, self.model
+            )
+            kwargs["field_permissions"] = field_permissions
+
+        # Pass duplicate_mode to form so it can check if readonly fields should be hidden
+        kwargs["duplicate_mode"] = self.duplicate_mode
+
         if self.object and not self.duplicate_mode:
             kwargs["instance"] = self.object
         elif self.object and self.duplicate_mode:
@@ -6071,12 +6751,17 @@ class HorillaSingleFormView(FormView):
                 ]:
                     field_value = getattr(self.object, field.name)
                     if field_value is not None:
-                        if field.get_internal_type() in [
-                            "CharField",
-                            "TextField",
-                        ] and not isinstance(
-                            field,
-                            (models.EmailField, models.URLField, models.SlugField),
+                        if (
+                            field.get_internal_type()
+                            in [
+                                "CharField",
+                                "TextField",
+                            ]
+                            and not isinstance(
+                                field,
+                                (models.EmailField, models.URLField, models.SlugField),
+                            )
+                            and not field.choices
                         ):
                             initial[field.name] = f"{field_value} (Copy)"
                         else:
@@ -6099,6 +6784,7 @@ class HorillaSingleFormView(FormView):
             or f"{'Duplicate' if self.duplicate_mode else 'Update' if self.kwargs.get('pk') and not self.duplicate_mode else 'Create'} {self.model._meta.verbose_name}"
         )
         context["duplicate_mode"] = self.duplicate_mode
+        context["save_and_new"] = self.save_and_new
         context["full_width_fields"] = self.full_width_fields or []
         context["condition_fields"] = self.condition_fields or []
         context["condition_fields_tiltle"] = self.condition_field_title
@@ -6119,6 +6805,89 @@ class HorillaSingleFormView(FormView):
         )
         context["app_label"] = self.model._meta.app_label if self.model != None else ""
         context["submitted_condition_data"] = self.get_submitted_condition_data()
+
+        # Add existing conditions to context if in edit mode
+        if (
+            self.kwargs.get("pk")
+            and hasattr(self, "object")
+            and self.object
+            and self.condition_fields
+        ):
+            existing_conditions = self.get_existing_conditions()
+            context["existing_conditions"] = existing_conditions
+            form = context.get("form")
+            if form and hasattr(form, "condition_field_choices"):
+                context["condition_field_choices"] = form.condition_field_choices
+
+            # Populate submitted_condition_data with existing conditions if not already set
+            if existing_conditions and existing_conditions.exists():
+                if not context.get("submitted_condition_data"):
+                    context["submitted_condition_data"] = {}
+
+                # Generate value widget HTML for existing conditions
+                value_widget_htmls = {}
+                model_name = getattr(form, "model_name", None) or (
+                    self.model._meta.model_name if self.model else None
+                )
+
+                # Import the widget generator
+                from horilla_generics.horilla_support_views import (
+                    GetFieldValueWidgetView,
+                )
+
+                widget_view = GetFieldValueWidgetView()
+
+                # Add all conditions to submitted_condition_data with proper row IDs
+                for index, condition in enumerate(existing_conditions):
+                    row_id = str(index)
+                    condition_dict = {}
+                    for field_name in self.condition_fields:
+                        if hasattr(condition, field_name):
+                            value = getattr(condition, field_name)
+                            condition_dict[field_name] = value
+
+                            # Generate value widget HTML for this row if it's the value field
+                            # Note: Template uses submitted_condition_data path which uses row_id from items() ("0", "1", etc.)
+                            # So we need to use the same row_id (str(index)) for the widget HTML key
+                            if (
+                                field_name == "value" and index > 0
+                            ):  # Only for rows after the first
+                                field_name_value = (
+                                    getattr(condition, "field", "")
+                                    if hasattr(condition, "field")
+                                    else ""
+                                )
+                                value_value = str(value) if value else ""
+                                if field_name_value and model_name:
+                                    # Use the same row_id as in submitted_condition_data (str(index))
+                                    template_row_id = (
+                                        row_id  # row_id is already str(index)
+                                    )
+                                    widget_html = widget_view._get_value_widget_html(
+                                        field_name_value,
+                                        model_name,
+                                        template_row_id,
+                                        value_value,
+                                    )
+                                    if widget_html:
+                                        from django.utils.safestring import mark_safe
+
+                                        key = f"value_widget_html_{template_row_id}"
+                                        value_widget_htmls[key] = mark_safe(widget_html)
+
+                    context["submitted_condition_data"][row_id] = condition_dict
+
+                # Add value widget HTMLs to context
+                context.update(value_widget_htmls)
+
+        # Add field permissions to context
+        if self.model:
+            field_permissions = get_field_permissions_for_model(
+                self.request.user, self.model
+            )
+            context["field_permissions"] = field_permissions
+        else:
+            context["field_permissions"] = {}
 
         if self.request.method == "POST" and context["submitted_condition_data"]:
             max_row_id = max(
@@ -6184,13 +6953,354 @@ class HorillaSingleFormView(FormView):
     def get_form_url(self):
         return self.form_url or self.request.path
 
+    def save_conditions(self, form=None):
+        """Generic method to save conditions from form.cleaned_data or POST data.
+
+        First checks if form.cleaned_data has 'condition_rows' (from forms using _extract_condition_rows).
+        If not, extracts condition data from POST.
+
+        Works with any condition model that has:
+        - A ForeignKey to the main object (auto-detected from condition_related_name)
+        - Fields matching condition_fields
+        - Optional: order, company, created_by, updated_by fields
+        """
+        if not (self.condition_fields and self.condition_model and self.object):
+            return
+
+        # First, check if form.cleaned_data has condition_rows (from forms using _extract_condition_rows)
+        condition_rows = None
+        if (
+            form
+            and hasattr(form, "cleaned_data")
+            and "condition_rows" in form.cleaned_data
+        ):
+            condition_rows = form.cleaned_data["condition_rows"]
+
+        if condition_rows:
+            # Use condition_rows from cleaned_data (already extracted and validated)
+            condition_data = {}
+            for order, row_data in enumerate(condition_rows):
+                row_id = str(order)
+                condition_data[row_id] = row_data
+        else:
+            # Extract condition data from POST
+            condition_data = {}
+            for key, value in self.request.POST.items():
+                for field_name in self.condition_fields:
+                    if key.startswith(f"{field_name}_") and key != field_name:
+                        row_id = key[len(f"{field_name}_") :]
+                        if row_id not in condition_data:
+                            condition_data[row_id] = {}
+                        condition_data[row_id][field_name] = value
+
+        # Get the related manager name
+        related_name = self.condition_related_name
+        if not related_name:
+            # Try to auto-detect from condition_model
+            for field in self.condition_model._meta.get_fields():
+                if (
+                    isinstance(field, models.ForeignKey)
+                    and field.related_model == self.model
+                ):
+                    related_name = field.related_name or field.name
+                    break
+
+        if not related_name:
+            # Default to common names
+            for name in ["conditions", "criteria"]:
+                if hasattr(self.object, name):
+                    related_name = name
+                    break
+
+        if related_name:
+            # Delete existing conditions
+            related_manager = getattr(self.object, related_name, None)
+            if related_manager and hasattr(related_manager, "all"):
+                related_manager.all().delete()
+
+        # Create new conditions
+        if condition_data:
+            order = 0
+
+            # Sort by row_id to maintain order
+            def sort_key(x):
+                try:
+                    return int(x)
+                except ValueError:
+                    return 999
+
+            for row_id in sorted(condition_data.keys(), key=sort_key):
+                row_data = condition_data[row_id]
+
+                # Check if required fields are present (field and operator are common requirements)
+                required_fields = ["field", "operator"]
+                if not all(
+                    row_data.get(field)
+                    for field in required_fields
+                    if field in self.condition_fields
+                ):
+                    # Skip if required fields are missing
+                    continue
+
+                # Build condition creation kwargs
+                create_kwargs = {}
+
+                # Add the ForeignKey to parent object
+                for field in self.condition_model._meta.get_fields():
+                    if (
+                        isinstance(field, models.ForeignKey)
+                        and field.related_model == self.model
+                    ):
+                        create_kwargs[field.name] = self.object
+                        break
+
+                # Add condition field values
+                for field_name in self.condition_fields:
+                    if field_name in row_data:
+                        create_kwargs[field_name] = row_data[field_name]
+
+                # Add order if field exists (use order from row_data if available, otherwise use counter)
+                if hasattr(self.condition_model, "order"):
+                    create_kwargs["order"] = row_data.get("order", order)
+
+                # Add company if field exists
+                if hasattr(self.condition_model, "company"):
+                    create_kwargs["company"] = (
+                        getattr(_thread_local, "request", None).active_company
+                        if hasattr(_thread_local, "request")
+                        else self.request.user.company
+                    )
+
+                # Add created_at/updated_at if fields exist
+                if hasattr(self.condition_model, "created_at"):
+                    create_kwargs["created_at"] = timezone.now()
+                if hasattr(self.condition_model, "updated_at"):
+                    create_kwargs["updated_at"] = timezone.now()
+
+                # Add created_by/updated_by if fields exist
+                if hasattr(self.condition_model, "created_by"):
+                    create_kwargs["created_by"] = self.request.user
+                if hasattr(self.condition_model, "updated_by"):
+                    create_kwargs["updated_by"] = self.request.user
+
+                # Create the condition
+                self.condition_model.objects.create(**create_kwargs)
+                order += 1
+
+    def save_multiple_main_instances(self, form=None):
+        """Generic method to create multiple instances of the main model from condition rows.
+
+        Used when condition_fields exist but no condition_model is specified.
+        Creates multiple instances of self.model directly from condition rows.
+
+        Returns:
+            list: List of created instances, or False if validation errors occurred
+        """
+        if not (self.condition_fields and self.model):
+            return []
+
+        # Validate form has required fields (can be overridden in child classes)
+        if form and hasattr(self, "validate_form_for_multiple_instances"):
+            validation_result = self.validate_form_for_multiple_instances(form)
+            if validation_result is False:
+                return False
+
+        # Get condition data from form.cleaned_data or POST
+        condition_rows = None
+        if (
+            form
+            and hasattr(form, "cleaned_data")
+            and "condition_rows" in form.cleaned_data
+        ):
+            condition_rows = form.cleaned_data["condition_rows"]
+
+        if condition_rows:
+            # Use condition_rows from cleaned_data (already extracted and validated)
+            condition_data = {}
+            for order, row_data in enumerate(condition_rows):
+                row_id = str(order)
+                condition_data[row_id] = row_data
+        else:
+            # Extract condition data from POST
+            condition_data = self.get_submitted_condition_data()
+
+        if not condition_data:
+            if form:
+                form.add_error(None, "At least one instance must be added.")
+            return []
+
+        created_instances = []
+        validation_errors = []
+        unique_check_cache = set()  # For duplicate checking (can be overridden)
+
+        # Sort by row_id to maintain order
+        def sort_key(x):
+            try:
+                return int(x)
+            except ValueError:
+                return 999
+
+        for row_id in sorted(condition_data.keys(), key=sort_key):
+            row_data = condition_data[row_id]
+
+            # Skip empty rows
+            if not any(row_data.get(field) for field in self.condition_fields):
+                continue
+
+            # Process row_data (can be customized in child classes for "same" checkbox logic, etc.)
+            if hasattr(self, "process_row_data_before_create"):
+                processed_result = self.process_row_data_before_create(
+                    row_data, row_id, form
+                )
+                if processed_result is False:  # Explicit False means validation failed
+                    return False
+                if processed_result is None:  # None means skip this row
+                    continue
+                if isinstance(processed_result, dict):  # Returned processed row_data
+                    row_data = processed_result
+                # If True or no return, continue with original row_data
+
+            # Check for duplicates (can be customized in child classes)
+            if hasattr(self, "check_duplicate_instance"):
+                duplicate_result = self.check_duplicate_instance(
+                    row_data, unique_check_cache, form
+                )
+                if duplicate_result:
+                    if isinstance(duplicate_result, str):
+                        validation_errors.append(duplicate_result)
+                    continue
+                if duplicate_result is False:  # Explicit False means validation failed
+                    return False
+
+            try:
+                # Build create kwargs for main model instance
+                create_kwargs = {}
+
+                # Add main form fields (non-condition fields) from form.cleaned_data
+                if form and hasattr(form, "cleaned_data"):
+                    for field_name, value in form.cleaned_data.items():
+                        if (
+                            field_name not in self.condition_fields
+                            and field_name not in ["condition_rows"]
+                        ):
+                            try:
+                                model_field = self.model._meta.get_field(field_name)
+                                if isinstance(model_field, models.ForeignKey):
+                                    create_kwargs[f"{field_name}_id"] = (
+                                        value.id if hasattr(value, "id") else value
+                                    )
+                                else:
+                                    create_kwargs[field_name] = value
+                            except (FieldDoesNotExist, Exception):
+                                pass
+
+                # Add condition field values
+                for field_name in self.condition_fields:
+                    if field_name in row_data and row_data[field_name]:
+                        try:
+                            model_field = self.model._meta.get_field(field_name)
+                            if isinstance(model_field, models.ForeignKey):
+                                create_kwargs[f"{field_name}_id"] = row_data[field_name]
+                            else:
+                                create_kwargs[field_name] = row_data[field_name]
+                        except (FieldDoesNotExist, Exception):
+                            pass
+
+                # Add standard fields if they exist
+                if hasattr(self.model, "company"):
+                    create_kwargs["company"] = (
+                        getattr(_thread_local, "request", None).active_company
+                        if hasattr(_thread_local, "request")
+                        else self.request.user.company
+                    )
+                if hasattr(self.model, "created_at"):
+                    create_kwargs["created_at"] = timezone.now()
+                if hasattr(self.model, "updated_at"):
+                    create_kwargs["updated_at"] = timezone.now()
+                if hasattr(self.model, "created_by"):
+                    create_kwargs["created_by"] = self.request.user
+                if hasattr(self.model, "updated_by"):
+                    create_kwargs["updated_by"] = self.request.user
+
+                # Allow child classes to modify create_kwargs before creating instance
+                if hasattr(self, "modify_create_kwargs"):
+                    modify_result = self.modify_create_kwargs(
+                        create_kwargs, row_data, row_id, form
+                    )
+                    if modify_result is False:  # Explicit False means validation failed
+                        return False
+                    if modify_result is None:  # None means skip this row
+                        continue
+                    if isinstance(
+                        modify_result, dict
+                    ):  # Returned modified create_kwargs
+                        create_kwargs = modify_result
+
+                # Create the instance
+                instance = self.model.objects.create(**create_kwargs)
+                created_instances.append(instance)
+
+                # Update unique check cache if method exists
+                if hasattr(self, "update_unique_check_cache"):
+                    self.update_unique_check_cache(
+                        row_data, unique_check_cache, instance
+                    )
+
+            except Exception as e:
+                error_msg = str(e)
+                if "UNIQUE constraint failed" in error_msg:
+                    # Try to get a better error message
+                    if hasattr(self, "get_duplicate_error_message"):
+                        error_msg = self.get_duplicate_error_message(
+                            row_data, error_msg
+                        )
+                validation_errors.append(f"Row {row_id}: {error_msg}")
+
+        # If there are validation errors, add them to form
+        if validation_errors and form:
+            for error in validation_errors:
+                form.add_error(None, error)
+            return False
+
+        return created_instances
+
     def get_add_condition_url(self):
         if not self.condition_fields:
             return None
-        params = self.request.GET.copy()
+
+        from django.http import QueryDict
+
+        params = QueryDict(mutable=True)
         params["add_condition_row"] = "1"
+
+        # Include content_type_field value if set
+        if self.content_type_field:
+            content_type_id = None
+            if (
+                hasattr(self, "object")
+                and self.object
+                and hasattr(self.object, self.content_type_field)
+            ):
+                content_type = getattr(self.object, self.content_type_field)
+                if content_type:
+                    content_type_id = str(content_type.pk)
+            elif self.request.GET.get(self.content_type_field):
+                content_type_id = self.request.GET.get(self.content_type_field)
+            elif self.request.POST.get(self.content_type_field):
+                content_type_id = self.request.POST.get(self.content_type_field)
+
+            if content_type_id:
+                params[self.content_type_field] = content_type_id
+
         form_url = self.get_form_url()
         return f"{form_url}{'&' if '?' in str(form_url) else '?'}{params.urlencode()}"
+
+    def get_create_url(self):
+        """Get the create URL for the form"""
+        form_url_value = self.form_url
+        if hasattr(form_url_value, "url"):
+            return form_url_value.url
+        return str(form_url_value)
 
     def form_valid(self, form):
         if not self.request.user.is_authenticated:
@@ -6199,6 +7309,31 @@ class HorillaSingleFormView(FormView):
             )
             return self.form_invalid(form)
 
+        # Handle multiple main model instances pattern (no condition_model)
+        if self.condition_fields and not self.condition_model:
+            created_instances = self.save_multiple_main_instances(form)
+            # If save_multiple_main_instances returned False or None, form had errors
+            if created_instances is False:
+                return self.form_invalid(form)
+            # If we have created instances, show success and return
+            if created_instances:
+                self.request.session["condition_row_count"] = 0
+                messages.success(
+                    self.request,
+                    f"Created {len(created_instances)} {self.model._meta.verbose_name.lower()}(s) successfully!",
+                )
+                return HttpResponse(
+                    "<script>$('#reloadButton').click();closeModal();</script>"
+                )
+            # If no instances created but no errors, show error
+            if created_instances == []:
+                form.add_error(
+                    None,
+                    "At least one instance must be created with all required fields.",
+                )
+                return self.form_invalid(form)
+
+        # Standard pattern: save main object
         self.object = form.save(commit=False)
 
         for field_name, field in form.fields.items():
@@ -6224,13 +7359,47 @@ class HorillaSingleFormView(FormView):
         )
         self.object.save()
         form.save_m2m()
+
+        # Save conditions if condition_fields and condition_model are set
+        if self.condition_fields and self.condition_model:
+            self.save_conditions(form)
+
         self.request.session["condition_row_count"] = 0
         self.request.session.modified = True
         messages.success(
             self.request,
             f"{self.model._meta.verbose_name.title()} {'duplicated' if self.duplicate_mode else 'updated' if self.kwargs.get('pk') and not self.duplicate_mode else 'created'} successfully!",
         )
-        return HttpResponse("<script>$('#reloadButton').click();closeModal();</script>")
+
+        # Check if "save_and_new" button was clicked (only in create mode)
+        if (
+            "save_and_new" in self.request.POST
+            and not self.kwargs.get("pk")
+            and not self.duplicate_mode
+        ):
+            create_url = self.get_create_url()
+
+            return HttpResponse(
+                f"<div hx-get='{create_url}' "
+                f"hx-target='#modalBox' "
+                f"hx-swap='innerHTML' "
+                f"hx-trigger='load'>"
+                f"</div>"
+                f"<script>$('#reloadButton').click();</script>"
+            )
+
+        # Check if detail_url_name is provided and this is a create operation
+        if (
+            self.detail_url_name
+            and not self.kwargs.get("pk")
+            and not self.duplicate_mode
+        ):
+            detail_url = reverse(self.detail_url_name, kwargs={"pk": self.object.pk})
+            response = HttpResponse()
+            response["HX-Redirect"] = detail_url
+            return response
+
+        return HttpResponse("<script>closeModal();$('#reloadButton').click();</script>")
 
     def form_invalid(self, form):
         print(form.errors)
@@ -6347,12 +7516,32 @@ class HorillaDynamicCreateView(LoginRequiredMixin, FormView):
                 else self.request.path
             )
             context["full_width_fields"] = self.get_full_width_fields()
+
+            # Add field permissions to context
+            from horilla_core.utils import get_field_permissions_for_model
+
+            field_permissions = get_field_permissions_for_model(
+                self.request.user, self.target_model
+            )
+            context["field_permissions"] = field_permissions
+        else:
+            context["field_permissions"] = {}
         return context
 
     def get_form_kwargs(self):
-        """Pass full_width_fields to the form"""
+        """Pass full_width_fields and field_permissions to the form"""
         kwargs = super().get_form_kwargs()
         kwargs["full_width_fields"] = self.get_full_width_fields()
+
+        # Add field permissions to form kwargs
+        if self.target_model:
+            from horilla_core.utils import get_field_permissions_for_model
+
+            field_permissions = get_field_permissions_for_model(
+                self.request.user, self.target_model
+            )
+            kwargs["field_permissions"] = field_permissions
+
         return kwargs
 
     def form_valid(self, form):

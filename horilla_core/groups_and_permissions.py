@@ -278,6 +278,15 @@ class ModelFieldsModalView(LoginRequiredMixin, TemplateView):
             else:
                 current_permission = "readwrite"
 
+            # Check if field is mandatory (required)
+            is_mandatory = False
+            try:
+                # Field is mandatory if it doesn't allow null and doesn't allow blank
+                is_mandatory = not field.null and not field.blank
+            except AttributeError:
+                # Some field types might not have null/blank attributes
+                pass
+
             # current_permission = existing_permissions.get(field_name, "readwrite")
 
             fields.append(
@@ -286,6 +295,7 @@ class ModelFieldsModalView(LoginRequiredMixin, TemplateView):
                     "verbose_name": verbose_name,
                     "field_type": field.__class__.__name__,
                     "current_permission": current_permission,
+                    "is_mandatory": is_mandatory,
                 }
             )
 

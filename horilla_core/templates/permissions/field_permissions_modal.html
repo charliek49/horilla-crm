@@ -65,6 +65,12 @@
                             </p>
                         </div>
                     {% endif %}
+
+                    <div class="mb-5 p-3 mt-3 bg-yellow-50 border border-[#f3edb0] rounded-lg">
+                        <p class="text-xs text-yellow-800">
+                          <strong>{% trans "Note:" %}</strong> {% trans "Required fields are always visible when creating or duplicating. Permissions for these fields apply only during editing." %}
+                        </p>
+                    </div>
                 </div>
 
                 {% if fields %}
@@ -94,6 +100,9 @@
                                                 <div>
                                                     <div class="font-medium flex items-center gap-1">
                                                         {{ field.verbose_name }}
+                                                        {% if field.is_mandatory %}
+                                                            <span class="text-red-500" title="{% trans 'Mandatory field' %}">*</span>
+                                                        {% endif %}
                                                     </div>
                                                 </div>
                                             </div>
