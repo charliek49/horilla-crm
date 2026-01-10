@@ -148,6 +148,11 @@ body.dark .dropdown-wrapper .text-gray-600 img,
 body.dark .cursor-pointer img {
   filter: brightness(0) invert(1);
 }
+body.dark .svg-themed,
+body.dark button .svg-themed,
+body.dark button.cursor-pointer .svg-themed {
+  filter: none !important;
+}
 body.dark #settings-sidebar .border-t:first-child {
   border-color: transparent !important;
 }
