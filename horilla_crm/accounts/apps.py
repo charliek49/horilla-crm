@@ -37,6 +37,7 @@ class AccountsConfig(AppConfig):
 
     def ready(self):
         try:
+
             from django.urls import include, path
 
             from horilla.urls import urlpatterns
@@ -44,7 +45,7 @@ class AccountsConfig(AppConfig):
             urlpatterns.append(
                 path("accounts/", include("horilla_crm.accounts.urls")),
             )
-
+            __import__("horilla_crm.accounts.registration")
             __import__("horilla_crm.accounts.menu")  # noqa: F401
             __import__("horilla_crm.accounts.signals")  # noqa: F401
             __import__("horilla_crm.accounts.dashboard")

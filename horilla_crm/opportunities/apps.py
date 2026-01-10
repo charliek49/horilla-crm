@@ -46,10 +46,12 @@ class OpportunitiesConfig(AppConfig):
         from horilla.urls import urlpatterns
 
         try:
+
             urlpatterns.append(
                 path("opportunities/", include("horilla_crm.opportunities.urls")),
             )
 
+            __import__("horilla_crm.opportunities.registration")
             __import__("horilla_crm.opportunities.menu")
             __import__("horilla_crm.opportunities.signals")
             __import__("horilla_crm.opportunities.dashboard")

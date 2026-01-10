@@ -37,6 +37,7 @@ class CampaignsConfig(AppConfig):
 
     def ready(self):
         try:
+
             from django.urls import include, path
 
             from horilla.urls import urlpatterns
@@ -45,6 +46,7 @@ class CampaignsConfig(AppConfig):
                 path("campaigns/", include("horilla_crm.campaigns.urls")),
             )
 
+            __import__("horilla_crm.campaigns.registration")
             __import__("horilla_crm.campaigns.menu")  # noqa: F401
             __import__("horilla_crm.campaigns.signals")  # noqa:F401
             __import__("horilla_crm.campaigns.dashboard")
