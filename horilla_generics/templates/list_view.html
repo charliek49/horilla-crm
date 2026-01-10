@@ -4,13 +4,15 @@
 <style>
     .htmx-indicator{
         display:none;
-
+        pointer-events: none;
     }
     .htmx-request .htmx-indicator{
-        display:inline;
+        display:flex !important;
+        pointer-events: auto;
     }
     .htmx-request.htmx-indicator{
-        display:inline;
+        display:flex !important;
+        pointer-events: auto;
     }
     .pagination-indicator{
         display:none;
@@ -23,13 +25,19 @@
     }
 
 </style>
-<div id="{{ view_id|safe }}">
+<div id="{{ view_id|safe }}" style="position: relative;">
+    <div id="loading-indicator" class="htmx-indicator tabloading" style="z-index: 30;">
+        <div class="flex justify-center items-center p-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        </div>
+      </div>
     <div id="messages-container" style="display: none;">
         {% for message in messages %}
             <div class="message" data-level="{{ message.tags }}" data-message="{{ message }}"></div>
         {% endfor %}
     </div>
-    <button id="reloadButton"  hidden hx-get="{{ request.path }}?{{request.GET.urlencode}}" hx-target="#{{ view_id|safe }}" hx-trigger="click" hx-swap="outerHTML" hx-select="#{{ view_id|safe }}">click</button>
+    <button id="reloadButton"  hidden hx-get="{{ request.path }}?{{request.GET.urlencode}}" hx-target="#{{ view_id|safe }}" hx-trigger="click" hx-swap="outerHTML" hx-select="#{{ view_id|safe }}"  hx-indicator="#loading-indicator">click</button>
+
     {% if filter_set_class %}
         {% include "filterpanel.html" %}
     {% endif %}
@@ -46,7 +54,12 @@
                     </button>
                 </div>
 
-                <form id="exportForm" action="{{ search_url }}" method="POST">
+                <form id="exportForm"
+                      hx-post="{{ search_url }}"
+                      hx-ext="download"
+                      hx-trigger="submit"
+                      hx-swap="none"
+                      hx-indicator="#exportSpinner">
                     {% csrf_token %}
                     <label for="exportFormat" class="text-xs text-color-600">{% trans 'Export Format'%}</label>
                     <div class="flex w-full">
@@ -93,8 +106,9 @@
                     <input type="hidden" id="exportRecordIds" name="record_ids">
 
                     <div class="flex justify-end gap-2">
-                        <button type="submit"  onclick="closeExport();$('.unselect-all-btn').click();"
-                            class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-800" hx-indicator="#exportSpinner">
+                        <button type="submit"
+                                onclick="closeExport();$('.unselect-all-btn').click();"
+                                class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-800">
                             <span class="flex items-center gap-2">
                                     {% trans 'Export'%}
                             </span>

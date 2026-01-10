@@ -1229,17 +1229,16 @@ $(document).on("click", "[id^='clear-select-btn-']", function () {
     clearSelections(viewId);
 });
 
+// Export form validation - works with both regular and HTMX submissions
 $("#exportForm").on("submit", function (e) {
-    const selectedColumns = $("input[name='export_columns']:checked").map(function () {
-        return $(this).val();
-    }).get();
-
     const exportFormat = $("#exportFormat").val();
     if (!exportFormat) {
         alert("Please select an export format");
         e.preventDefault();
-        return;
+        return false;
     }
+    // For HTMX, let it proceed - validation is done, download extension will handle the file
+    return true;
 });
 
 // HTMX Events

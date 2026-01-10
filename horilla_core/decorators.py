@@ -85,9 +85,6 @@ def htmx_required(view_func=None, login=True):
             if login and not request.user.is_authenticated:
                 login_url = f"{reverse_lazy('horilla_core:login')}?next={request.path}"
                 return redirect(login_url)
-            is_export = request.method == "POST" and "export_format" in request.POST
-            if is_export:
-                return func(request, *args, **kwargs)
             if not request.headers.get("HX-Request") == "true":
                 return render(request, "error/405.html")
             return func(request, *args, **kwargs)
