@@ -57,6 +57,7 @@ class HorillaCoreConfig(AppConfig):
             )
 
             # Import required modules
+            __import__("horilla_core.registration")
             __import__("horilla_core.signals")
             __import__("horilla_core.scheduler")
             __import__("horilla_core.login_history")

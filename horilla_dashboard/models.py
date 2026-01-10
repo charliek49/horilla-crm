@@ -11,7 +11,6 @@ from django.urls import reverse_lazy
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
-from horilla.registry.feature import feature_enabled
 from horilla.registry.permission_registry import permission_exempt_model
 from horilla.utils.choices import OPERATOR_CHOICES
 from horilla_core.models import HorillaContentType, HorillaCoreModel, upload_path
@@ -22,7 +21,6 @@ from horilla_utils.methods import render_template
 logger = logging.getLogger(__name__)
 
 
-@feature_enabled(global_search=True)
 class DashboardFolder(HorillaCoreModel):
     """Model for organizing horilla_dashboard in folders"""
 
@@ -86,7 +84,6 @@ class DashboardFolder(HorillaCoreModel):
         )
 
 
-@feature_enabled(global_search=True)
 class Dashboard(HorillaCoreModel):
     """Main dashboard model"""
 

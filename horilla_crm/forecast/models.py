@@ -10,7 +10,6 @@ from django.db import models
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
-from horilla.registry.feature import feature_enabled
 from horilla.registry.permission_registry import permission_exempt_model
 from horilla.utils.choices import OPERATOR_CHOICES
 from horilla_core.models import (
@@ -23,7 +22,6 @@ from horilla_core.models import (
 from horilla_crm.opportunities.models import Opportunity
 
 
-@feature_enabled(import_data=True, export_data=True)
 class ForecastType(HorillaCoreModel):
     """
     Defines different types of forecasts (e.g., Revenue, Quantity, etc.)

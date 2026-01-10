@@ -13,7 +13,6 @@ from django.forms import ValidationError
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
-from horilla.registry.feature import feature_enabled
 from horilla_core.models import HorillaCoreModel, MultipleCurrency
 from horilla_utils.middlewares import _thread_local
 
@@ -231,7 +230,6 @@ class CampaignMember(HorillaCoreModel):
                 self.campaign.save(update_fields=["responses_in_campaign"])
 
 
-@feature_enabled(all=True)
 class Campaign(HorillaCoreModel):
     """
     Model representing a marketing campaign.

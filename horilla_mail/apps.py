@@ -29,6 +29,7 @@ class HorillaMailConfig(AppConfig):
 
     def ready(self):
         try:
+
             # Auto-register this app's main URLs (non-API)
             from django.urls import include, path
 
@@ -39,6 +40,7 @@ class HorillaMailConfig(AppConfig):
                 path("mail/", include("horilla_mail.urls")),
             )
 
+            __import__("horilla_mail.registration")
             __import__("horilla_mail.signals")
             __import__("horilla_mail.scheduler")
             __import__("horilla_mail.menu")

@@ -12,7 +12,6 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from horilla import settings
-from horilla.registry.feature import feature_enabled
 from horilla.registry.permission_registry import permission_exempt_model
 from horilla_core.models import (
     Company,
@@ -28,7 +27,6 @@ from horilla_utils.methods import render_template
 from horilla_utils.middlewares import _thread_local
 
 
-@feature_enabled(import_data=True, export_data=True, global_search=True)
 class OpportunityStage(HorillaCoreModel):
     """Opportunity Stage model for flexible stage management"""
 
@@ -249,7 +247,6 @@ class OpportunityStage(HorillaCoreModel):
         return str(self.name)
 
 
-@feature_enabled(all=True)
 class Opportunity(HorillaCoreModel):
     """Django model based on Salesforce Opportunity object"""
 
@@ -564,7 +561,6 @@ ACCESS_LEVEL_CHOICES = [
 ]
 
 
-@feature_enabled(global_search=True)
 class OpportunityTeam(HorillaCoreModel):
     """Represents a team assigned to manage opportunities."""
 
@@ -902,7 +898,6 @@ class OpportunitySplitType(HorillaCoreModel):
         return not self.totals_100_percent
 
 
-@feature_enabled(report_choices=True)
 class OpportunitySplit(HorillaCoreModel):
     """
     Represents credit splits for each Opportunity.

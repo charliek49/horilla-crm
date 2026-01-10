@@ -42,6 +42,7 @@ class ForecastConfig(AppConfig):
                 path("forecast/", include("horilla_crm.forecast.urls")),
             )
 
+            __import__("horilla_crm.forecast.registration")
             __import__("horilla_crm.forecast.menu")
             __import__("horilla_crm.forecast.signals")
 

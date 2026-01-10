@@ -5,13 +5,11 @@ from django.db import models
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
-from horilla.registry.feature import feature_enabled
 from horilla_core.models import HorillaContentType, HorillaCoreModel
 from horilla_reports.methods import limit_content_types
 from horilla_utils.methods import render_template
 
 
-@feature_enabled(import_data=True, export_data=True, global_search=True)
 class ReportFolder(HorillaCoreModel):
     name = models.CharField(max_length=200, verbose_name=_("Folder Name"))
     parent = models.ForeignKey(
@@ -70,7 +68,6 @@ class ReportFolder(HorillaCoreModel):
         )
 
 
-@feature_enabled(import_data=True, export_data=True, global_search=True)
 class Report(HorillaCoreModel):
     """Model to represent a report in the system."""
 

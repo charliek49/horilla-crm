@@ -23,7 +23,7 @@ class HorillaDashboardConfig(AppConfig):
         """
         return [
             {
-                "pattern": "/horilla_dashboard/",
+                "pattern": "/dashboard/",
                 "view_or_include": "horilla_dashboard.api.urls",
                 "name": "horilla_dashboard_api",
                 "namespace": "horilla_dashboard",
@@ -32,6 +32,8 @@ class HorillaDashboardConfig(AppConfig):
 
     def ready(self):
         try:
+            __import__("horilla_dashboard.registration")
+
             # Auto-register this app's URLs and add to installed apps
             from django.urls import include, path
 

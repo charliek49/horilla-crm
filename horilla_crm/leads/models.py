@@ -21,7 +21,6 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 
-from horilla.registry.feature import feature_enabled
 from horilla.registry.permission_registry import permission_exempt_model
 from horilla.utils.choices import OPERATOR_CHOICES
 from horilla_core.models import Company, HorillaCoreModel
@@ -31,7 +30,6 @@ from horilla_utils.methods import render_template
 logger = logging.getLogger(__name__)
 
 
-@feature_enabled(import_data=True, export_data=True, global_search=True)
 class LeadStatus(HorillaCoreModel):
     """
     Lead Status model
@@ -204,7 +202,6 @@ class LeadStatus(HorillaCoreModel):
         return reverse_lazy("leads:delete_lead_stage", kwargs={"pk": self.pk})
 
 
-@feature_enabled(all=True)
 class Lead(HorillaCoreModel):
     """
     Lead Model

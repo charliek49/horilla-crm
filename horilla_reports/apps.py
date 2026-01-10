@@ -17,21 +17,21 @@ class HorillaReportsConfig(AppConfig):
     name = "horilla_reports"
     verbose_name = _("Reports")
 
-    # def get_api_paths(self):
-    #     """
-    #     Return API path configurations for this app.
+    def get_api_paths(self):
+        """
+        Return API path configurations for this app.
 
-    #     Returns:
-    #         list: List of dictionaries containing path configuration
-    #     """
-    #     return [
-    #         {
-    #             'pattern': 'crm/reports/',
-    #             'view_or_include': 'horilla_crm.reports.api.urls',
-    #             'name': 'horilla_crm_reports_api',
-    #             'namespace': 'horilla_crm_reports'
-    #         }
-    #     ]
+        Returns:
+            list: List of dictionaries containing path configuration
+        """
+        return [
+            {
+                "pattern": "reports/",
+                "view_or_include": "horilla_reports.api.urls",
+                "name": "horilla_reports_api",
+                "namespace": "horilla_reports",
+            }
+        ]
 
     def ready(self):
         """Auto-register URLs and import the app menu."""
@@ -44,6 +44,7 @@ class HorillaReportsConfig(AppConfig):
                 path("reports/", include("horilla_reports.urls")),
             )
 
+            __import__("horilla_reports.registration")
             __import__("horilla_reports.menu")  # noqa: F401
             __import__("horilla_reports.signals")
         except Exception as e:

@@ -11,7 +11,6 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from djmoney.settings import CURRENCY_CHOICES
 
-from horilla.registry.feature import feature_enabled
 from horilla.utils.choices import LANGUAGE_CHOICES
 from horilla_core.models import HorillaCoreModel
 from horilla_crm.leads.utils import compute_score
@@ -26,7 +25,6 @@ CONTACT_SOURCE_CHOICES = [
 ]
 
 
-@feature_enabled(all=True)
 class Contact(HorillaCoreModel):
     """Django model for Contact object."""
 

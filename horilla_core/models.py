@@ -37,7 +37,6 @@ from multiselectfield import MultiSelectField
 from pytz import common_timezones
 
 from horilla.menu.sub_section_menu import sub_section_menu
-from horilla.registry.feature import feature_enabled
 from horilla.registry.permission_registry import permission_exempt_model
 from horilla.utils.choices import (
     CURRENCY_FORMAT_CHOICES,
@@ -95,7 +94,6 @@ class HorillaContentType(ContentType):
         return self.model.replace("_", " ").title()
 
 
-@feature_enabled(all=True, exclude=["dashboard_component", "report_choices"])
 class Company(models.Model):
     """
     Company model representing business entities in the system.
@@ -531,7 +529,6 @@ class HorillaCoreModel(models.Model):
         )
 
 
-@feature_enabled(all=True, exclude=["dashboard_component", "report_choices"])
 class Department(HorillaCoreModel):
     """
     Department model
@@ -572,7 +569,6 @@ class Department(HorillaCoreModel):
         )
 
 
-@feature_enabled(all=True, exclude=["dashboard_component", "report_choices"])
 class Role(HorillaCoreModel):
     """
     Role model
@@ -822,7 +818,6 @@ class MultipleCurrency(HorillaCoreModel):
         return reverse_lazy("horilla_core:delete_currency", kwargs={"pk": self.pk})
 
 
-@feature_enabled(all=True, exclude=["dashboard_component", "report_choices"])
 class HorillaUser(AbstractUser):
     """
     Represents a custom user profile for the Horilla application, extending Django's AbstractUser.
