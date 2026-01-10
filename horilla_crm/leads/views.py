@@ -377,10 +377,10 @@ class LeadFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     model = Lead
     fullwidth_fields = ["requirements"]
     dynamic_create_fields = ["lead_status"]
+    detail_url_name = "leads:leads_detail"
     dynamic_create_field_mapping = {
         "lead_status": {
-            "fields": ["name", "order", "color"],
-            "full_width_fields": ["name"],
+            "fields": ["name", "order", "color", "probability"],
         },
     }
 
@@ -685,12 +685,12 @@ class LeadsSingleFormView(LoginRequiredMixin, HorillaSingleFormView):
     dynamic_create_fields = ["lead_status"]
     dynamic_create_field_mapping = {
         "lead_status": {
-            "fields": ["name", "order", "color"],
-            "full_width_fields": ["name"],
+            "fields": ["name", "order", "color", "probability"],
         },
     }
 
     multi_step_url_name = {"create": "leads:leads_create", "edit": "leads:leads_edit"}
+    detail_url_name = "leads:leads_detail"
 
     @cached_property
     def form_url(self):
