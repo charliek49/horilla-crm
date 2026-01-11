@@ -1357,7 +1357,22 @@ class GetFieldValueWidgetView(LoginRequiredMixin, View):
             # Determine widget type based on field type
             if isinstance(model_field, models.ForeignKey):
                 related_model = model_field.related_model
-                choices = [(obj.pk, str(obj)) for obj in related_model.objects.all()]
+                # Get all objects for the select, but ensure existing_value is included
+                queryset = related_model.objects.all()
+                choices = [(obj.pk, str(obj)) for obj in queryset]
+                # If existing_value is provided but not in choices, try to find the object
+                if existing_value and existing_value not in [
+                    str(c[0]) for c in choices
+                ]:
+                    try:
+                        existing_obj = related_model.objects.get(pk=existing_value)
+                        # Add it to choices if not already there
+                        if (existing_obj.pk, str(existing_obj)) not in choices:
+                            choices.insert(
+                                1, (existing_obj.pk, str(existing_obj))
+                            )  # Insert after empty option
+                    except (related_model.DoesNotExist, ValueError):
+                        pass
                 return self._render_select_input(choices, row_id, existing_value)
             elif hasattr(model_field, "choices") and model_field.choices:
                 return self._render_select_input(
@@ -1494,3 +1509,129 @@ class GetFieldValueWidgetView(LoginRequiredMixin, View):
                   class="text-color-600 p-2 w-full border border-dark-50 rounded-md focus-visible:outline-0 text-sm transition focus:border-primary-600"
                   placeholder="Enter Value">{existing_value}</textarea>
         """
+
+
+@method_decorator(htmx_required, name="dispatch")
+class GetModelFieldChoicesView(LoginRequiredMixin, View):
+    """
+    Generic HTMX view to return field choices for a selected model/content_type.
+    Returns all fields by default, but can be filtered via query parameters.
+    """
+
+    def get(self, request, *args, **kwargs):
+        """Return a select element with field choices for the selected content type"""
+        from django.apps import apps
+        from django.db import models
+
+        from horilla_core.models import HorillaContentType
+
+        # Get parameters - support both 'content_type' and 'model' parameter names
+        content_type_id = request.GET.get("content_type") or request.GET.get("model")
+        row_id = request.GET.get("row_id", "0")
+
+        # Get field name pattern - support different patterns
+        field_name_pattern = request.GET.get("field_name_pattern", "field_{row_id}")
+        field_name = field_name_pattern.format(row_id=row_id)
+        field_id = f"id_{field_name}"
+
+        if not content_type_id:
+            return HttpResponse(
+                f'<select name="{field_name}" id="{field_id}" '
+                f'class="js-example-basic-single headselect">'
+                f'<option value="">---------</option></select>'
+            )
+
+        try:
+            content_type = HorillaContentType.objects.get(pk=content_type_id)
+            model_name = content_type.model
+        except HorillaContentType.DoesNotExist:
+            return HttpResponse(
+                f'<select name="{field_name}" id="{field_id}" '
+                f'class="js-example-basic-single headselect">'
+                f'<option value="">---------</option></select>'
+            )
+
+        # Get the model class
+        model_class = None
+        for app_config in apps.get_app_configs():
+            try:
+                model_class = apps.get_model(app_config.label, model_name.lower())
+                break
+            except (LookupError, ValueError):
+                continue
+
+        if not model_class:
+            return HttpResponse(
+                f'<select name="{field_name}" id="{field_id}" '
+                f'class="js-example-basic-single headselect">'
+                f'<option value="">---------</option></select>'
+            )
+
+        # Get filter parameters
+        field_types = (
+            request.GET.get("field_types", "").split(",")
+            if request.GET.get("field_types")
+            else []
+        )
+        exclude_fields = (
+            request.GET.get("exclude_fields", "").split(",")
+            if request.GET.get("exclude_fields")
+            else []
+        )
+        exclude_choice_fields = (
+            request.GET.get("exclude_choice_fields", "false").lower() == "true"
+        )
+        only_text_fields = (
+            request.GET.get("only_text_fields", "false").lower() == "true"
+        )
+
+        # Default exclude fields
+        default_exclude = [
+            "id",
+            "pk",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+            "company",
+            "additional_info",
+        ]
+        exclude_fields = list(set(exclude_fields + default_exclude))
+
+        # Build field choices
+        field_choices = [("", "---------")]
+        for field in model_class._meta.get_fields():
+            if not hasattr(field, "name") or field.name in exclude_fields:
+                continue
+
+            # Filter by field types if specified
+            if field_types:
+                field_type_name = field.__class__.__name__
+                if field_type_name not in field_types:
+                    continue
+
+            # If only_text_fields is true, only include CharField, TextField, EmailField
+            if only_text_fields:
+                if not isinstance(
+                    field, (models.CharField, models.TextField, models.EmailField)
+                ):
+                    continue
+
+            # Skip fields with choices if specified
+            if exclude_choice_fields:
+                if hasattr(field, "choices") and field.choices:
+                    continue
+
+            verbose_name = (
+                getattr(field, "verbose_name", None)
+                or field.name.replace("_", " ").title()
+            )
+            field_choices.append((field.name, str(verbose_name).title()))
+
+        # Build select HTML
+        select_html = f'<select name="{field_name}" id="{field_id}" class="js-example-basic-single headselect">'
+        for value, label in field_choices:
+            select_html += f'<option value="{value}">{label}</option>'
+        select_html += "</select>"
+
+        return HttpResponse(select_html)
