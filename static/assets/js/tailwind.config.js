@@ -16,6 +16,7 @@ window.tailwind.config = {
       },
 
       dark: {
+        25:'#F0F0F0',
         50: '#E6E6E6',
         100: '#A8A8A8',
         200: '#515151',
