@@ -1105,6 +1105,9 @@ class AddUsersToRoleForm(forms.Form):
         self.condition_field_choices = kwargs.pop("condition_field_choices", {})
         self.request = kwargs.pop("request", None)
         self.condition_hx_include = kwargs.pop("condition_hx_include", "")
+        self.field_permissions = kwargs.pop("field_permissions", {})
+        self.save_and_new = kwargs.pop("save_and_new", "")
+        self.duplicate_mode = kwargs.pop("duplicate_mode", False)
         super().__init__(*args, **kwargs)
         for field_name in self.hidden_fields:
             if field_name in self.fields:
