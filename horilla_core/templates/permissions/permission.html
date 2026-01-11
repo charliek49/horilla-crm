@@ -1,5 +1,8 @@
 {% load i18n %}
 <div class="ps-3" id="styled-2" role="tabpanel" aria-labelledby="history-tab">
+    <button id="reloadButton"  hidden hx-get="{{ request.path }}?{{request.GET.urlencode}}" hx-target="#users-container" hx-swap="outerHTML" hx-select="#users-container">click</button>
+
+
     <div class="flex justify-between mb-4">
         <h3 class="text-md font-semibold">
             {% trans "User Permissions" %}
