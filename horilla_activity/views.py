@@ -1,8 +1,8 @@
 """
-Views for the CRM utilities module.
+Views for the utilities module.
 
 This file contains the view functions or classes that handle HTTP
-requests and responses for the CRM application.
+requests and responses for the application.
 """
 
 import datetime
@@ -1223,6 +1223,7 @@ class TaskCreateForm(LoginRequiredMixin, HorillaSingleFormView):
     full_width_fields = ["description"]
     modal_height = False
     hidden_fields = ["object_id", "content_type", "activity_type"]
+    save_and_new = False
     fields = [
         "object_id",
         "content_type",
@@ -1347,6 +1348,7 @@ class MeetingsCreateForm(LoginRequiredMixin, HorillaSingleFormView):
 
     model = Activity
     form_class = MeetingsForm
+    save_and_new = False
     fields = [
         "object_id",
         "content_type",
@@ -1506,6 +1508,7 @@ class CallCreateForm(LoginRequiredMixin, HorillaSingleFormView):
     form_class = LogCallForm
     modal_height = False
     full_width_fields = ["notes"]
+    save_and_new = False
 
     fields = [
         "object_id",
@@ -1638,6 +1641,7 @@ class EventCreateForm(LoginRequiredMixin, HorillaSingleFormView):
     form_class = EventForm
     modal_height = False
     full_width_fields = ["notes"]
+    save_and_new = False
 
     fields = [
         "object_id",
@@ -1805,6 +1809,7 @@ class ActivityCreateView(LoginRequiredMixin, HorillaSingleFormView):
     success_url = reverse_lazy("horilla_activity:activity_list")
     form_title = "Create Activity"
     view_id = "activity-form-view"
+    save_and_new = False
     full_width_fields = ["description", "notes"]
 
     ACTIVITY_FIELD_MAP = {
@@ -1948,6 +1953,7 @@ class ActivityCreateView(LoginRequiredMixin, HorillaSingleFormView):
         activity_type = (
             self.request.POST.get("activity_type")
             or self.request.GET.get("activity_type")
+            or (getattr(self, "object", None) and self.object.activity_type)
             or getattr(self, "activity_type", None)
         )
         if not activity_type:
@@ -1981,8 +1987,10 @@ class ActivityCreateView(LoginRequiredMixin, HorillaSingleFormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        activity_type = self.request.POST.get("activity_type") or self.request.GET.get(
-            "activity_type"
+        activity_type = (
+            self.request.POST.get("activity_type")
+            or self.request.GET.get("activity_type")
+            or (getattr(self, "object", None) and self.object.activity_type)
         )
         if activity_type:
             kwargs["initial"] = kwargs.get("initial", {})
@@ -2040,25 +2048,6 @@ class ActivityCreateView(LoginRequiredMixin, HorillaSingleFormView):
                 "horilla_activity:activity_edit_form", kwargs={"pk": pk}
             )
         return reverse_lazy("horilla_activity:activity_create_form")
-
-    def get(self, request, *args, **kwargs):
-
-        pk = self.kwargs.get("pk")
-
-        if request.user.has_perm(
-            "horilla_activity.change_activity"
-        ) or request.user.has_perm("horilla_activity.add_activity"):
-            return super().get(request, *args, **kwargs)
-        if pk:
-            if (
-                self.model.objects.filter(owner_id=self.request.user, pk=pk).exists()
-                or self.model.objects.filter(
-                    assigned_to=self.request.user, pk=pk
-                ).exists()
-            ):
-                return super().get(request, *args, **kwargs)
-
-        return render(self.request, "error/403.html")
 
     def form_valid(self, form):
         """

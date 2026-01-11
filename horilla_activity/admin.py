@@ -1,5 +1,5 @@
 """
-Admin configuration for Activity models in Horilla CRM.
+Admin configuration for Activity models in Horilla.
 """
 
 from django.contrib import admin
