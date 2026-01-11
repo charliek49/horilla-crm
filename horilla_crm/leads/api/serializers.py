@@ -8,6 +8,14 @@ from horilla_core.api.serializers import HorillaUserSerializer
 from horilla_crm.leads.models import Lead, LeadStatus, ScoringCriterion, ScoringRule
 
 
+class LeadSerializer(serializers.ModelSerializer):
+    """Serializer for Lead model"""
+
+    class Meta:
+        model = Lead
+        fields = "__all__"
+
+
 class LeadStatusSerializer(serializers.ModelSerializer):
     """Serializer for LeadStatus model"""
 

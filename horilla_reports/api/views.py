@@ -8,6 +8,7 @@ bulk update, bulk delete, permissions, and documentation.
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import permissions, viewsets
+from rest_framework.decorators import action
 
 from horilla_core.api.docs import BULK_DELETE_DOCS, BULK_UPDATE_DOCS, SEARCH_FILTER_DOCS
 from horilla_core.api.mixins import BulkOperationsMixin, SearchFilterMixin
@@ -31,6 +32,28 @@ search_param = openapi.Parameter(
     type=openapi.TYPE_STRING,
 )
 
+# Define common Swagger request bodies for bulk operations
+bulk_update_body = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        "ids": openapi.Schema(
+            type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_INTEGER)
+        ),
+        "data": openapi.Schema(type=openapi.TYPE_OBJECT, additional_properties=True),
+    },
+    required=["ids", "data"],
+)
+
+bulk_delete_body = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        "ids": openapi.Schema(
+            type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_INTEGER)
+        )
+    },
+    required=["ids"],
+)
+
 
 class ReportFolderViewSet(
     SearchFilterMixin, BulkOperationsMixin, viewsets.ModelViewSet
@@ -40,6 +63,13 @@ class ReportFolderViewSet(
     queryset = ReportFolder.objects.all()
     serializer_class = ReportFolderSerializer
     permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
+
+    def get_serializer_class(self):
+        """Return the serializer class for the view"""
+        # Handle Swagger schema generation
+        if getattr(self, "swagger_fake_view", False):
+            return ReportFolderSerializer
+        return super().get_serializer_class()
 
     # Search across common folder fields
     search_fields = [
@@ -73,15 +103,21 @@ class ReportFolderViewSet(
         """Create a new report folder"""
         return super().create(request, *args, **kwargs)
 
-    @swagger_auto_schema(operation_description=BULK_UPDATE_DOCS)
-    def bulk_update(self, request, *args, **kwargs):
-        """Bulk update report folders"""
-        return super().bulk_update(request, *args, **kwargs)
+    @swagger_auto_schema(
+        request_body=bulk_update_body, operation_description=BULK_UPDATE_DOCS
+    )
+    @action(detail=False, methods=["post"])
+    def bulk_update(self, request):
+        """Update multiple report folders in a single request"""
+        return super().bulk_update(request)
 
-    @swagger_auto_schema(operation_description=BULK_DELETE_DOCS)
-    def bulk_delete(self, request, *args, **kwargs):
-        """Bulk delete report folders"""
-        return super().bulk_delete(request, *args, **kwargs)
+    @swagger_auto_schema(
+        request_body=bulk_delete_body, operation_description=BULK_DELETE_DOCS
+    )
+    @action(detail=False, methods=["post"])
+    def bulk_delete(self, request):
+        """Delete multiple report folders in a single request"""
+        return super().bulk_delete(request)
 
 
 class ReportViewSet(SearchFilterMixin, BulkOperationsMixin, viewsets.ModelViewSet):
@@ -90,6 +126,13 @@ class ReportViewSet(SearchFilterMixin, BulkOperationsMixin, viewsets.ModelViewSe
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
     permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
+
+    def get_serializer_class(self):
+        """Return the serializer class for the view"""
+        # Handle Swagger schema generation
+        if getattr(self, "swagger_fake_view", False):
+            return ReportSerializer
+        return super().get_serializer_class()
 
     # Search across common report fields
     search_fields = [
@@ -125,12 +168,18 @@ class ReportViewSet(SearchFilterMixin, BulkOperationsMixin, viewsets.ModelViewSe
         """Create a new report"""
         return super().create(request, *args, **kwargs)
 
-    @swagger_auto_schema(operation_description=BULK_UPDATE_DOCS)
-    def bulk_update(self, request, *args, **kwargs):
-        """Bulk update reports"""
-        return super().bulk_update(request, *args, **kwargs)
+    @swagger_auto_schema(
+        request_body=bulk_update_body, operation_description=BULK_UPDATE_DOCS
+    )
+    @action(detail=False, methods=["post"])
+    def bulk_update(self, request):
+        """Update multiple reports in a single request"""
+        return super().bulk_update(request)
 
-    @swagger_auto_schema(operation_description=BULK_DELETE_DOCS)
-    def bulk_delete(self, request, *args, **kwargs):
-        """Bulk delete reports"""
-        return super().bulk_delete(request, *args, **kwargs)
+    @swagger_auto_schema(
+        request_body=bulk_delete_body, operation_description=BULK_DELETE_DOCS
+    )
+    @action(detail=False, methods=["post"])
+    def bulk_delete(self, request):
+        """Delete multiple reports in a single request"""
+        return super().bulk_delete(request)

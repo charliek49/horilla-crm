@@ -30,6 +30,7 @@ from horilla_crm.leads.api.docs import (
     LEAD_STATUS_REORDER_DOCS,
 )
 from horilla_crm.leads.api.serializers import (
+    LeadSerializer,
     LeadStatusSerializer,
     ScoringCriterionSerializer,
     ScoringRuleSerializer,
@@ -71,7 +72,15 @@ class LeadViewSet(SearchFilterMixin, BulkOperationsMixin, viewsets.ModelViewSet)
     """ViewSet for Lead model"""
 
     queryset = Lead.objects.all()
+    serializer_class = LeadSerializer
     permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
+
+    def get_serializer_class(self):
+        """Return the serializer class for the view"""
+        # Handle Swagger schema generation
+        if getattr(self, "swagger_fake_view", False):
+            return LeadSerializer
+        return super().get_serializer_class()
 
     # Search across common lead fields
     search_fields = [
