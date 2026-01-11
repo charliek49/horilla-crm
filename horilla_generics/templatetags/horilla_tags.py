@@ -1,8 +1,10 @@
+# Standard library imports
 import json as json_module
 import re
 from datetime import date, datetime, time
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
+# Third-party imports
 import pytz
 from django import template
 from django.apps import apps
@@ -16,9 +18,10 @@ from django.utils.encoding import force_str
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+# Horilla application imports
 from horilla.auth.models import User
 from horilla.menu.sub_section_menu import get_sub_section_menu
-from horilla.registry.js_registry import get_registered_js
+from horilla.registry.asset_registry import get_registered_html, get_registered_js
 from horilla_core.models import MultipleCurrency
 from horilla_core.utils import get_currency_display_value
 from horilla_utils.middlewares import _thread_local
@@ -846,6 +849,15 @@ def load_registered_js():
         list: List of static file paths for JavaScript files registered by apps.
     """
     return get_registered_js()
+
+
+@register.simple_tag
+def load_registered_html(slot):
+    """
+    Template tag to retrieve all registered HTML template fragments
+    for a given slot in the base layout.
+    """
+    return get_registered_html(slot)
 
 
 @register.simple_tag

@@ -38,7 +38,7 @@ class HorillaKeysConfig(AppConfig):
             # Auto-register this app's main URLs (non-API)
             from django.urls import include, path
 
-            from horilla.registry.js_registry import register_js
+            from horilla.registry.asset_registry import register_js
             from horilla.urls import urlpatterns
 
             # Add app URLs to main urlpatterns
