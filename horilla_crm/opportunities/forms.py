@@ -396,15 +396,11 @@ class OpportunityTeamMemberForm(HorillaModelForm):
         self.row_id = kwargs.pop("row_id", "0")
         super().__init__(*args, **kwargs)
 
-        for field_name in ["user", "team_role", "opportunity_access_level"]:
-            if field_name in self.fields:
-                self.fields[field_name].required = False
-
     class Meta:
         """Meta options for OpportunityTeamMemberForm."""
 
         model = DefaultOpportunityMember
-        fields = ["team", "user", "team_role", "opportunity_access_level"]
+        fields = ["team"]
 
 
 class OpportunityMemberForm(HorillaModelForm):
@@ -414,15 +410,11 @@ class OpportunityMemberForm(HorillaModelForm):
         self.row_id = kwargs.pop("row_id", "0")
         super().__init__(*args, **kwargs)
 
-        for field_name in ["user", "team_role", "opportunity_access"]:
-            if field_name in self.fields:
-                self.fields[field_name].required = False
-
     class Meta:
-        """Meta options for OpportunityTeamMemberForm."""
+        """Meta options for OpportunityMemberForm."""
 
         model = OpportunityTeamMember
-        fields = ["opportunity", "user", "team_role", "opportunity_access"]
+        fields = ["opportunity"]
 
 
 class AddDefaultTeamForm(forms.Form):
@@ -451,6 +443,15 @@ class AddDefaultTeamForm(forms.Form):
         kwargs.pop("row_id", None)
         self.request = kwargs.pop("request", None)
         self.opportunity = kwargs.pop("opportunity", None)
+        self.condition_hx_include = kwargs.pop("condition_hx_include", "")
+        self.field_permissions = kwargs.pop("field_permissions", {})
+        self.save_and_new = kwargs.pop("save_and_new", "")
+        self.duplicate_mode = kwargs.pop("duplicate_mode", False)
+        self.row_id = kwargs.pop("row_id", "0")
+        self.instance_obj = kwargs.get(
+            "instance"
+        )  # Store instance for condition methods
+        self.model_name = kwargs.pop("model_name", None)
         super().__init__(*args, **kwargs)
         self.fields["team"].queryset = OpportunityTeam.objects.filter(
             owner=self.request.user
