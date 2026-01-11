@@ -103,6 +103,11 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+# Swagger/OpenAPI Settings
+SWAGGER_SETTINGS = {
+    "DEFAULT_AUTO_SCHEMA_CLASS": "horilla.api_urls.VerboseNameAutoSchema",
+}
+
 # -----------------------------------------------------------------------------
 # Middleware Configuration
 # -----------------------------------------------------------------------------

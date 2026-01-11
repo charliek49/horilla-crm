@@ -21,7 +21,7 @@ class HorillaCalendarConfig(AppConfig):
         """
         return [
             {
-                "pattern": "/horilla_calendar/",
+                "pattern": "/calendar/",
                 "view_or_include": "horilla_calendar.api.urls",
                 "name": "horilla_calendar_api",
                 "namespace": "horilla_calendar",
