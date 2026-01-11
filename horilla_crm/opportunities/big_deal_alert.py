@@ -152,15 +152,6 @@ class BigDealAlertFormView(LoginRequiredMixin, HorillaSingleFormView):
             return reverse_lazy("opportunities:big_deal_update_form", kwargs={"pk": pk})
         return reverse_lazy("opportunities:big_deal_create_form")
 
-    def form_valid(self, form):
-        """
-        Handle form submission and save the task.
-        """
-        super().form_valid(form)
-        return HttpResponse(
-            "<script>htmx.trigger('#reloadButton','click');closeModal();</script>"
-        )
-
 
 @method_decorator(htmx_required, name="dispatch")
 @method_decorator(

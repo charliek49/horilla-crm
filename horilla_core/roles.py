@@ -68,10 +68,6 @@ class AddRole(LoginRequiredMixin, HorillaSingleFormView):
             initial["parent_role"] = role
         return initial
 
-    def form_valid(self, form):
-        super().form_valid(form)
-        return HttpResponse("<script>$('#reloadButton').click();closeModal();</script>")
-
 
 @method_decorator(htmx_required, name="dispatch")
 class AddUserToRole(LoginRequiredMixin, HorillaSingleFormView):
@@ -82,6 +78,7 @@ class AddUserToRole(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_url = reverse_lazy("horilla_core:add_user_to_roles_view")
     hidden_fields = ["role"]
+    save_and_new = False
 
     def get_initial(self):
         initial = super().get_initial()

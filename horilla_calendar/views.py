@@ -341,6 +341,7 @@ class UserAvailabilityFormView(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     hidden_fields = ["user", "company", "is_active"]
     full_width_fields = ["from_datetime", "to_datetime", "reason"]
+    save_and_new = False
 
     @cached_property
     def form_url(self):

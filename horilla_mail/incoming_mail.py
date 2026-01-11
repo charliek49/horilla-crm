@@ -133,6 +133,7 @@ class IncomingMailServerFormView(LoginRequiredMixin, HorillaSingleFormView):
     form_class = IncomingHorillaMailConfigurationForm
     modal_height = False
     hidden_fields = ["company", "type", "mail_channel"]
+    save_and_new = False
 
     def get_initial(self):
         initial = super().get_initial()

@@ -37,6 +37,7 @@ class OutlookMailServerFormView(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_class = OutlookMailConfigurationForm
     hidden_fields = ["company", "type", "mail_channel"]
+    save_and_new = False
 
     def get_initial(self):
         initial = super().get_initial()

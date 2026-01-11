@@ -150,6 +150,7 @@ class CustomerRoleFormView(LoginRequiredMixin, HorillaSingleFormView):
     full_width_fields = ["customer_role_name", "description"]
     modal_height = False
     form_title = _("Customer Role")
+    save_and_new = False
 
     @cached_property
     def form_url(self):

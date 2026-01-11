@@ -256,7 +256,7 @@ class ForecastTargetListView(LoginRequiredMixin, HorillaListView):
 @method_decorator(
     permission_required_or_denied("forecast.add_forecasttarget"), name="dispatch"
 )
-class ForecastTargetFormView(HorillaSingleFormView):
+class ForecastTargetFormView(LoginRequiredMixin, HorillaSingleFormView):
     """Form view for creating/updating ForecastTarget with dynamic conditions."""
 
     model = ForecastTarget
@@ -277,25 +277,34 @@ class ForecastTargetFormView(HorillaSingleFormView):
     condition_fields = ["assigned_to", "period", "forcasts_type", "target_amount"]
     condition_field_title = "Select User"
     modal_height = False
+    save_and_new = False
+
+    def _calculate_dynamic_condition_fields(self, request_or_data):
+        """Calculate condition_fields based on checkbox values"""
+        is_period_same = request_or_data.get("is_period_same", "off") == "on"
+        is_target_same = request_or_data.get("is_target_same", "off") == "on"
+        is_forecast_type_same = (
+            request_or_data.get("is_forecast_type_same", "off") == "on"
+        )
+        fields = ["assigned_to"]
+        if not is_period_same:
+            fields.append("period")
+        if not is_forecast_type_same:
+            fields.append("forcasts_type")
+        if not is_target_same:
+            fields.append("target_amount")
+        return fields
 
     def get_form_kwargs(self):
+        """Dynamically set condition_fields based on checkboxes"""
         kwargs = super().get_form_kwargs()
-        is_period_same = self.request.POST.get("is_period_same", "off") == "on"
-        is_target_same = self.request.POST.get("is_target_same", "off") == "on"
-        is_forecast_type_same = (
-            self.request.POST.get("is_forecast_type_same", "off") == "on"
+        kwargs["condition_fields"] = self._calculate_dynamic_condition_fields(
+            self.request.POST
         )
-        condition_fields = ["assigned_to"]
-        if not is_period_same:
-            condition_fields.append("period")
-        if not is_forecast_type_same:
-            condition_fields.append("forcasts_type")
-        if not is_target_same:
-            condition_fields.append("target_amount")
-        kwargs["condition_fields"] = condition_fields
         return kwargs
 
     def get_context_data(self, **kwargs):
+        """Add custom context data"""
         context = super().get_context_data(**kwargs)
         context["users"] = User.objects.all()
         context["roles"] = Role.objects.all()
@@ -306,197 +315,171 @@ class ForecastTargetFormView(HorillaSingleFormView):
         return context
 
     def add_condition_row(self, request):
-        row_id = request.GET.get("row_id", "0")
-
-        new_row_id = "0"
-        if row_id == "next":
-            current_count = request.session.get("condition_row_count", 0)
-            current_count += 1
-            request.session["condition_row_count"] = current_count
-            new_row_id = str(current_count)
-        else:
-            try:
-                new_row_id = str(int(row_id) + 1)
-            except ValueError:
-                new_row_id = "1"
-
-        # Calculate condition_fields based on GET params
-        is_period_same = request.GET.get("is_period_same", "off") == "on"
-        is_target_same = request.GET.get("is_target_same", "off") == "on"
-        is_forecast_type_same = request.GET.get("is_forecast_type_same", "off") == "on"
-        condition_fields = ["assigned_to"]
-        if not is_period_same:
-            condition_fields.append("period")
-        if not is_forecast_type_same:
-            condition_fields.append("forcasts_type")
-        if not is_target_same:
-            condition_fields.append("target_amount")
-
-        form_kwargs = self.get_form_kwargs()
-        form_kwargs["row_id"] = new_row_id
-        form_kwargs["condition_fields"] = condition_fields  # Override for this form
-
-        if "pk" in self.kwargs:
-            try:
-                instance = self.model.objects.get(pk=self.kwargs["pk"])
-                form_kwargs["instance"] = instance
-            except self.model.DoesNotExist:
-                pass
-
-        form = self.get_form_class()(**form_kwargs)
-
-        # Filter users based on role and is_role_based
-        is_role_based = request.GET.get("is_role_based", "off") == "on"
-        role_id = request.GET.get("role")
-        users = User.objects.all()
-        if is_role_based:
-            if role_id:
-                users = users.filter(role_id=role_id)
+        """Override to handle dynamic condition_fields and custom context"""
+        original_fields = self.condition_fields
+        self.condition_fields = self._calculate_dynamic_condition_fields(request.GET)
+        try:
+            # Calculate new_row_id
+            row_id = request.GET.get("row_id", "0")
+            if row_id == "next":
+                current_count = request.session.get("condition_row_count", 0)
+                current_count += 1
+                request.session["condition_row_count"] = current_count
+                new_row_id = str(current_count)
             else:
-                users = User.objects.none()
+                try:
+                    new_row_id = str(int(row_id) + 1)
+                except ValueError:
+                    new_row_id = "1"
 
-        context = {
-            "form": form,
-            "condition_fields": condition_fields,
-            "row_id": new_row_id,
-            "submitted_condition_data": self.get_submitted_condition_data(),
-            "users": users,
-            "period_choices": [(p.id, p.name) for p in Period.objects.all()],
-            "forecast_type_choices": [
-                (f.id, f.name) for f in ForecastType.objects.all()
-            ],
-        }
-        html = render_to_string(
-            "forecast_target/condition_row.html", context, request=request
+            # Temporarily set request for get_form_kwargs
+            original_request = self.request
+            self.request = request
+            form_kwargs = self.get_form_kwargs()
+            form_kwargs["row_id"] = new_row_id
+            form_kwargs["condition_fields"] = self.condition_fields
+            if "pk" in self.kwargs:
+                try:
+                    form_kwargs["instance"] = self.model.objects.get(
+                        pk=self.kwargs["pk"]
+                    )
+                except self.model.DoesNotExist:
+                    pass
+            form = self.get_form_class()(**form_kwargs)
+            self.request = original_request
+
+            # Filter users
+            is_role_based = request.GET.get("is_role_based", "off") == "on"
+            role_id = request.GET.get("role")
+            users = (
+                User.objects.filter(role_id=role_id)
+                if is_role_based and role_id
+                else (User.objects.none() if is_role_based else User.objects.all())
+            )
+
+            context = {
+                "form": form,
+                "condition_fields": self.condition_fields,
+                "row_id": new_row_id,
+                "submitted_condition_data": self.get_submitted_condition_data(),
+                "users": users,
+                "period_choices": [(p.id, p.name) for p in Period.objects.all()],
+                "forecast_type_choices": [
+                    (f.id, f.name) for f in ForecastType.objects.all()
+                ],
+            }
+            return HttpResponse(
+                render_to_string(
+                    "forecast_target/condition_row.html", context, request=request
+                )
+            )
+        finally:
+            self.condition_fields = original_fields
+
+    def process_row_data_before_create(self, row_data, row_id, form):
+        """Process row_data to handle 'same' checkbox logic"""
+        if not row_data.get("assigned_to"):
+            form.add_error(None, f"User assignment is required for row {row_id}.")
+            return False
+
+        cleaned = form.cleaned_data
+        is_period_same = cleaned.get("is_period_same", False)
+        is_target_same = cleaned.get("is_target_same", False)
+        is_forecast_type_same = cleaned.get("is_forecast_type_same", False)
+
+        # Handle period
+        if is_period_same:
+            if not cleaned.get("period"):
+                form.add_error(
+                    "period",
+                    "Period is required when 'Same Period for All' is selected.",
+                )
+                return False
+            row_data["period"] = str(cleaned.get("period").id)
+        elif not row_data.get("period"):
+            form.add_error(
+                None,
+                f"Period is required for row {row_id} when 'Same Period for All' is not selected.",
+            )
+            return False
+
+        # Handle target_amount
+        if is_target_same:
+            if cleaned.get("target_amount") is None:
+                form.add_error(
+                    "target_amount",
+                    "Target amount is required when 'Same Target for All' is selected.",
+                )
+                return False
+            row_data["target_amount"] = str(cleaned.get("target_amount"))
+        elif not row_data.get("target_amount"):
+            form.add_error(
+                None,
+                f"Target amount is required for row {row_id} when 'Same Target for All' is not selected.",
+            )
+            return False
+
+        # Handle forcasts_type
+        if is_forecast_type_same:
+            if not cleaned.get("forcasts_type"):
+                form.add_error(
+                    "forcasts_type",
+                    "Forecast type is required when 'Same Forecast Type for All' is selected.",
+                )
+                return False
+            row_data["forcasts_type"] = str(cleaned.get("forcasts_type").id)
+        elif not row_data.get("forcasts_type"):
+            form.add_error(
+                None,
+                f"Forecast type is required for row {row_id} when 'Same Forecast Type for All' is not selected.",
+            )
+            return False
+
+        return row_data  # Return processed row_data
+
+    def check_duplicate_instance(self, row_data, unique_cache, form):
+        """Check for duplicate combinations"""
+        assigned_to_id = int(row_data.get("assigned_to"))
+        period_id = int(row_data.get("period"))
+        forcasts_type_id = int(row_data.get("forcasts_type"))
+
+        combination = (assigned_to_id, period_id, forcasts_type_id)
+        if combination in unique_cache:
+            try:
+                user = User.objects.get(id=assigned_to_id)
+                return f"Duplicate entry found for user '{user}'."
+            except:
+                return "Duplicate entry found."
+
+        if ForecastTarget.objects.filter(
+            assigned_to_id=assigned_to_id,
+            period_id=period_id,
+            forcasts_type_id=forcasts_type_id,
+        ).exists():
+            try:
+                user = User.objects.get(id=assigned_to_id)
+                return f"Forecast target already exists for user '{user}'."
+            except:
+                return "Forecast target already exists."
+
+        unique_cache.add(combination)
+        return None
+
+    def update_unique_check_cache(self, row_data, unique_cache, instance):
+        """Update cache after creating instance"""
+        combination = (
+            instance.assigned_to_id,
+            instance.period_id,
+            instance.forcasts_type_id,
         )
-        return HttpResponse(html)
+        unique_cache.add(combination)
 
-    def form_valid(self, form):
-        condition_data = self.get_submitted_condition_data()
-        role = form.cleaned_data.get("role")
+    def modify_create_kwargs(self, create_kwargs, row_data, row_id, form):
+        """Modify create_kwargs to handle role based on is_role_based"""
         is_role_based = form.cleaned_data.get("is_role_based", False)
-        is_period_same = form.cleaned_data.get("is_period_same", False)
-        is_target_same = form.cleaned_data.get("is_target_same", False)
-        is_forecast_type_same = form.cleaned_data.get("is_forecast_type_same", False)
-        common_period = form.cleaned_data.get("period")
-        common_target = form.cleaned_data.get("target_amount")
-        common_forcasts_type = form.cleaned_data.get("forcasts_type")
-
-        if not condition_data:
-            form.add_error(None, "At least one user must be assigned.")
-            return self.form_invalid(form)
-
-        combinations_to_create = []
-
-        for row_id, row in condition_data.items():
-            if "assigned_to" not in row or not row["assigned_to"]:
-                form.add_error(None, f"User assignment is required for row {row_id}.")
-                return self.form_invalid(form)
-
-            period = None
-            target_amount = None
-            forcasts_type = None
-
-            if is_period_same:
-                if not common_period:
-                    form.add_error(
-                        "period",
-                        "Period is required when 'Same Period for All' is selected.",
-                    )
-                    return self.form_invalid(form)
-                period = common_period
-            elif "period" in row and row["period"]:
-                period = Period.objects.get(id=row["period"])
-            else:
-                form.add_error(
-                    None,
-                    f"Period is required for row {row_id} when 'Same Period for All' is not selected.",
-                )
-                return self.form_invalid(form)
-
-            if is_target_same:
-                if common_target is None:
-                    form.add_error(
-                        "target_amount",
-                        "Target amount is required when 'Same Target for All' is selected.",
-                    )
-                    return self.form_invalid(form)
-                target_amount = common_target
-            elif "target_amount" in row and row["target_amount"]:
-                target_amount = row["target_amount"]
-            else:
-                form.add_error(
-                    None,
-                    f"Target amount is required for row {row_id} when 'Same Target for All' is not selected.",
-                )
-                return self.form_invalid(form)
-
-            if is_forecast_type_same:
-                if not common_forcasts_type:
-                    form.add_error(
-                        "forcasts_type",
-                        "Forecast type is required when 'Same Forecast Type for All' is selected.",
-                    )
-                    return self.form_invalid(form)
-                forcasts_type = common_forcasts_type
-            elif "forcasts_type" in row and row["forcasts_type"]:
-                forcasts_type = ForecastType.objects.get(id=row["forcasts_type"])
-            else:
-                form.add_error(
-                    None,
-                    f"Forecast type is required for row {row_id} when 'Same Forecast Type for All' is not selected.",
-                )
-                return self.form_invalid(form)
-
-            assigned_to_id = int(row["assigned_to"])
-            period_id = period.id
-            forcasts_type_id = forcasts_type.id
-
-            combination = (assigned_to_id, period_id, forcasts_type_id)
-            if combination in combinations_to_create:
-                assigned_user = User.objects.get(id=assigned_to_id)
-                form.add_error(
-                    None,
-                    f"Duplicate entry found for user '{assigned_user}' with the same period and forecast type.",
-                )
-                return self.form_invalid(form)
-
-            existing_target = ForecastTarget.objects.filter(
-                assigned_to_id=assigned_to_id,
-                period_id=period_id,
-                forcasts_type_id=forcasts_type_id,
-            ).first()
-
-            if existing_target:
-                assigned_user = User.objects.get(id=assigned_to_id)
-                form.add_error(
-                    None,
-                    f"Forecast target already exists for user '{assigned_user}' with the selected period and forecast type.",
-                )
-                return self.form_invalid(form)
-
-            combinations_to_create.append(combination)
-
-            # Create ForecastTarget instance
-            instance = ForecastTarget(
-                role=role if is_role_based else None,
-                assigned_to=User.objects.get(id=assigned_to_id),
-                period=period,
-                target_amount=target_amount,
-                forcasts_type=forcasts_type,
-            )
-            instance.company = (
-                getattr(_thread_local, "request", None).active_company
-                if hasattr(_thread_local, "request")
-                else self.request.user.company
-            )
-            instance.created_by = self.request.user
-            instance.updated_by = self.request.user
-            instance.save()
-
-        self.request.session["condition_row_count"] = 0
-        messages.success(self.request, "Forecast targets created successfully!")
-        return HttpResponse("<script>$('#reloadButton').click();closeModal();</script>")
+        if not is_role_based:
+            create_kwargs["role"] = None
+        return create_kwargs
 
 
 @method_decorator(

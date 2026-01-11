@@ -1340,6 +1340,15 @@ class DashboardComponentFormView(LoginRequiredMixin, HorillaSingleFormView):
     model = DashboardComponent
     form_class = DashboardCreateForm
     condition_fields = ["field", "operator", "value"]
+    condition_model = ComponentCriteria
+    condition_related_name = "conditions"
+    condition_order_by = ["sequence"]
+    content_type_field = (
+        "module"  # Enable automatic model_name extraction from module field
+    )
+    condition_hx_include = (
+        "#id_module"  # Include module field when adding condition rows
+    )
     hidden_fields = [
         "company",
         "config",
@@ -1350,6 +1359,7 @@ class DashboardComponentFormView(LoginRequiredMixin, HorillaSingleFormView):
         "reports",
     ]
     full_width_fields = ["name"]
+    save_and_new = False
 
     def get_initial(self):
         initial = super().get_initial()
@@ -1371,110 +1381,41 @@ class DashboardComponentFormView(LoginRequiredMixin, HorillaSingleFormView):
         initial.update(self.request.GET.dict())
         return initial
 
-    def add_condition_row(self, request):
-        row_id = request.GET.get("row_id", "0")
-
-        new_row_id = "0"
-        if row_id == "next":
-            current_count = request.session.get("condition_row_count", 0)
-            current_count += 1
-            request.session["condition_row_count"] = current_count
-            new_row_id = str(current_count)
-        else:
-            try:
-                new_row_id = str(int(row_id) + 1)
-            except ValueError:
-                new_row_id = "1"
-
-        module = request.GET.get("module") or request.POST.get("module")
-        if (
-            not module
-            and hasattr(self, "object")
-            and self.object
-            and self.object.module
-        ):
-            module = self.object.module
-        elif (
-            not module
-            and "initial" in self.get_form_kwargs()
-            and "module" in self.get_form_kwargs()["initial"]
-        ):
-            module = self.get_form_kwargs()["initial"]["module"]
-        model_name = module
-
-        form_kwargs = self.get_form_kwargs()
-        form_kwargs["row_id"] = new_row_id
-        if module:
-            form_kwargs["request"] = request
-            form_kwargs["initial"] = form_kwargs.get("initial", {}) | {
-                "module": module,
-                "model_name": model_name,
-            }
-        else:
-            form_kwargs["request"] = request
-            form_kwargs["initial"] = form_kwargs.get("initial", {}) | {
-                "module": "",
-                "model_name": "",
-            }
-
-        if "pk" in self.kwargs:
-            try:
-                instance = self.model.objects.get(pk=self.kwargs["pk"])
-                form_kwargs["instance"] = instance
-            except self.model.DoesNotExist:
-                pass
-
-        form = self.get_form_class()(**form_kwargs)
-
-        context = {
-            "form": form,
-            "condition_fields": self.condition_fields or [],
-            "row_id": new_row_id,
-            "submitted_condition_data": self.get_submitted_condition_data(),
-        }
-        html = render_to_string("partials/condition_row.html", context, request=request)
-        return HttpResponse(html)
-
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         model_name = (
             self.request.GET.get("model_name")
             or self.request.POST.get("model_name")
             or self.request.GET.get("module")
+            or self.request.POST.get("module")
         )
+
+        # If module is a HorillaContentType ID, convert it to model_name
+        if model_name and model_name.isdigit():
+            try:
+                from horilla_core.models import HorillaContentType
+
+                content_type = HorillaContentType.objects.get(pk=model_name)
+                model_name = content_type.model
+            except Exception:
+                pass
 
         if model_name:
             if "initial" not in kwargs:
                 kwargs["initial"] = {}
             kwargs["initial"]["model_name"] = model_name
-            kwargs["initial"]["module"] = model_name  # Sync module with model_name
 
         kwargs["condition_model"] = ComponentCriteria
         kwargs["request"] = self.request
-
-        pk = self.kwargs.get("pk") or self.request.GET.get("id")
-        if pk:
-            try:
-                kwargs["instance"] = DashboardComponent.objects.get(pk=pk)
-            except DashboardComponent.DoesNotExist:
-                pass
 
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        if self.object and self.object.pk:
-            existing_conditions = self.object.conditions.all().order_by("sequence")
-            context["existing_conditions"] = existing_conditions
-            form = context.get("form")
-            if form and hasattr(form, "condition_field_choices"):
-                context["condition_field_choices"] = form.condition_field_choices
 
         form = context.get("form")
         if form and hasattr(form, "instance") and form.instance.module:
             context["module"] = form.instance.module
-        elif "initial" in kwargs and "module" in kwargs["initial"]:
-            context["module"] = kwargs["initial"]["module"]
         elif self.request.method == "GET" and self.request.GET.get("module"):
             context["module"] = self.request.GET.get("module")
         else:
@@ -1513,116 +1454,6 @@ class DashboardComponentFormView(LoginRequiredMixin, HorillaSingleFormView):
                 return super().get(request, *args, **kwargs)
 
         return render(request, "error/403.html")
-
-    def form_valid(self, form):
-        """Override to handle multiple condition rows"""
-        if not self.request.user.is_authenticated:
-            messages.error(
-                self.request, "You must be logged in to perform this action."
-            )
-            return self.form_invalid(form)
-
-        condition_rows = form.cleaned_data.get("condition_rows", [])
-
-        try:
-            with transaction.atomic():
-                pk = self.kwargs.get("pk")
-                if pk:
-                    # Get the existing instance
-                    existing_instance = DashboardComponent.objects.get(pk=pk)
-
-                    # Update the instance with form data
-                    for field, value in form.cleaned_data.items():
-                        if hasattr(existing_instance, field) and field != "id":
-                            if field == "columns":
-                                # Handle columns separately
-                                if isinstance(value, list):
-                                    existing_instance.columns = ",".join(value)
-                                else:
-                                    existing_instance.columns = value
-                            else:
-                                setattr(existing_instance, field, value)
-
-                    # Handle file upload
-                    if "icon" in self.request.FILES:
-                        existing_instance.icon = self.request.FILES["icon"]
-
-                    # Update timestamps
-                    existing_instance.updated_at = timezone.now()
-                    existing_instance.updated_by = self.request.user
-
-                    existing_instance.save()
-                    self.object = existing_instance
-                else:
-                    # Create new instance
-                    self.object = form.save(commit=False)
-
-                    # Handle columns
-                    columns_data = form.cleaned_data.get("columns", "")
-                    if isinstance(columns_data, list):
-                        self.object.columns = ",".join(columns_data)
-                    else:
-                        self.object.columns = columns_data
-
-                    # Set creation info
-                    self.object.created_at = timezone.now()
-                    self.object.created_by = self.request.user
-                    self.object.updated_at = timezone.now()
-                    self.object.updated_by = self.request.user
-                    self.object.company = (
-                        getattr(_thread_local, "request", None).active_company
-                        if hasattr(_thread_local, "request")
-                        else self.request.user.company
-                    )
-
-                    if "icon" in self.request.FILES:
-                        self.object.icon = self.request.FILES["icon"]
-
-                    self.object.save()
-
-                if pk:
-                    self.object.conditions.all().delete()
-
-                created_conditions = []
-                for row_data in condition_rows:
-                    condition = ComponentCriteria(
-                        component=self.object,
-                        field=row_data["field"],
-                        operator=row_data["operator"],
-                        value=row_data.get("value", ""),
-                        sequence=row_data.get("sequence", 0),
-                        created_at=timezone.now(),
-                        created_by=self.request.user,
-                        updated_at=timezone.now(),
-                        updated_by=self.request.user,
-                        company=(
-                            getattr(_thread_local, "request", None).active_company
-                            if hasattr(_thread_local, "request")
-                            else self.request.user.company
-                        ),
-                    )
-                    condition.save()
-                    created_conditions.append(condition)
-                    print(
-                        f"Saved condition: {condition.field} {condition.operator} {condition.value}"
-                    )
-
-                self.request.session["condition_row_count"] = 0
-                self.request.session.modified = True
-
-            if pk:
-                messages.success(self.request, _("Component updated successfully!"))
-            else:
-                messages.success(self.request, _("Component added successfully!"))
-
-        except Exception as e:
-            messages.error(self.request, f"Error saving: {str(e)}")
-            return self.form_invalid(form)
-
-        return HttpResponse(headers={"HX-Refresh": "true"})
-
-    def form_invalid(self, form):
-        return self.render_to_response(self.get_context_data(form=form))
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -2886,6 +2717,7 @@ class AddToDashboardForm(LoginRequiredMixin, HorillaSingleFormView):
     form_title = _("Move to Dashboard")
     fields = ["dashboard"]
     full_width_fields = ["dashboard"]
+    save_and_new = False
 
     def get_form_kwargs(self):
         """
@@ -2986,6 +2818,7 @@ class DashboardCreateFormView(LoginRequiredMixin, HorillaSingleFormView):
     fields = ["name", "description", "folder", "is_default", "dashboard_owner"]
     full_width_fields = ["name", "description", "folder", "dashboard_owner"]
     hidden_fields = ["dashboard_owner"]
+    save_and_new = False
 
     @cached_property
     def form_url(self):
@@ -3033,20 +2866,6 @@ class DashboardCreateFormView(LoginRequiredMixin, HorillaSingleFormView):
         initial.update(self.request.GET.dict())
         return initial
 
-    def get(self, request, *args, **kwargs):
-        dashboard_id = self.kwargs.get("pk")
-        if request.user.has_perm(
-            "horilla_dashboard.change_dashboard"
-        ) or request.user.has_perm("horilla_dashboard.add_dashboard"):
-            return super().get(request, *args, **kwargs)
-
-        if dashboard_id:
-            dashboard = get_object_or_404(Dashboard, pk=dashboard_id)
-            if dashboard.dashboard_owner == request.user:
-                return super().get(request, *args, **kwargs)
-
-        return render(request, "error/403.html")
-
     def form_valid(self, form):
         super().form_valid(form)
         return HttpResponse(headers={"HX-Refresh": "true"})
@@ -3076,6 +2895,7 @@ class DashboardFolderCreate(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     full_width_fields = ["name", "folder_owner", "description", "parent_folder"]
     hidden_fields = ["parent_folder", "folder_owner"]
+    save_and_new = False
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
@@ -3103,20 +2923,6 @@ class DashboardFolderCreate(LoginRequiredMixin, HorillaSingleFormView):
     def form_valid(self, form):
         super().form_valid(form)
         return HttpResponse(headers={"HX-Refresh": "true"})
-
-    def get(self, request, *args, **kwargs):
-        folder_id = self.kwargs.get("pk")
-        if request.user.has_perm(
-            "horilla_dashboard.change_dashboard"
-        ) or request.user.has_perm("horilla_dashboard.add_dashboard"):
-            return super().get(request, *args, **kwargs)
-
-        if folder_id:
-            folder = get_object_or_404(DashboardFolder, pk=folder_id)
-            if folder.folder_owner == request.user:
-                return super().get(request, *args, **kwargs)
-
-        return render(request, "error/403.html")
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -3732,6 +3538,7 @@ class ReportToDashboardForm(LoginRequiredMixin, HorillaSingleFormView):
     form_title = _("Add to Dashboard")
     fields = ["dashboard", "reports"]
     full_width_fields = ["dashboard", "reports"]
+    save_and_new = False
 
     def get_form_kwargs(self):
         """

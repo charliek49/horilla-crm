@@ -158,21 +158,6 @@ class DepartmentFormView(LoginRequiredMixin, HorillaSingleFormView):
             )
         return reverse_lazy("horilla_core:department_create_form")
 
-    def form_valid(self, form):
-        self.object = form.save()
-
-        if not self.kwargs.get("pk"):
-            Notification.objects.create(
-                user=self.request.user,
-                message=f"New Department '{self.object}' created successfully.",
-                sender=self.request.user,
-                url=reverse("horilla_core:department_view"),
-            )
-
-        response = super().form_valid(form)
-
-        return HttpResponse("<script>$('#reloadButton').click();closeModal();</script>")
-
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
 

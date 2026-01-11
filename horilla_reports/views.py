@@ -3421,6 +3421,7 @@ class ChangeChartFieldView(LoginRequiredMixin, HorillaSingleFormView):
     fields = ["chart_field", "chart_field_stacked"]
     modal_height = False
     full_width_fields = ["chart_field", "chart_field_stacked"]
+    save_and_new = False
 
     def get_form_class(self):
         report = get_object_or_404(Report, pk=self.kwargs["pk"])
@@ -3555,6 +3556,7 @@ class CreateReportView(LoginRequiredMixin, HorillaSingleFormView):
     form_class = ReportForm
     hidden_fields = ["report_owner"]
     full_width_fields = ["name", "module", "folder", "selected_columns"]
+    detail_url_name = "horilla_reports:report_detail"
 
     @cached_property
     def form_url(self):
@@ -3566,24 +3568,6 @@ class CreateReportView(LoginRequiredMixin, HorillaSingleFormView):
         initial["folder"] = pk if pk else None
         initial["report_owner"] = self.request.user
         return initial
-
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        report_pk = self.object.pk
-        report_detail_url = reverse_lazy(
-            "horilla_reports:report_detail", kwargs={"pk": report_pk}
-        )
-        return HttpResponse(
-            f'<div id="htmx-trigger" '
-            f'hx-get="{report_detail_url}" '
-            'hx-target="#mainContent" '
-            'hx-swap="outerHTML" '
-            'hx-push-url="true" '
-            'hx-select="#mainContent" '
-            'hx-trigger="load" '
-            'hx-on::after-request="closeModal();">'
-            "</div>"
-        )
 
     def form_invalid(self, form):
         module_id = self.request.POST.get("module") or (
@@ -3612,20 +3596,6 @@ class CreateReportView(LoginRequiredMixin, HorillaSingleFormView):
             form.fields["selected_columns"].widget.value = selected_values
         return super().form_invalid(form)
 
-    def get(self, request, *args, **kwargs):
-        report_id = self.kwargs.get("pk")
-        if request.user.has_perm("reports.change_report") or request.user.has_perm(
-            "reports.add_report"
-        ):
-            return super().get(request, *args, **kwargs)
-
-        if report_id:
-            report = get_object_or_404(Report, pk=report_id)
-            if report.report_owner == request.user:
-                return super().get(request, *args, **kwargs)
-
-        return render(request, "error/403.html")
-
 
 @method_decorator(htmx_required, name="dispatch")
 class UpdateReportView(LoginRequiredMixin, HorillaSingleFormView):
@@ -3633,30 +3603,13 @@ class UpdateReportView(LoginRequiredMixin, HorillaSingleFormView):
     fields = ["name"]
     modal_height = False
     full_width_fields = ["name"]
+    detail_url_name = "horilla_reports:report_detail"
 
     @cached_property
     def form_url(self):
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_reports:update_report", kwargs={"pk": pk})
-
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        report_pk = self.object.pk
-        report_detail_url = reverse_lazy(
-            "horilla_reports:report_detail", kwargs={"pk": report_pk}
-        )
-        return HttpResponse(
-            f'<div id="htmx-trigger" '
-            f'hx-get="{report_detail_url}" '
-            'hx-target="#mainContent" '
-            'hx-swap="outerHTML" '
-            'hx-push-url="true" '
-            'hx-select="#mainContent" '
-            'hx-trigger="load" '
-            'hx-on::after-request="closeModal();">'
-            "</div>"
-        )
 
     def get(self, request, *args, **kwargs):
         report_id = self.kwargs.get("pk")
@@ -3861,30 +3814,6 @@ class CreateFolderView(LoginRequiredMixin, HorillaSingleFormView):
         if pk:
             return reverse_lazy("horilla_reports:update_folder", kwargs={"pk": pk})
         return reverse_lazy("horilla_reports:create_folder")
-
-    def get(self, request, *args, **kwargs):
-        folder_id = self.kwargs.get("pk")
-        if request.user.has_perm(
-            "horilla_reports.change_report"
-        ) or request.user.has_perm("horilla_reports.add_report"):
-            return super().get(request, *args, **kwargs)
-
-        if folder_id:
-            try:
-                folder = get_object_or_404(ReportFolder, pk=folder_id)
-            except Http404:
-                messages.error(
-                    request,
-                    f"{self.model._meta.verbose_name.title()} not found or no longer exists.",
-                )
-                return HttpResponse(
-                    "<script>$('#reloadButton').click();closeModal();</script>"
-                )
-
-            if folder.report_folder_owner == request.user:
-                return super().get(request, *args, **kwargs)
-
-        return render(request, "error/403.html")
 
 
 @method_decorator(

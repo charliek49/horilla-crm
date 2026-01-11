@@ -308,14 +308,18 @@ class ScoringRuleDetailNavbar(LoginRequiredMixin, HorillaNavView):
 @method_decorator(
     permission_required_or_denied("leads.add_scoringcriterion"), name="dispatch"
 )
-class ScoringCriterionCreateUpdateView(HorillaSingleFormView):
+class ScoringCriterionCreateUpdateView(LoginRequiredMixin, HorillaSingleFormView):
     model = ScoringCriterion
     form_class = ScoringCriterionForm
     fields = ["rule", "points", "operation_type"]
     condition_fields = ["field", "operator", "value", "logical_operator"]
+    condition_model = ScoringCondition
+    condition_related_name = "conditions"
+    condition_order_by = ["order"]
     hidden_fields = ["rule"]
     modal_height = False
     form_title = _("Create New Rule Criteria")
+    save_and_new = False
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -331,21 +335,7 @@ class ScoringCriterionCreateUpdateView(HorillaSingleFormView):
                 kwargs["initial"] = {}
             kwargs["initial"]["model_name"] = model_name
 
-        kwargs["condition_model"] = ScoringCondition
-        kwargs["request"] = self.request
-
         return kwargs
-
-    def get(self, request, *args, **kwargs):
-        pk = kwargs.get("pk")
-        if pk:
-            try:
-                self.model.objects.get(pk=pk)
-            except self.model.DoesNotExist:
-                messages.error(request, "The requested data does not exist.")
-                return HttpResponse("<script>$('reloadButton').click();</script>")
-
-        return super().get(request, *args, **kwargs)
 
     def get_initial(self):
         initial = super().get_initial()
@@ -360,89 +350,6 @@ class ScoringCriterionCreateUpdateView(HorillaSingleFormView):
                     logger.error(f"Invalid obj parameter: {obj}, error: {e}")
                     pass
         return initial
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.object and self.object.pk:
-            existing_conditions = self.object.conditions.all().order_by("order")
-            context["existing_conditions"] = existing_conditions
-            form = context.get("form")
-            if form and hasattr(form, "condition_field_choices"):
-                context["condition_field_choices"] = form.condition_field_choices
-
-        return context
-
-    def form_valid(self, form):
-        """Override to handle multiple condition rows"""
-        if not self.request.user.is_authenticated:
-            messages.error(
-                self.request, "You must be logged in to perform this action."
-            )
-            return self.form_invalid(form)
-
-        condition_rows = form.cleaned_data.get("condition_rows", [])
-
-        if not condition_rows:
-            messages.error(self.request, "At least one condition must be provided.")
-            return self.form_invalid(form)
-
-        try:
-            with transaction.atomic():
-                # Save the main ScoringCriterion
-                self.object = form.save(commit=False)
-
-                if self.kwargs.get("pk"):
-                    self.object.updated_at = timezone.now()
-                    self.object.updated_by = self.request.user
-                else:
-                    self.object.created_at = timezone.now()
-                    self.object.created_by = self.request.user
-                    self.object.updated_at = timezone.now()
-                    self.object.updated_by = self.request.user
-
-                self.object.company = (
-                    getattr(_thread_local, "request", None).active_company
-                    if hasattr(_thread_local, "request")
-                    else self.request.user.company
-                )
-                self.object.save()
-
-                if self.kwargs.get("pk"):
-                    self.object.conditions.all().delete()
-
-                created_conditions = []
-                for row_data in condition_rows:
-                    condition = ScoringCondition(
-                        criterion=self.object,
-                        field=row_data["field"],
-                        operator=row_data["operator"],
-                        value=row_data.get("value", ""),
-                        logical_operator=row_data.get("logical_operator", "and"),
-                        order=row_data.get("order", 0),
-                        created_at=timezone.now(),
-                        created_by=self.request.user,
-                        updated_at=timezone.now(),
-                        updated_by=self.request.user,
-                        company=(
-                            getattr(_thread_local, "request", None).active_company
-                            if hasattr(_thread_local, "request")
-                            else self.request.user.company
-                        ),
-                    )
-                    condition.save()
-                    created_conditions.append(condition)
-                self.request.session["condition_row_count"] = 0
-                self.request.session.modified = True
-                messages.success(
-                    self.request,
-                    f"Successfully {'updated' if self.kwargs.get('pk') else 'created'} scoring criterion with {len(created_conditions)} conditions!",
-                )
-
-        except Exception as e:
-            messages.error(self.request, f"Error saving criterion: {str(e)}")
-            return self.form_invalid(form)
-
-        return HttpResponse("<script>$('#reloadButton').click();closeModal();</script>")
 
     @cached_property
     def form_url(self):

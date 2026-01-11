@@ -179,6 +179,7 @@ class OpportunityTeamFormView(LoginRequiredMixin, HorillaSingleFormView):
     modal_height = False
     form_title = _("Create Opportunity Team")
     condition_field_title = _("Add Members")
+    save_and_new = False
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -425,16 +426,22 @@ class OpportunityTeamMemberCreateView(LoginRequiredMixin, HorillaSingleFormView)
     form_title = _("Create Opportunity Team")
     hidden_fields = ["team"]
     condition_field_title = _("Add Members")
+    save_and_new = False
 
     def get_initial(self):
+        """Set initial team from GET parameter"""
         initial = super().get_initial()
         obj_id = self.request.GET.get("obj")
-        initial["team"] = obj_id
+        if obj_id:
+            try:
+                initial["team"] = OpportunityTeam.objects.get(pk=obj_id)
+            except (OpportunityTeam.DoesNotExist, ValueError, TypeError):
+                pass
         return initial
 
     @cached_property
     def form_url(self):
-        """Constructs the form URL for editing a team member."""
+        """Get form URL based on create or update mode"""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy(
@@ -442,151 +449,56 @@ class OpportunityTeamMemberCreateView(LoginRequiredMixin, HorillaSingleFormView)
             )
         return reverse_lazy("opportunities:create_opportunity_team_member")
 
-    def form_valid(self, form):
-        """Override to handle condition fields properly"""
-
+    def validate_form_for_multiple_instances(self, form):
+        """Validate form before creating multiple instances"""
         team_id = form.cleaned_data.get("team")
         if not team_id:
             form.add_error("team", "Team is required.")
-            return self.form_invalid(form)
+            return False
+        return True
 
-        created_objects = []
-        row_indices = set()
-        validation_errors = []
+    def check_duplicate_instance(self, row_data, unique_cache, form):
+        """Check for duplicate users in the same team"""
+        user_id = row_data.get("user")
+        if not user_id:
+            return None  # Skip empty rows
 
-        for key in self.request.POST.keys():
-            for field_name in self.condition_fields:
-                if key.startswith(f"{field_name}_"):
-                    try:
-                        row_index = key.split("_")[-1]
-                        if row_index.isdigit():
-                            row_indices.add(row_index)
-                    except:
-                        pass
+        # Get team_id from form
+        team_id = form.cleaned_data.get("team")
+        team_pk = team_id.id if hasattr(team_id, "id") else team_id
 
-        submitted_users = set()
+        # Check if user already in this submission
+        cache_key = (user_id, team_pk)
+        if cache_key in unique_cache:
+            return "User has already been added to this team."
 
-        for row_index in sorted(row_indices):
-            condition_data = {}
-            has_data = False
-            row_num = int(row_index) + 1
+        # Check if user already exists in team
+        if self.model.objects.filter(user_id=user_id, team_id=team_pk).exists():
+            try:
+                user = User.objects.get(pk=user_id)
+                name = f"{user.first_name} {user.last_name}".strip() or user.username
+            except:
+                name = f"User ID {user_id}"
+            return f"{name} is already a member of this team."
 
-            for field_name in self.condition_fields:
-                field_key = f"{field_name}_{row_index}"
-                value = self.request.POST.get(field_key)
-                if value and value.strip():
-                    condition_data[field_name] = value.strip()
-                    has_data = True
+        unique_cache.add(cache_key)
+        return None  # No duplicate
 
-            if has_data:
-
-                user_id = condition_data.get("user")
-
-                if user_id in submitted_users:
-                    validation_errors.append("User has already been added to this team")
-                    continue
-
-                try:
-                    existing = self.model.objects.filter(
-                        user_id=user_id,
-                        team_id=team_id.id if hasattr(team_id, "id") else team_id,
-                    ).exists()
-                    if existing:
-                        try:
-
-                            user_obj = User.objects.get(pk=user_id)
-                            user_name = (
-                                f"{user_obj.first_name} {user_obj.last_name}".strip()
-                                or user_obj.username
-                            )
-                        except:
-                            user_name = f"User ID {user_id}"
-
-                        validation_errors.append(
-                            f"{user_name} is already a member of this team"
-                        )
-                        continue
-                except Exception as e:
-                    logger.error("Error checking existing user: %s", e)
-
-                submitted_users.add(user_id)
-
-                try:
-                    new_obj = self.model()
-                    new_obj.team = team_id
-
-                    for field_name, value in condition_data.items():
-                        try:
-                            model_field = self.model._meta.get_field(field_name)
-                            if isinstance(model_field, models.ForeignKey):
-                                related_obj = model_field.related_model.objects.get(
-                                    pk=value
-                                )
-                                setattr(new_obj, field_name, related_obj)
-                            else:
-                                setattr(new_obj, field_name, value)
-                        except Exception as e:
-                            validation_errors.append(
-                                f"Row {row_num}: Invalid {field_name} - {str(e)}"
-                            )
-                            break
-                    else:
-                        # Set timestamps and company
-                        new_obj.created_at = timezone.now()
-                        new_obj.created_by = self.request.user
-                        new_obj.updated_at = timezone.now()
-                        new_obj.updated_by = self.request.user
-                        new_obj.company = (
-                            getattr(_thread_local, "request", None).active_company
-                            if hasattr(_thread_local, "request")
-                            else self.request.user.company
-                        )
-
-                        new_obj.save()
-                        created_objects.append(new_obj)
-
-                except Exception as e:
-                    error_msg = str(e)
-                    if (
-                        "UNIQUE constraint failed" in error_msg
-                        and "user_id" in error_msg
-                        and "team_id" in error_msg
-                    ):
-                        try:
-
-                            user_obj = User.objects.get(pk=user_id)
-                            user_name = (
-                                f"{user_obj.first_name} {user_obj.last_name}".strip()
-                                or user_obj.username
-                            )
-                        except:
-                            user_name = f"User ID {user_id}"
-                        validation_errors.append(
-                            f"{user_name} is already a member of this team"
-                        )
-                    else:
-                        validation_errors.append(
-                            f"Row {row_num}: Error creating team member - {error_msg}"
-                        )
-
-        if validation_errors:
-            for error in validation_errors:
-                form.add_error(None, error)
-            return self.form_invalid(form)
-
-        if not created_objects:
-            form.add_error(
-                None, "At least one team member must be added with all required fields."
-            )
-            return self.form_invalid(form)
-
-        self.request.session["condition_row_count"] = 0
-        self.request.session.modified = True
-
-        success_msg = f"Created {len(created_objects)} team member(s) successfully!"
-        messages.success(self.request, success_msg)
-
-        return HttpResponse("<script>$('#reloadButton').click();closeModal();</script>")
+    def get_duplicate_error_message(self, row_data, error_msg):
+        """Get friendly error message for duplicate errors"""
+        user_id = row_data.get("user")
+        if (
+            user_id
+            and "UNIQUE constraint failed" in error_msg
+            and "user_id" in error_msg
+        ):
+            try:
+                user = User.objects.get(pk=user_id)
+                name = f"{user.first_name} {user.last_name}".strip() or user.username
+                return f"{name} is already a member of this team."
+            except:
+                pass
+        return error_msg
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -723,6 +635,7 @@ class AddDefaultTeamView(LoginRequiredMixin, HorillaSingleFormView):
     full_width_fields = ["team"]
     modal_height = False
     permission_required = ["opportunities.add_opportunityteammember"]
+    save_and_new = False
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -826,11 +739,17 @@ class AddOpportunityMemberView(LoginRequiredMixin, HorillaSingleFormView):
     form_title = _("Add Opportunity Members")
     hidden_fields = ["opportunity"]
     condition_field_title = _("Add Members")
+    save_and_new = False
 
     def get_initial(self):
+        """Set initial opportunity from GET parameter"""
         initial = super().get_initial()
         obj_id = self.request.GET.get("id")
-        initial["opportunity"] = obj_id
+        if obj_id:
+            try:
+                initial["opportunity"] = Opportunity.objects.get(pk=obj_id)
+            except (Opportunity.DoesNotExist, ValueError, TypeError):
+                pass
         return initial
 
     @cached_property
@@ -838,112 +757,46 @@ class AddOpportunityMemberView(LoginRequiredMixin, HorillaSingleFormView):
         """Constructs the form URL for adding  member."""
         return reverse_lazy("opportunities:add_opportunity_member")
 
-    def form_valid(self, form):
-        """Override to handle condition fields properly"""
-
+    def validate_form_for_multiple_instances(self, form):
+        """Validate form before creating multiple instances"""
         opp_id = form.cleaned_data.get("opportunity")
         if not opp_id:
             form.add_error("opportunity", "Opportunity is required.")
-            return self.form_invalid(form)
+            return False
+        return True
 
-        created_objects = []
-        row_indices = set()
-        validation_errors = []
-        users_to_create = []
-        submitted_users = set()
+    def check_duplicate_instance(self, row_data, unique_cache, form):
+        """Check for duplicate users in the same submission and existing members"""
+        user_id = row_data.get("user")
+        if not user_id:
+            return None  # Skip empty rows
 
-        for key in self.request.POST.keys():
-            for field_name in self.condition_fields:
-                if key.startswith(f"{field_name}_"):
-                    row_index = key.split("_")[-1]
-                    if row_index.isdigit():
-                        row_indices.add(row_index)
+        opp_id = form.cleaned_data.get("opportunity")
+        opp_pk = opp_id.id if hasattr(opp_id, "id") else opp_id
 
-        for row_index in sorted(row_indices):
-            condition_data = {}
-            has_data = False
-            row_num = int(row_index) + 1
+        # Check if user already in this submission
+        cache_key = (user_id, opp_pk)
+        if cache_key in unique_cache:
+            return "Duplicate user in submission"
 
-            for field_name in self.condition_fields:
-                field_key = f"{field_name}_{row_index}"
-                value = self.request.POST.get(field_key)
-                if value and value.strip():
-                    condition_data[field_name] = value.strip()
-                    has_data = True
-
-            if not has_data:
-                continue
-
-            user_id = condition_data.get("user")
-
-            if user_id in submitted_users:
-                validation_errors.append(f"Row {row_num}: Duplicate user in submission")
-                continue
-
-            submitted_users.add(user_id)
-
-            if self.model.objects.filter(
-                user_id=user_id,
-                opportunity_id=opp_id.id if hasattr(opp_id, "id") else opp_id,
-            ).exists():
-                try:
-
-                    user_obj = User.objects.get(pk=user_id)
-                    user_name = (
-                        f"{user_obj.first_name} {user_obj.last_name}".strip()
-                        or user_obj.username
-                    )
-                except:
-                    user_name = f"User ID {user_id}"
-
-                validation_errors.append(
-                    f"{user_name} is already a member of this opportunity"
+        if self.model.objects.filter(user_id=user_id, opportunity_id=opp_pk).exists():
+            try:
+                user_obj = User.objects.get(pk=user_id)
+                user_name = (
+                    f"{user_obj.first_name} {user_obj.last_name}".strip()
+                    or user_obj.username
                 )
-                continue
+                return f"{user_name} is already a member of this opportunity"
+            except:
+                return f"User ID {user_id} is already a member of this opportunity"
 
-            users_to_create.append(condition_data)
+        unique_cache.add(cache_key)
+        return None
 
-        if validation_errors:
-            for err in validation_errors:
-                form.add_error(None, err)
-            return self.form_invalid(form)
-
-        if not users_to_create:
-            form.add_error(None, "At least one valid team member must be added.")
-            return self.form_invalid(form)
-
-        with transaction.atomic():
-            for condition_data in users_to_create:
-                new_obj = self.model()
-                new_obj.opportunity = opp_id
-
-                for field_name, value in condition_data.items():
-                    model_field = self.model._meta.get_field(field_name)
-                    if isinstance(model_field, models.ForeignKey):
-                        related_obj = model_field.related_model.objects.get(pk=value)
-                        setattr(new_obj, field_name, related_obj)
-                    else:
-                        setattr(new_obj, field_name, value)
-
-                new_obj.created_at = timezone.now()
-                new_obj.created_by = self.request.user
-                new_obj.updated_at = timezone.now()
-                new_obj.updated_by = self.request.user
-                new_obj.company = (
-                    getattr(_thread_local, "request", None).active_company
-                    if hasattr(_thread_local, "request")
-                    else self.request.user.company
-                )
-                new_obj.save()
-                created_objects.append(new_obj)
-
-        self.request.session["condition_row_count"] = 0
-        self.request.session.modified = True
-
-        messages.success(
-            self.request, f"Added {len(created_objects)} member(s) successfully!"
-        )
-        return HttpResponse("<script>$('#reloadButton').click();closeModal();</script>")
+    def update_unique_check_cache(self, row_data, unique_cache, instance):
+        """Update cache after creating instance"""
+        cache_key = (instance.user_id, instance.opportunity_id)
+        unique_cache.add(cache_key)
 
 
 class TeamSellingSetupView(LoginRequiredMixin, TemplateView):

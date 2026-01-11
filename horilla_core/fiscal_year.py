@@ -37,6 +37,7 @@ class FiscalYearFormView(LoginRequiredMixin, HorillaSingleFormView):
         "period_display_option",
     ]
     template_name = "settings/fiscal_year_form.html"
+    save_and_new = False
 
     def get_fields(self):
         """Return fields based on fiscal year type"""
