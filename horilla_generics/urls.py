@@ -90,6 +90,11 @@ urlpatterns = [
         name="get_field_value_widget",
     ),
     path(
+        "get-model-field-choices/",
+        view.GetModelFieldChoicesView.as_view(),
+        name="get_model_field_choices",
+    ),
+    path(
         "notes-attachment-create/",
         views.HorillaNotesAttachmentCreateView.as_view(),
         name="notes_attachment_create",
