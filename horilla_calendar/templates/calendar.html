@@ -79,16 +79,16 @@
             window.calendarInitialized = false;
             window.currentDisplayOnly = "{{ request.GET.display_only|default:'' }}";
 
-            window.hasActivityCreatePerm = {% if perms.activity.add_activity %}true{% else %}false{% endif %};
-            window.hasActivityChangeOwnPerm = {% if perms.activity.change_own_activity %}true{% else %}false{% endif %};
-            window.hasActivityDeletePerm = {% if perms.activity.delete_activity %}true{% else %}false{% endif %};
-            window.hasActivityViewOwnPerm = {% if perms.activity.view_own_activity %}true{% else %}false{% endif %};
+            window.hasActivityCreatePerm = {% if perms.horilla_activity.add_activity or perms.horilla_activity.add_own_activity %}true{% else %}false{% endif %};
+            window.hasActivityChangeOwnPerm = {% if perms.horilla_activity.change_activity or perms.horilla_activity.change_own_activity %}true{% else %}false{% endif %};
+            window.hasActivityDeletePerm = {% if perms.horilla_activity.delete_activity or perms.horilla_activity.delete_own_activity %}true{% else %}false{% endif %};
+            window.hasActivityViewOwnPerm = {% if perms.horilla_activity.view_activity or perms.horilla_activity.view_own_activity %}true{% else %}false{% endif %};
 
             window.statusFieldPermission = "{{ status_field_permission }}";
 
-            window.hasUnavailabilityCreatePerm = {% if perms.horilla_calendar.add_useravailability %}true{% else %}false{% endif %};
-            window.hasUnavailabilityChangeOwnPerm = {% if perms.horilla_calendar.change_own_useravailability %}true{% else %}false{% endif %};
-            window.hasUnavailabilityDeletePerm = {% if perms.horilla_calendar.delete_userunavalability%}true{%else%}false{%endif%};
+            window.hasUnavailabilityCreatePerm = {% if perms.horilla_calendar.add_useravailability or perms.horilla_calendar.add_own_useravailability %}true{% else %}false{% endif %};
+            window.hasUnavailabilityChangeOwnPerm = {% if perms.horilla_calendar.change_useravailability or perms.horilla_calendar.change_own_useravailability %}true{% else %}false{% endif %};
+            window.hasUnavailabilityDeletePerm = {% if perms.horilla_calendar.delete_userunavalability or perms.horilla_calendar.delete_own_userunavalability %}true{% else %}false{% endif %};
 
 
             function getCalendarUrl(baseUrl) {
@@ -828,7 +828,7 @@
                                     <button class="text-gray-600 hover:text-gray-800 transition-colors flex items-center justify-center w-6 h-6">
                                         <img src="{% static 'assets/icons/down.svg' %}" alt="{% trans 'Dropdown' %}" width="13" />
                                     </button>
-                                    <div class="dropdown-content w-48 absolute bg-white rounded-lg [box-shadow:0px_0px_20px_0px_rgb(0_0_0_/_8%)] py-2 right-5 top-full z-60">
+                                    <div class="dropdown-content w-48 absolute bg-white border-primary-300 rounded-lg [box-shadow:0px_0px_20px_0px_rgb(0_0_0_/_8%)] py-2 right-5 top-full z-60">
                                         <ul class="text-sm">
                                             <li>
                                                 <button
