@@ -405,11 +405,23 @@ def filter_hidden_fields(user, model, fields_list):
 
     field_permissions = get_field_permissions_for_model(user, model)
 
-    return [
-        field_name
-        for field_name in fields_list
-        if field_permissions.get(field_name, "readwrite") != "hidden"
-    ]
+    visible_fields = []
+    for field_name in fields_list:
+        # Check the field itself first
+        permission = field_permissions.get(field_name, "readwrite")
+
+        # If it's a display method (get_*_display), always check the base field permission
+        # Display methods should inherit the base field's permission
+        if field_name.startswith("get_") and field_name.endswith("_display"):
+            base_field = field_name.replace("get_", "").replace("_display", "")
+            base_permission = field_permissions.get(base_field, "readwrite")
+            # Use base field permission (it takes precedence for display methods)
+            permission = base_permission
+
+        if permission != "hidden":
+            visible_fields.append(field_name)
+
+    return visible_fields
 
 
 def is_field_editable(user, model, field_name):

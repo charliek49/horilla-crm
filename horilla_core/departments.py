@@ -158,20 +158,6 @@ class DepartmentFormView(LoginRequiredMixin, HorillaSingleFormView):
             )
         return reverse_lazy("horilla_core:department_create_form")
 
-    def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        pk = kwargs.get("pk")
-        if pk:
-            try:
-                self.model.objects.get(pk=pk)
-            except self.model.DoesNotExist:
-                messages.error(request, "The requested data does not exist.")
-                return HttpResponse("<script>$('reloadButton').click();</script>")
-
-        return super().get(request, *args, **kwargs)
-
 
 @method_decorator(htmx_required, name="dispatch")
 @method_decorator(

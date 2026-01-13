@@ -17,8 +17,10 @@ from decimal import Decimal
 from django.apps import apps
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
 from django.db import transaction
-from django.db.models.signals import post_migrate, post_save
+from django.db.models import Q
+from django.db.models.signals import post_delete, post_migrate, post_save
 from django.dispatch import Signal, receiver
 
 from horilla.auth.models import User
@@ -26,10 +28,12 @@ from horilla_core.models import (
     Company,
     FieldPermission,
     FiscalYear,
+    ListColumnVisibility,
     MultipleCurrency,
     Role,
 )
 from horilla_core.services.fiscal_year_service import FiscalYearService
+from horilla_core.utils import get_user_field_permission
 from horilla_utils.middlewares import _thread_local
 
 logger = logging.getLogger(__name__)
@@ -309,3 +313,331 @@ def role_default_field_permissions(sender, instance, created, **kwargs):
             )
 
     transaction.on_commit(assign_permissions)
+
+
+@receiver(post_save, sender=FieldPermission)
+@receiver(post_delete, sender=FieldPermission)
+def clear_column_visibility_cache_on_permission_change(sender, instance, **kwargs):
+    """
+    Clear column visibility cache and clean up ListColumnVisibility records
+    when field permissions are created, updated, or deleted.
+    This ensures that list/kanban views reflect permission changes immediately.
+    """
+
+    def cleanup_visibility_records():
+        try:
+
+            content_type = instance.content_type
+            app_label = content_type.app_label
+            field_name = instance.field_name
+
+            # Get the model class - use model_name from content_type first, then get class name
+            try:
+                model = content_type.model_class()
+                if not model:
+                    # Fallback: try to get model using content_type.model (lowercase)
+                    model = apps.get_model(
+                        app_label=app_label, model_name=content_type.model
+                    )
+                model_name = (
+                    model.__name__
+                )  # Use class name (capitalized) as stored in ListColumnVisibility
+            except (LookupError, AttributeError) as e:
+                logger.error(f"Model not found: {app_label}.{content_type.model}: {e}")
+                return
+
+            # Determine affected users
+            affected_users = []
+            if instance.user:
+                affected_users = [instance.user]
+            elif instance.role:
+                affected_users = list(instance.role.users.all())
+
+            # Get the permission type (if it's a save, check the new permission; if delete, field is now visible)
+            permission_type = None
+            if hasattr(instance, "permission_type"):
+                permission_type = instance.permission_type
+
+            # Process each affected user
+            for user in affected_users:
+                # Get all ListColumnVisibility entries for this user and model
+                # Try both model_name formats (class name and lowercase) to be safe
+                visibility_entries = ListColumnVisibility.all_objects.filter(
+                    user=user, app_label=app_label
+                ).filter(Q(model_name=model_name) | Q(model_name=model_name.lower()))
+                for entry in visibility_entries:
+                    updated = False
+
+                    # Check current permission for this user and field
+                    current_permission = get_user_field_permission(
+                        user, model, field_name
+                    )
+
+                    # If field is now hidden, remove it from visible_fields and removed_custom_fields
+                    if current_permission == "hidden":
+                        # Remove from visible_fields
+                        original_visible_fields = (
+                            entry.visible_fields.copy() if entry.visible_fields else []
+                        )
+                        updated_visible_fields = []
+
+                        for field_item in original_visible_fields:
+                            # Handle both [verbose_name, field_name] and field_name formats
+                            if (
+                                isinstance(field_item, (list, tuple))
+                                and len(field_item) >= 2
+                            ):
+                                item_field_name = field_item[1]
+                            else:
+                                item_field_name = field_item
+
+                            # Check if this field matches the hidden field
+                            # Handle both direct field name and display method (get_*_display)
+                            field_matches = (
+                                item_field_name == field_name
+                                or item_field_name == f"get_{field_name}_display"
+                                or (
+                                    item_field_name.startswith("get_")
+                                    and item_field_name.endswith("_display")
+                                    and item_field_name.replace("get_", "").replace(
+                                        "_display", ""
+                                    )
+                                    == field_name
+                                )
+                            )
+
+                            if not field_matches:
+                                updated_visible_fields.append(field_item)
+                            else:
+                                updated = True
+
+                        # Remove from removed_custom_fields
+                        original_removed_fields = (
+                            entry.removed_custom_fields.copy()
+                            if entry.removed_custom_fields
+                            else []
+                        )
+                        updated_removed_fields = []
+
+                        for field_item in original_removed_fields:
+                            if (
+                                isinstance(field_item, (list, tuple))
+                                and len(field_item) >= 2
+                            ):
+                                item_field_name = field_item[1]
+                            else:
+                                item_field_name = field_item
+
+                            # Check if this field matches the hidden field
+                            field_matches = (
+                                item_field_name == field_name
+                                or item_field_name == f"get_{field_name}_display"
+                                or (
+                                    item_field_name.startswith("get_")
+                                    and item_field_name.endswith("_display")
+                                    and item_field_name.replace("get_", "").replace(
+                                        "_display", ""
+                                    )
+                                    == field_name
+                                )
+                            )
+
+                            if not field_matches:
+                                updated_removed_fields.append(field_item)
+                            else:
+                                updated = True
+
+                        # Update the entry if changes were made
+                        if updated:
+                            entry.visible_fields = updated_visible_fields
+                            entry.removed_custom_fields = updated_removed_fields
+                            entry.save(
+                                update_fields=[
+                                    "visible_fields",
+                                    "removed_custom_fields",
+                                ]
+                            )
+
+                    # If field is now visible (not hidden), ensure it's available and re-add if it was previously visible
+                    elif current_permission != "hidden":
+
+                        # Get the model's default fields to check if this is a standard field
+                        try:
+                            from django.db.models import Field as ModelField
+                            from django.utils.encoding import force_str
+
+                            instance = model()
+                            model_fields = [
+                                [
+                                    force_str(f.verbose_name or f.name.title()),
+                                    (
+                                        f.name
+                                        if not getattr(f, "choices", None)
+                                        else f"get_{f.name}_display"
+                                    ),
+                                ]
+                                for f in model._meta.get_fields()
+                                if isinstance(f, ModelField)
+                                and f.name not in ["history"]
+                            ]
+
+                            # Check if model has a columns property
+                            default_fields = (
+                                getattr(instance, "columns", model_fields)
+                                if hasattr(instance, "columns")
+                                else model_fields
+                            )
+
+                            # Find the field in default fields (check both field_name and get_*_display)
+                            field_to_add = None
+                            for default_field in default_fields:
+                                if (
+                                    isinstance(default_field, (list, tuple))
+                                    and len(default_field) >= 2
+                                ):
+                                    default_field_name = default_field[1]
+                                    default_verbose_name = default_field[0]
+
+                                    # Check if this default field matches our field
+                                    field_matches = (
+                                        default_field_name == field_name
+                                        or default_field_name
+                                        == f"get_{field_name}_display"
+                                        or (
+                                            default_field_name.startswith("get_")
+                                            and default_field_name.endswith("_display")
+                                            and default_field_name.replace(
+                                                "get_", ""
+                                            ).replace("_display", "")
+                                            == field_name
+                                        )
+                                    )
+
+                                    if field_matches:
+                                        field_to_add = [
+                                            default_verbose_name,
+                                            default_field_name,
+                                        ]
+                                        break
+
+                            # If field is in default fields and not in visible_fields, add it back
+                            if field_to_add:
+                                current_visible_fields = (
+                                    entry.visible_fields.copy()
+                                    if entry.visible_fields
+                                    else []
+                                )
+                                field_already_in_visible = any(
+                                    (
+                                        isinstance(item, (list, tuple))
+                                        and len(item) >= 2
+                                        and item[1] == field_to_add[1]
+                                    )
+                                    or (
+                                        not isinstance(item, (list, tuple))
+                                        and item == field_to_add[1]
+                                    )
+                                    for item in current_visible_fields
+                                )
+
+                                if not field_already_in_visible:
+                                    current_visible_fields.append(field_to_add)
+                                    entry.visible_fields = current_visible_fields
+                                    updated = True
+
+                            # Remove from removed_custom_fields if it's there
+                            original_removed_fields = (
+                                entry.removed_custom_fields.copy()
+                                if entry.removed_custom_fields
+                                else []
+                            )
+                            updated_removed_fields = []
+
+                            for field_item in original_removed_fields:
+                                if (
+                                    isinstance(field_item, (list, tuple))
+                                    and len(field_item) >= 2
+                                ):
+                                    item_field_name = field_item[1]
+                                else:
+                                    item_field_name = field_item
+
+                                # Check if this field matches the now-visible field
+                                field_matches = (
+                                    item_field_name == field_name
+                                    or item_field_name == f"get_{field_name}_display"
+                                    or (
+                                        item_field_name.startswith("get_")
+                                        and item_field_name.endswith("_display")
+                                        and item_field_name.replace("get_", "").replace(
+                                            "_display", ""
+                                        )
+                                        == field_name
+                                    )
+                                )
+
+                                if not field_matches:
+                                    updated_removed_fields.append(field_item)
+                                else:
+                                    updated = True
+
+                            if updated:
+                                entry.removed_custom_fields = updated_removed_fields
+                                entry.save(
+                                    update_fields=[
+                                        "visible_fields",
+                                        "removed_custom_fields",
+                                    ]
+                                )
+                        except Exception as e:
+                            logger.error(
+                                f"Error checking default fields for re-adding: {e}"
+                            )
+
+                    # Clear cache for this entry
+                    cache_key = f"visible_columns_{entry.user.id}_{entry.app_label}_{entry.model_name}_{entry.context}_{entry.url_name}"
+                    cache.delete(cache_key)
+
+        except Exception as e:
+            logger.error(
+                f"Error cleaning up column visibility records on permission change: {e}"
+            )
+
+    transaction.on_commit(cleanup_visibility_records)
+
+
+def clear_list_column_cache_for_model(content_type, affected_users=None):
+    """
+    Clear list column visibility cache for all users who have ListColumnVisibility
+    for the given model (content_type).
+
+    Args:
+        content_type: ContentType instance for the model
+        affected_users: Optional list of user IDs to limit cache clearing to specific users
+    """
+    try:
+
+        app_label = content_type.app_label
+        model_name = (
+            content_type.model_class().__name__ if content_type.model_class() else None
+        )
+
+        if not model_name:
+            return
+
+        # Get all ListColumnVisibility records for this model
+        visibility_queryset = ListColumnVisibility.all_objects.filter(
+            app_label=app_label, model_name=model_name
+        )
+
+        # If specific users are provided, filter to those users
+        if affected_users:
+            visibility_queryset = visibility_queryset.filter(user_id__in=affected_users)
+
+        # Clear cache for each visibility record
+        for visibility in visibility_queryset:
+            cache_key = f"visible_columns_{visibility.user.id}_{app_label}_{model_name}_{visibility.context}_{visibility.url_name}"
+            cache.delete(cache_key)
+
+    except Exception as e:
+        logger.error(f"Error clearing list column cache: {e}")

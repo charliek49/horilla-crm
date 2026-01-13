@@ -12,6 +12,5 @@ register_models_for_feature(
         ("horilla_core", "HorillaUser"),
     ],
     all=True,
-    exclude=["dashboard_component", "report_choices"]
+    exclude=["dashboard_component", "report_choices"],
 )
-
