@@ -69,7 +69,7 @@ from horilla_core.models import (
     RecentlyViewed,
     RecycleBin,
 )
-from horilla_core.utils import get_field_permissions_for_model
+from horilla_core.utils import filter_hidden_fields, get_field_permissions_for_model
 from horilla_generics.forms import (
     HorillaAttachmentForm,
     HorillaHistoryForm,
@@ -475,7 +475,15 @@ class HorillaListView(ListView):
         """Get columns configuration based on model fields and methods."""
 
         if not self.list_column_visibility:
-            return [[col[0], col[1]] for col in self.columns] if self.columns else []
+            columns = [[col[0], col[1]] for col in self.columns] if self.columns else []
+            # Filter out hidden fields based on field permissions
+            if columns and self.model:
+                field_names = [col[1] for col in columns]
+                visible_field_names = filter_hidden_fields(
+                    self.request.user, self.model, field_names
+                )
+                columns = [col for col in columns if col[1] in visible_field_names]
+            return columns
         app_label = self.model._meta.app_label
         model_name = self.model.__name__
         context = (
@@ -488,6 +496,23 @@ class HorillaListView(ListView):
         cache_key = f"visible_columns_{self.request.user.id}_{app_label}_{model_name}_{context}_{current_path}"
         cached_columns = cache.get(cache_key)
         if cached_columns:
+            # Always filter hidden fields from cached columns in case permissions changed
+            if cached_columns and self.model:
+                field_names = [
+                    col[1]
+                    for col in cached_columns
+                    if isinstance(col, (list, tuple)) and len(col) >= 2
+                ]
+                visible_field_names = filter_hidden_fields(
+                    self.request.user, self.model, field_names
+                )
+                cached_columns = [
+                    col
+                    for col in cached_columns
+                    if isinstance(col, (list, tuple))
+                    and len(col) >= 2
+                    and col[1] in visible_field_names
+                ]
             return cached_columns
 
         visibility = ListColumnVisibility.all_objects.filter(
@@ -536,6 +561,13 @@ class HorillaListView(ListView):
                                     verbose_name.lower().replace(" ", "_"),
                                 ]
                             )
+            # Filter out hidden fields based on field permissions
+            if columns and self.model:
+                field_names = [col[1] for col in columns]
+                visible_field_names = filter_hidden_fields(
+                    self.request.user, self.model, field_names
+                )
+                columns = [col for col in columns if col[1] in visible_field_names]
             cache.set(cache_key, columns)
             return columns
 
@@ -558,6 +590,13 @@ class HorillaListView(ListView):
                     url_name=current_path,
                 )
                 columns = [[col[0], col[1]] for col in serializable_columns]
+                # Filter out hidden fields based on field permissions
+                if columns and self.model:
+                    field_names = [col[1] for col in columns]
+                    visible_field_names = filter_hidden_fields(
+                        self.request.user, self.model, field_names
+                    )
+                    columns = [col for col in columns if col[1] in visible_field_names]
                 cache.set(cache_key, columns)
                 return columns
 
@@ -575,6 +614,15 @@ class HorillaListView(ListView):
                         field.name,
                     ]
                 )
+        # Filter out hidden fields based on field permissions
+        if auto_columns and self.model:
+            field_names = [col[1] for col in auto_columns]
+            visible_field_names = filter_hidden_fields(
+                self.request.user, self.model, field_names
+            )
+            auto_columns = [
+                col for col in auto_columns if col[1] in visible_field_names
+            ]
         return auto_columns
 
     def _apply_sorting(self, queryset, field, direction):
@@ -2263,7 +2311,20 @@ class HorillaListView(ListView):
         visible_columns = self._get_columns()
 
         if not visible_columns and self.columns:
-            visible_columns = [[col[0], col[1]] for col in self.columns]
+            # Filter hidden fields even in fallback case
+            field_names = [
+                col[1] if isinstance(col, (tuple, list)) and len(col) >= 2 else col
+                for col in self.columns
+            ]
+            visible_field_names = filter_hidden_fields(
+                self.request.user, self.model, field_names
+            )
+            visible_columns = [
+                [col[0], col[1]]
+                for col in self.columns
+                if (col[1] if isinstance(col, (tuple, list)) and len(col) >= 2 else col)
+                in visible_field_names
+            ]
 
         if self.col_attrs and visible_columns:
             first_column_field = visible_columns[0][1]
@@ -2966,8 +3027,10 @@ class HorillaKanbanView(HorillaListView):
                         "colour": group["color"],
                     }
 
+            # Get filtered columns (already filtered by field permissions in _get_columns)
+            filtered_columns = self._get_columns()
             display_columns = []
-            for verbose_name, field_name in self.columns:
+            for verbose_name, field_name in filtered_columns:
                 if field_name != group_by:
                     display_columns.append({"name": field_name, "label": verbose_name})
             for key, group in paginated_groups.items():
@@ -2978,15 +3041,49 @@ class HorillaKanbanView(HorillaListView):
                     for column in display_columns:
                         field_name = column["name"]
                         value = None
-                        if hasattr(item, field_name):
-                            value = getattr(item, field_name)
-                            if callable(value):
-                                value = value()
+                        # Check if field_name is a display method (get_*_display)
+                        if field_name.startswith("get_") and field_name.endswith(
+                            "_display"
+                        ):
+                            # It's already a display method, call it directly
+                            if hasattr(item, field_name):
+                                display_method = getattr(item, field_name)
+                                if callable(display_method):
+                                    value = display_method()
+                        else:
+                            # Check if it's a choice field and use display method
+                            try:
+                                field = self.model._meta.get_field(field_name)
+                                if hasattr(field, "choices") and field.choices:
+                                    # Use the display method for choice fields
+                                    display_method_name = f"get_{field_name}_display"
+                                    if hasattr(item, display_method_name):
+                                        display_method = getattr(
+                                            item, display_method_name
+                                        )
+                                        if callable(display_method):
+                                            value = display_method()
+                                    else:
+                                        # Fallback to raw value if display method doesn't exist
+                                        value = getattr(item, field_name, None)
+                                else:
+                                    # Not a choice field, get value normally
+                                    if hasattr(item, field_name):
+                                        value = getattr(item, field_name)
+                                        if callable(value):
+                                            value = value()
+                            except (FieldDoesNotExist, AttributeError):
+                                # Field doesn't exist or can't be accessed, try direct attribute
+                                if hasattr(item, field_name):
+                                    value = getattr(item, field_name)
+                                    if callable(value):
+                                        value = value()
+
                         item.display_columns.append(
                             {
                                 "name": field_name,
                                 "label": column["label"],
-                                "value": value,
+                                "value": str(value) if value is not None else "N/A",
                             }
                         )
 
@@ -2998,7 +3095,7 @@ class HorillaKanbanView(HorillaListView):
                     "model_name": model_name,
                     "app_label": app_label,
                     "apps_label": app_label.split(".")[-1] if app_label else "",
-                    "columns": self.columns,
+                    "columns": filtered_columns,
                     "actions": self.actions,
                     "filter_class": self.filterset_class.__name__,
                     "group_by_field": group_by,
@@ -3055,8 +3152,10 @@ class HorillaKanbanView(HorillaListView):
             except EmptyPage:
                 return HttpResponse("")  # Return empty response for no more items
 
+            # Get filtered columns (already filtered by field permissions in _get_columns)
+            filtered_columns = self._get_columns()
             display_columns = []
-            for verbose_name, field_name in self.columns:
+            for verbose_name, field_name in filtered_columns:
                 if field_name != group_by:
                     display_columns.append({"name": field_name, "label": verbose_name})
 
@@ -3065,10 +3164,45 @@ class HorillaKanbanView(HorillaListView):
                 item.display_columns = []
                 for column in display_columns:
                     field_name = column["name"]
+                    value = None
                     try:
-                        value = getattr(item, field_name)
-                        if callable(value):
-                            value = value()
+                        # Check if field_name is a display method (get_*_display)
+                        if field_name.startswith("get_") and field_name.endswith(
+                            "_display"
+                        ):
+                            # It's already a display method, call it directly
+                            if hasattr(item, field_name):
+                                display_method = getattr(item, field_name)
+                                if callable(display_method):
+                                    value = display_method()
+                        else:
+                            # Check if it's a choice field and use display method
+                            try:
+                                field = self.model._meta.get_field(field_name)
+                                if hasattr(field, "choices") and field.choices:
+                                    # Use the display method for choice fields
+                                    display_method_name = f"get_{field_name}_display"
+                                    if hasattr(item, display_method_name):
+                                        display_method = getattr(
+                                            item, display_method_name
+                                        )
+                                        if callable(display_method):
+                                            value = display_method()
+                                    else:
+                                        # Fallback to raw value if display method doesn't exist
+                                        value = getattr(item, field_name, None)
+                                else:
+                                    # Not a choice field, get value normally
+                                    if hasattr(item, field_name):
+                                        value = getattr(item, field_name)
+                                        if callable(value):
+                                            value = value()
+                            except (FieldDoesNotExist, AttributeError):
+                                # Field doesn't exist or can't be accessed, try direct attribute
+                                if hasattr(item, field_name):
+                                    value = getattr(item, field_name)
+                                    if callable(value):
+                                        value = value()
                     except AttributeError:
                         value = None
                     item.display_columns.append(
@@ -5274,6 +5408,13 @@ class HorillaMultiStepFormView(FormView):
         form_class = self.get_form_class()
         step_fields = getattr(form_class, "step_fields", {}).get(step, [])
 
+        # Build a map of field_name -> step_number to identify fields from earlier steps
+        all_step_fields = {}
+        if hasattr(form_class, "step_fields") and form_class.step_fields:
+            for step_num, fields_list in form_class.step_fields.items():
+                for field_name in fields_list:
+                    all_step_fields[field_name] = step_num
+
         if self.request.method == "POST" and "reset" not in self.request.GET:
             post_data = self.request.POST.copy()
             boolean_fields = [
@@ -5297,6 +5438,24 @@ class HorillaMultiStepFormView(FormView):
                     if key in many_to_many_fields:
                         values = post_data.getlist(key)
                         form_data[key] = values if values else []
+                        continue
+
+                    # Check if this field belongs to an earlier step
+                    field_step = all_step_fields.get(key)
+                    is_from_earlier_step = field_step and field_step < step
+                    post_value = post_data[key]
+
+                    # For fields from earlier steps: preserve session values if POST is empty
+                    if is_from_earlier_step:
+                        # Field is from an earlier step - preserve session value if POST is empty
+                        if post_value and str(post_value).strip():
+                            # POST has a value, update it (user might be changing it)
+                            form_data[key] = post_value
+                        # Otherwise, keep the existing session value (don't overwrite with empty)
+                        # Only update if session doesn't have a value
+                        elif key not in form_data or not form_data.get(key):
+                            form_data[key] = post_value
+                        # If session has a value and POST is empty, preserve session value
                         continue
 
                     try:
@@ -5577,6 +5736,18 @@ class HorillaMultiStepFormView(FormView):
             form_data = self.request.session.get(self.storage_key, {})
             files_data = self.request.session.get(f"{self.storage_key}_files", {})
 
+            # Build a map of field_name -> step_number to identify fields from earlier steps
+            form_class = self.get_form_class()
+            all_step_fields = {}
+            if hasattr(form_class, "step_fields") and form_class.step_fields:
+                for step_num, fields_list in form_class.step_fields.items():
+                    for field_name in fields_list:
+                        all_step_fields[field_name] = step_num
+
+            current_step_fields = []
+            if hasattr(form_class, "step_fields") and form_class.step_fields:
+                current_step_fields = form_class.step_fields.get(self.total_steps, [])
+
             for key, value in self.request.POST.items():
                 if key not in ["csrfmiddlewaretoken", "step", "previous"]:
                     if key in [
@@ -5586,7 +5757,26 @@ class HorillaMultiStepFormView(FormView):
                     ]:
                         form_data[key] = self.request.POST.getlist(key)
                     else:
-                        form_data[key] = value
+                        # Check if this field belongs to an earlier step
+                        field_step = all_step_fields.get(key)
+                        is_from_earlier_step = (
+                            field_step and field_step < self.total_steps
+                        )
+
+                        # For fields from earlier steps: preserve session values if POST is empty
+                        if is_from_earlier_step:
+                            # Field is from an earlier step - preserve session value if POST is empty
+                            if value and str(value).strip():
+                                # POST has a value, update it (user might be changing it)
+                                form_data[key] = value
+                            # Otherwise, keep the existing session value (don't overwrite with empty)
+                            # Only update if session doesn't have a value
+                            elif key not in form_data or not form_data.get(key):
+                                form_data[key] = value
+                            # If session has a value and POST is empty, preserve session value
+                        else:
+                            # Field is in current step or not in any step - update normally
+                            form_data[key] = value
 
             final_files = {}
 
@@ -5599,8 +5789,15 @@ class HorillaMultiStepFormView(FormView):
                     if decoded_file:
                         final_files[field_name] = decoded_file
 
+            # Save updated form_data to session before validation
+            # This ensures data is preserved if validation fails
+            self.request.session[self.storage_key] = form_data
+            self.request.session.modified = True
+
             final_form_kwargs = {
                 "data": form_data,
+                "step": self.total_steps,
+                "form_data": form_data,
                 "full_width_fields": self.fullwidth_fields,
                 "dynamic_create_fields": self.dynamic_create_fields,
                 "request": self.request,
@@ -5726,6 +5923,8 @@ class HorillaMultiStepFormView(FormView):
                         self.get_context_data(form=error_form)
                     )
             else:
+                # Set current_step to total_steps when form is invalid on last step
+                self.current_step = self.total_steps
                 return self.render_to_response(self.get_context_data(form=final_form))
 
         except Exception as e:
@@ -7357,49 +7556,129 @@ class HorillaSingleFormView(FormView):
             if hasattr(_thread_local, "request")
             else self.request.user.company
         )
-        self.object.save()
-        form.save_m2m()
+        try:
+            self.object.save()
+            form.save_m2m()
 
-        # Save conditions if condition_fields and condition_model are set
-        if self.condition_fields and self.condition_model:
-            self.save_conditions(form)
+            # Save conditions if condition_fields and condition_model are set
+            if self.condition_fields and self.condition_model:
+                self.save_conditions(form)
 
-        self.request.session["condition_row_count"] = 0
-        self.request.session.modified = True
-        messages.success(
-            self.request,
-            f"{self.model._meta.verbose_name.title()} {'duplicated' if self.duplicate_mode else 'updated' if self.kwargs.get('pk') and not self.duplicate_mode else 'created'} successfully!",
-        )
-
-        # Check if "save_and_new" button was clicked (only in create mode)
-        if (
-            "save_and_new" in self.request.POST
-            and not self.kwargs.get("pk")
-            and not self.duplicate_mode
-        ):
-            create_url = self.get_create_url()
-
-            return HttpResponse(
-                f"<div hx-get='{create_url}' "
-                f"hx-target='#modalBox' "
-                f"hx-swap='innerHTML' "
-                f"hx-trigger='load'>"
-                f"</div>"
-                f"<script>$('#reloadButton').click();</script>"
+            self.request.session["condition_row_count"] = 0
+            self.request.session.modified = True
+            messages.success(
+                self.request,
+                f"{self.model._meta.verbose_name.title()} {'duplicated' if self.duplicate_mode else 'updated' if self.kwargs.get('pk') and not self.duplicate_mode else 'created'} successfully!",
             )
 
-        # Check if detail_url_name is provided and this is a create operation
-        if (
-            self.detail_url_name
-            and not self.kwargs.get("pk")
-            and not self.duplicate_mode
-        ):
-            detail_url = reverse(self.detail_url_name, kwargs={"pk": self.object.pk})
-            response = HttpResponse()
-            response["HX-Redirect"] = detail_url
-            return response
+            # Check if "save_and_new" button was clicked (only in create mode)
+            if (
+                "save_and_new" in self.request.POST
+                and not self.kwargs.get("pk")
+                and not self.duplicate_mode
+            ):
+                create_url = self.get_create_url()
+                return HttpResponse(
+                    f"<div hx-get='{create_url}' "
+                    f"hx-target='#modalBox' "
+                    f"hx-swap='innerHTML' "
+                    f"hx-trigger='load'>"
+                    f"</div>"
+                    f"<script>$('#reloadButton').click();</script>"
+                )
 
-        return HttpResponse("<script>closeModal();$('#reloadButton').click();</script>")
+            # Check if detail_url_name is provided and this is a create operation
+            if (
+                self.detail_url_name
+                and not self.kwargs.get("pk")
+                and not self.duplicate_mode
+            ):
+                detail_url = reverse(
+                    self.detail_url_name, kwargs={"pk": self.object.pk}
+                )
+                response = HttpResponse()
+                response["HX-Redirect"] = detail_url
+                return response
+
+            return HttpResponse(
+                "<script>closeModal();$('#reloadButton').click();</script>"
+            )
+
+        except IntegrityError as e:
+            error_message = str(e)
+
+            field_error_added = False
+
+            if "UNIQUE constraint failed" in error_message:
+                constraint_match = re.search(
+                    r"UNIQUE constraint failed: (.+)", error_message
+                )
+                if constraint_match:
+                    fields_str = constraint_match.group(1)
+                    # Extract field names (remove table prefix)
+                    field_names = [f.split(".")[-1] for f in fields_str.split(", ")]
+
+                    # Try to find which fields are involved
+                    unique_fields = []
+                    for field_name in field_names:
+                        # Remove _id suffix for ForeignKey fields
+                        clean_field_name = field_name.replace("_id", "")
+                        if clean_field_name in form.fields:
+                            unique_fields.append(clean_field_name)
+
+                    if unique_fields:
+                        # Add error to the first field involved
+                        primary_field = unique_fields[0]
+
+                        # Build human-readable message
+                        if len(unique_fields) == 1:
+                            user_message = _(
+                                "A %(model)s with this %(field)s already exists."
+                            ) % {
+                                "model": self.model._meta.verbose_name,
+                                "field": form.fields[primary_field].label
+                                or primary_field,
+                            }
+                        else:
+                            field_labels = [
+                                form.fields[f].label or f for f in unique_fields
+                            ]
+                            user_message = _(
+                                "A %(model)s with this combination of %(fields)s already exists."
+                            ) % {
+                                "model": self.model._meta.verbose_name,
+                                "fields": ", ".join(field_labels),
+                            }
+
+                        form.add_error(primary_field, user_message)
+                        field_error_added = True
+
+            # If we couldn't parse the error, add a generic error
+            if not field_error_added:
+                form.add_error(
+                    None,
+                    _(
+                        "This %(model)s could not be saved due to a duplicate entry. "
+                        "Please check your input and try again."
+                    )
+                    % {"model": self.model._meta.verbose_name},
+                )
+
+            # Return form with errors
+            return self.form_invalid(form)
+
+        except Exception as e:
+            # Handle any other database errors
+            logger.error(
+                f"Error saving {self.model._meta.verbose_name}: {str(e)}", exc_info=True
+            )
+            form.add_error(
+                None,
+                _(
+                    "An error occurred while saving. Please try again or contact support."
+                ),
+            )
+            return self.form_invalid(form)
 
     def form_invalid(self, form):
         print(form.errors)
@@ -7518,7 +7797,10 @@ class HorillaDynamicCreateView(LoginRequiredMixin, FormView):
             context["full_width_fields"] = self.get_full_width_fields()
 
             # Add field permissions to context
-            from horilla_core.utils import get_field_permissions_for_model
+            from horilla_core.utils import (
+                filter_hidden_fields,
+                get_field_permissions_for_model,
+            )
 
             field_permissions = get_field_permissions_for_model(
                 self.request.user, self.target_model
@@ -7535,7 +7817,10 @@ class HorillaDynamicCreateView(LoginRequiredMixin, FormView):
 
         # Add field permissions to form kwargs
         if self.target_model:
-            from horilla_core.utils import get_field_permissions_for_model
+            from horilla_core.utils import (
+                filter_hidden_fields,
+                get_field_permissions_for_model,
+            )
 
             field_permissions = get_field_permissions_for_model(
                 self.request.user, self.target_model

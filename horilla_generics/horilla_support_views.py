@@ -33,6 +33,7 @@ from horilla.auth.models import User
 from horilla.exceptions import HorillaHttp404
 from horilla_core.decorators import htmx_required
 from horilla_core.models import KanbanGroupBy, ListColumnVisibility, PinnedView
+from horilla_core.utils import filter_hidden_fields
 from horilla_generics.views import HorillaKanbanView
 
 from .forms import ColumnSelectionForm, KanbanGroupByForm, SaveFilterListForm
@@ -148,7 +149,10 @@ class ListColumnSelectFormView(LoginRequiredMixin, FormView):
 
         visible_fields = []
         all_fields = []
+        removed_custom_field_lists = []
         visibility = None
+        model = None
+
         if app_label and model_name:
             try:
                 model = apps.get_model(app_label=app_label, model_name=model_name)
@@ -171,6 +175,32 @@ class ListColumnSelectFormView(LoginRequiredMixin, FormView):
                     else model_fields
                 )
 
+                # Filter out hidden fields based on field permissions
+                if all_fields:
+                    field_names = [
+                        f[1]
+                        for f in all_fields
+                        if isinstance(f, (list, tuple)) and len(f) >= 2
+                    ]
+
+                    # filter_hidden_fields now handles display methods internally
+                    visible_field_names_from_perms = filter_hidden_fields(
+                        self.request.user, model, field_names
+                    )
+
+                    # Filter all_fields - only keep fields that are visible
+                    filtered_all_fields = []
+                    for f in all_fields:
+                        field_name = (
+                            f[1]
+                            if isinstance(f, (list, tuple)) and len(f) >= 2
+                            else None
+                        )
+                        if field_name and field_name in visible_field_names_from_perms:
+                            filtered_all_fields.append(f)
+
+                    all_fields = filtered_all_fields
+
                 session_key = (
                     f"visible_fields_{app_label}_{model_name}_{path_context}_{url_name}"
                 )
@@ -183,31 +213,103 @@ class ListColumnSelectFormView(LoginRequiredMixin, FormView):
                 ).first()
                 if visibility:
                     visible_fields = visibility.visible_fields
+                    # Filter out hidden fields from visible_fields as well
+                    if visible_fields:
+                        visible_field_names_list = [
+                            f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                            for f in visible_fields
+                        ]
+                        visible_field_names_from_perms = filter_hidden_fields(
+                            self.request.user, model, visible_field_names_list
+                        )
+                        visible_fields = [
+                            f
+                            for f in visible_fields
+                            if (
+                                f[1]
+                                if isinstance(f, (list, tuple)) and len(f) >= 2
+                                else f
+                            )
+                            in visible_field_names_from_perms
+                        ]
 
-                self.request.session[session_key] = [f[1] for f in visible_fields]
+                    # Get removed_custom_field_lists and filter hidden fields
+                    removed_custom_field_lists = visibility.removed_custom_fields or []
+                    # Filter out hidden fields from removed_custom_field_lists
+                    if removed_custom_field_lists:
+                        removed_field_names = [
+                            f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                            for f in removed_custom_field_lists
+                        ]
+                        visible_removed_field_names = filter_hidden_fields(
+                            self.request.user, model, removed_field_names
+                        )
+                        removed_custom_field_lists = [
+                            f
+                            for f in removed_custom_field_lists
+                            if (
+                                f[1]
+                                if isinstance(f, (list, tuple)) and len(f) >= 2
+                                else f
+                            )
+                            in visible_removed_field_names
+                        ]
+
+                self.request.session[session_key] = [
+                    f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                    for f in visible_fields
+                ]
                 self.request.session.modified = True
             except LookupError:
                 context["error"] = "Invalid model specified."
 
         context["visible_fields"] = visible_fields
-        removed_custom_field_lists = (
-            visibility.removed_custom_fields if visibility else []
-        )
-        visible_field_names = [f[1] for f in visible_fields]
+
+        visible_field_names = [
+            f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+            for f in visible_fields
+        ]
 
         related_field_parents = set()
         for _, field_name in visible_fields + removed_custom_field_lists:
-            if "__" in field_name:
-                parent_field = field_name.split("__")[0]
+            if isinstance(field_name, (list, tuple)) and len(field_name) >= 2:
+                field_name = field_name[1]
+            if "__" in str(field_name):
+                parent_field = str(field_name).split("__")[0]
                 related_field_parents.add(parent_field)
         exclude_fields = self.request.GET.get("exclude")
         exclude_fields_list = exclude_fields.split(",") if exclude_fields else []
         context["exclude_fields"] = exclude_fields
         sensitive_fields = ["id", "password"]
 
+        # Build available_fields - all_fields and removed_custom_field_lists are already filtered for hidden fields
+        # But do one final check to ensure no hidden fields slip through
+        combined_fields = all_fields + removed_custom_field_lists
+
+        if model and combined_fields:
+            # Final safety check: filter hidden fields one more time
+            combined_field_names = [
+                f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                for f in combined_fields
+            ]
+
+            # filter_hidden_fields now handles display methods internally
+            visible_combined_field_names = filter_hidden_fields(
+                self.request.user, model, combined_field_names
+            )
+
+            # Only include fields that passed the permission check
+            filtered_combined_fields = []
+            for f in combined_fields:
+                field_name = f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                if field_name in visible_combined_field_names:
+                    filtered_combined_fields.append(f)
+
+            combined_fields = filtered_combined_fields
+
         context["available_fields"] = [
             [verbose_name, field_name]
-            for verbose_name, field_name in all_fields + removed_custom_field_lists
+            for verbose_name, field_name in combined_fields
             if field_name not in visible_field_names
             and field_name not in related_field_parents
             and field_name not in exclude_fields_list
@@ -244,6 +346,12 @@ class ListColumnSelectFormView(LoginRequiredMixin, FormView):
             path_context = re.sub(r"_\d+$", "", path_context)
             try:
                 model = apps.get_model(app_label=app_label, model_name=model_name)
+
+                # Filter out hidden fields from field_names before processing
+                if field_names:
+                    field_names = filter_hidden_fields(
+                        self.request.user, model, field_names
+                    )
                 instance = model()
                 model_fields = [
                     [
@@ -262,6 +370,28 @@ class ListColumnSelectFormView(LoginRequiredMixin, FormView):
                     if hasattr(instance, "columns")
                     else model_fields
                 )
+
+                # Filter out hidden fields based on field permissions
+                if all_fields:
+                    field_names_list = [
+                        f[1]
+                        for f in all_fields
+                        if isinstance(f, (list, tuple)) and len(f) >= 2
+                    ]
+                    visible_field_names_from_perms = filter_hidden_fields(
+                        self.request.user, model, field_names_list
+                    )
+                    all_fields = [
+                        f
+                        for f in all_fields
+                        if (
+                            f[1]
+                            if isinstance(f, (list, tuple)) and len(f) >= 2
+                            else None
+                        )
+                        in visible_field_names_from_perms
+                    ]
+
                 all_field_names = {item[1] for item in all_fields}
                 visibility = ListColumnVisibility.all_objects.filter(
                     user=self.request.user,
@@ -272,11 +402,33 @@ class ListColumnSelectFormView(LoginRequiredMixin, FormView):
                 ).first()
                 custom_fields = []
                 if visibility:
-                    for display_name, field_name in visibility.visible_fields:
-                        if (
-                            field_name not in all_field_names
-                            and field_name not in model_fields
-                        ):
+                    visible_fields_from_db = visibility.visible_fields
+                    # Filter visible_fields from DB to exclude hidden fields
+                    if visible_fields_from_db:
+                        visible_field_names_list = [
+                            f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                            for f in visible_fields_from_db
+                        ]
+                        visible_field_names_from_perms = filter_hidden_fields(
+                            self.request.user, model, visible_field_names_list
+                        )
+                        visible_fields_from_db = [
+                            f
+                            for f in visible_fields_from_db
+                            if (
+                                f[1]
+                                if isinstance(f, (list, tuple)) and len(f) >= 2
+                                else f
+                            )
+                            in visible_field_names_from_perms
+                        ]
+
+                    for display_name, field_name in visible_fields_from_db:
+                        if field_name not in all_field_names and field_name not in [
+                            f[1]
+                            for f in model_fields
+                            if isinstance(f, (list, tuple)) and len(f) >= 2
+                        ]:
                             custom_fields.append([display_name, field_name])
                 all_fields = all_fields + custom_fields
                 verbose_name_map = {f[1]: f[0] for f in all_fields}
@@ -285,6 +437,22 @@ class ListColumnSelectFormView(LoginRequiredMixin, FormView):
                 removed_custom_field_lists = (
                     visibility.removed_custom_fields if visibility else []
                 )
+                # Filter out hidden fields from removed_custom_field_lists
+                if removed_custom_field_lists:
+                    removed_field_names = [
+                        f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                        for f in removed_custom_field_lists
+                    ]
+                    visible_removed_field_names = filter_hidden_fields(
+                        self.request.user, model, removed_field_names
+                    )
+                    removed_custom_field_lists = [
+                        f
+                        for f in removed_custom_field_lists
+                        if (f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f)
+                        in visible_removed_field_names
+                    ]
+
                 for display_name, field_name in removed_custom_field_lists:
                     verbose_name_map[field_name] = display_name
 
@@ -408,6 +576,24 @@ class MoveFieldView(LoginRequiredMixin, View):
                 if hasattr(instance, "columns")
                 else model_fields
             )
+
+            # Filter out hidden fields based on field permissions
+            if all_fields:
+                field_names = [
+                    f[1]
+                    for f in all_fields
+                    if isinstance(f, (list, tuple)) and len(f) >= 2
+                ]
+                visible_field_names_from_perms = filter_hidden_fields(
+                    user, model, field_names
+                )
+                all_fields = [
+                    f
+                    for f in all_fields
+                    if (f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else None)
+                    in visible_field_names_from_perms
+                ]
+
             all_field_names = {item[1] for item in all_fields}
             visibility = ListColumnVisibility.all_objects.filter(
                 user=user,
@@ -418,11 +604,29 @@ class MoveFieldView(LoginRequiredMixin, View):
             ).first()
             custom_fields = []
             if visibility:
-                for display_name, field_name in visibility.visible_fields:
-                    if (
-                        field_name not in all_field_names
-                        and field_name not in model_fields
-                    ):
+                visible_fields_from_db = visibility.visible_fields
+                # Filter visible_fields from DB to exclude hidden fields
+                if visible_fields_from_db:
+                    visible_field_names_list = [
+                        f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                        for f in visible_fields_from_db
+                    ]
+                    visible_field_names_from_perms = filter_hidden_fields(
+                        user, model, visible_field_names_list
+                    )
+                    visible_fields_from_db = [
+                        f
+                        for f in visible_fields_from_db
+                        if (f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f)
+                        in visible_field_names_from_perms
+                    ]
+
+                for display_name, field_name in visible_fields_from_db:
+                    if field_name not in all_field_names and field_name not in [
+                        f[1]
+                        for f in model_fields
+                        if isinstance(f, (list, tuple)) and len(f) >= 2
+                    ]:
                         custom_fields.append([display_name, field_name])
             all_fields = all_fields + custom_fields
             session_key = (
@@ -438,6 +642,22 @@ class MoveFieldView(LoginRequiredMixin, View):
             removed_custom_field_lists = (
                 visibility.removed_custom_fields if visibility else []
             )
+
+            # Filter out hidden fields from removed_custom_field_lists
+            if removed_custom_field_lists:
+                removed_field_names = [
+                    f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f
+                    for f in removed_custom_field_lists
+                ]
+                visible_removed_field_names = filter_hidden_fields(
+                    user, model, removed_field_names
+                )
+                removed_custom_field_lists = [
+                    f
+                    for f in removed_custom_field_lists
+                    if (f[1] if isinstance(f, (list, tuple)) and len(f) >= 2 else f)
+                    in visible_removed_field_names
+                ]
 
             # Store original display name before modifying removed_custom_field_lists
             field_display_name = None
@@ -493,6 +713,12 @@ class MoveFieldView(LoginRequiredMixin, View):
             enhanced_verbose_name_map = verbose_name_map.copy()
             if field_display_name and action == "add":
                 enhanced_verbose_name_map[field] = field_display_name
+
+            # Filter visible_field_names to exclude hidden fields
+            if visible_field_names:
+                visible_field_names = filter_hidden_fields(
+                    user, model, visible_field_names
+                )
 
             visible_fields = [
                 [enhanced_verbose_name_map.get(f, f.replace("_", " ").title()), f]
