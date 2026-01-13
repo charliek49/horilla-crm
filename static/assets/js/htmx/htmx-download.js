@@ -4,7 +4,7 @@
  */
 (function() {
     'use strict';
-    
+
     htmx.defineExtension('download', {
         onEvent: function(name, evt) {
             if (name === "htmx:beforeRequest") {
@@ -23,15 +23,15 @@
                     }
                     current = current.parentElement;
                 }
-                
+
                 if (hasDownloadExt && evt.detail.xhr) {
                     // Set responseType to blob
                     evt.detail.xhr.responseType = 'blob';
-                    
+
                     // Intercept the onload event to handle download before HTMX processes it
                     var xhr = evt.detail.xhr;
                     var originalOnload = xhr.onload;
-                    
+
                     xhr.onload = function() {
                         // Check if this is a download response
                         if (xhr.status >= 200 && xhr.status < 300) {
@@ -40,7 +40,7 @@
                                 // This is a download - handle it immediately
                                 // Use the blob directly from xhr.response - it should already be a Blob
                                 var blob = xhr.response;
-                                
+
                                 // Verify it's a blob, if not, something went wrong
                                 if (!(blob instanceof Blob)) {
                                     console.error('Download extension: Expected Blob but got:', typeof blob);
@@ -48,9 +48,9 @@
                                     var contentType = xhr.getResponseHeader('Content-Type') || 'application/octet-stream';
                                     blob = new Blob([xhr.response], { type: contentType });
                                 }
-                                
+
                                 var url = window.URL.createObjectURL(blob);
-                                
+
                                 // Extract filename from Content-Disposition header
                                 var filename = 'download';
                                 var filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
@@ -61,7 +61,7 @@
                                         filename = decodeURIComponent(filename.replace(/^UTF-8''/, ''));
                                     }
                                 }
-                                
+
                                 // Create a temporary anchor element and trigger download
                                 var a = document.createElement('a');
                                 a.href = url;
@@ -69,7 +69,7 @@
                                 a.style.display = 'none';
                                 document.body.appendChild(a);
                                 a.click();
-                                
+
                                 // Clean up
                                 setTimeout(function() {
                                     if (document.body.contains(a)) {
@@ -77,10 +77,10 @@
                                     }
                                     window.URL.revokeObjectURL(url);
                                 }, 100);
-                                
+
                                 // Mark that we handled this download
                                 xhr._downloadHandled = true;
-                                
+
                                 // Call original onload - HTMX will process but we'll prevent swap in beforeSwap
                                 if (originalOnload) {
                                     originalOnload.call(this);
@@ -88,7 +88,7 @@
                                 return;
                             }
                         }
-                        
+
                         // Not a download, proceed normally
                         if (originalOnload) {
                             originalOnload.call(this);
@@ -96,7 +96,7 @@
                     };
                 }
             }
-            
+
             if (name === "htmx:beforeSwap") {
                 // Prevent HTMX from swapping blob responses
                 var xhr = evt.detail.xhr;
@@ -110,7 +110,7 @@
                 }
             }
         },
-        
+
         transformResponse: function(text, xhr, elt) {
             // Don't transform blob responses - they're binary data
             if (xhr && xhr.responseType === 'blob') {
@@ -125,4 +125,3 @@
         }
     });
 })();
-

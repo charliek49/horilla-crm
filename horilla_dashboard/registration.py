@@ -9,6 +9,5 @@ register_feature("dashboard_component", "dashboard_component_models")
 register_model_for_feature(
     app_label="horilla_dashboard",
     model_name="DashboardFolder",
-    features=["global_search"]
+    features=["global_search"],
 )
-
