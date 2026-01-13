@@ -1089,6 +1089,7 @@ class AddChildContactFormView(LoginRequiredMixin, FormView):
         context["view_id"] = "add-child-contact-form-view"
         context["condition_fields"] = []
         context["header"] = self.header
+        context["field_permissions"] = {}  # No model, so no field permissions
 
         context["hx_attrs"] = {
             "hx-post": str(form_url),
