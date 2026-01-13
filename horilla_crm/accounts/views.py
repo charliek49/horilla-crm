@@ -1005,7 +1005,7 @@ class AddChildAccountFormView(LoginRequiredMixin, FormView):
         context["view_id"] = "add-child-account-form-view"
         context["condition_fields"] = []
         context["header"] = self.header
-
+        context["field_permissions"] = {}
         context["hx_attrs"] = {
             "hx-post": str(form_url),
             "hx-target": "#modalBox",

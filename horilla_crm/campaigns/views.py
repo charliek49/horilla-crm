@@ -804,7 +804,7 @@ class AddChildCampaignFormView(LoginRequiredMixin, FormView):
         context["view_id"] = "add-child-campaign-form-view"
         context["condition_fields"] = []
         context["header"] = self.header
-
+        context["field_permissions"] = {}
         return context
 
     def form_valid(self, form):
