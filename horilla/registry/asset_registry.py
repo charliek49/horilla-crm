@@ -13,13 +13,16 @@ dynamically register:
 
 # Global list to store registered JavaScript file paths
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 REGISTERED_JS_FILES = []
 REGISTERED_HTML_BLOCKS: Dict[str, List[str]] = defaultdict(list)
 
-# (template_path, slot) -> priority
-REGISTERED_HTML_PRIORITY: Dict[Tuple[str, str], int] = {}
+# (template_path, slot, page) -> priority
+REGISTERED_HTML_PRIORITY = {}
+
+# slot -> list of (template_path, page)
+REGISTERED_HTML_BLOCKS = defaultdict(list)
 
 # Allowed inject slots in index.html
 INJECT_ALLOWED_SLOTS = {
@@ -62,7 +65,12 @@ def get_registered_js():
     return REGISTERED_JS_FILES
 
 
-def register_html(template_path: str, slot: str, priority: int = 50) -> None:
+def register_html(
+    template_path: str,
+    slot: str,
+    priority: int = 50,
+    page: str = "base",
+) -> None:
     """
     Register an HTML template fragment for injection into a layout slot.
 
@@ -96,14 +104,14 @@ def register_html(template_path: str, slot: str, priority: int = 50) -> None:
             f"Invalid slot '{slot}'. Allowed slots: {sorted(INJECT_ALLOWED_SLOTS)}"
         )
 
-    key = (template_path, slot)
+    key = (template_path, slot, page)
 
     if key not in REGISTERED_HTML_PRIORITY:
-        REGISTERED_HTML_BLOCKS[slot].append(template_path)
+        REGISTERED_HTML_BLOCKS[slot].append((template_path, page))
         REGISTERED_HTML_PRIORITY[key] = priority
 
 
-def get_registered_html(slot: str) -> List[str]:
+def get_registered_html(slot: str, page: str = "base") -> List[str]:
     """
     Retrieve registered HTML template fragments for a given slot.
 
@@ -126,7 +134,9 @@ def get_registered_html(slot: str) -> List[str]:
     """
     templates = REGISTERED_HTML_BLOCKS.get(slot, [])
 
+    filtered = [tpl for tpl, tpl_page in templates if tpl_page in (page, "*")]
+
     return sorted(
-        templates,
-        key=lambda tpl: REGISTERED_HTML_PRIORITY.get((tpl, slot), 50),
+        filtered,
+        key=lambda tpl: REGISTERED_HTML_PRIORITY.get((tpl, slot, page), 50),
     )

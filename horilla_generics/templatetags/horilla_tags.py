@@ -1,3 +1,10 @@
+"""
+Template tags and filters for Horilla templates.
+
+This module provides Django template filters and helper functions used across Horilla
+templates, including attribute lookups, formatting utilities, and rendering helpers.
+"""
+
 # Standard library imports
 import json as json_module
 import re
@@ -79,22 +86,22 @@ def get_field(obj, field_path):
                 current = timezone.localtime(current)
             return current.strftime(date_time_format)
 
-        elif isinstance(current, date):
+        if isinstance(current, date):
             date_format = "%Y-%m-%d"
             if user and getattr(user, "date_format", None):
                 date_format = user.date_format
             return current.strftime(date_format)
 
-        elif isinstance(current, time):
+        if isinstance(current, time):
             time_format = "%I:%M:%S %p"
             if user and getattr(user, "time_format", None):
                 time_format = user.time_format
             return current.strftime(time_format)
 
-        elif isinstance(current, bool):
+        if isinstance(current, bool):
             return _("Yes") if current else _("No")
 
-        elif parent is not None and final_field_name:
+        if parent is not None and final_field_name:
             try:
                 field = parent._meta.get_field(final_field_name)
                 if hasattr(field, "choices") and field.choices:
@@ -150,6 +157,12 @@ def get_class_name(instance):
 
 @register.filter
 def get_item(dictionary, key):
+    """
+    Return the value for `key` from `dictionary`.
+
+    If `dictionary` is None, returns None. Converts `key` to string when
+    performing the lookup to be tolerant of numeric keys supplied from templates.
+    """
     if dictionary is None:
         return None
     return dictionary.get(str(key))
@@ -183,6 +196,13 @@ def get_steps(dictionary, key):
 
 @register.filter
 def render_action_button(action, obj):
+    """
+    Render an action button for use in templates.
+
+    `action` is a mapping that may contain keys like 'src', 'icon', 'action',
+    'attrs', and styling options. Returns a marked-safe HTML string for the
+    appropriate button representation (image, icon, or text).
+    """
     attrs = format(action.get("attrs", ""), obj).strip()
     tooltip = _(action.get("action", ""))
 
@@ -206,7 +226,7 @@ def render_action_button(action, obj):
         """
         )
 
-    elif "icon" in action:
+    if "icon" in action:
         icon_name = action.get("icon", "")
         icon_class = action.get("icon_class", "")
         button_class = action.get("class", "")
@@ -216,15 +236,16 @@ def render_action_button(action, obj):
             f"</button>"
         )
 
-    else:
-        button_class = action.get("class", "")
-        return mark_safe(
-            f'<button class="{button_class}" {attrs} title="{tooltip}">{tooltip}</button>'
-        )
+    # else:
+    button_class = action.get("class", "")
+    return mark_safe(
+        f'<button class="{button_class}" {attrs} title="{tooltip}">{tooltip}</button>'
+    )
 
 
 @register.filter
 def getattribute(obj, attr):
+    """Return attribute value from `obj` or empty string if missing."""
     return getattr(obj, attr, "")
 
 
@@ -264,11 +285,13 @@ def get_fields_for_step(form, step):
 
 @register.filter
 def json(value):
+    """Serialize a Python value to a JSON string for templates."""
     return json.dumps(value)
 
 
 @register.filter
 def lookup(dictionary, key):
+    """Return dictionary[key] or an empty dict if not present."""
     return dictionary.get(key, {})
 
 
@@ -293,28 +316,28 @@ def get_field_value(obj, field_name):
             return str(value) if value else ""
 
         # Handle Choice fields - show display value
-        elif hasattr(field, "choices") and field.choices:
+        if hasattr(field, "choices") and field.choices:
             display_method = getattr(obj, f"get_{field_name}_display", None)
             if display_method:
                 return display_method()
             return str(value) if value else ""
 
         # Handle Boolean fields
-        elif isinstance(field, models.BooleanField):
+        if isinstance(field, models.BooleanField):
             if value is True:
                 return "Yes"
-            elif value is False:
+            if value is False:
                 return "No"
             return ""
 
         # Handle Date/DateTime fields
-        elif isinstance(field, models.DateTimeField):
+        if isinstance(field, models.DateTimeField):
             return value.strftime("%Y-%m-%d %H:%M") if value else ""
-        elif isinstance(field, models.DateField):
+        if isinstance(field, models.DateField):
             return value.strftime("%Y-%m-%d") if value else ""
 
         # Handle Decimal fields
-        elif isinstance(field, models.DecimalField):
+        if isinstance(field, models.DecimalField):
             return f"{value:.2f}" if value is not None else ""
 
         # Default case
@@ -460,6 +483,7 @@ def get_view_all_url(obj, related_list):
 
 @register.simple_tag
 def safe_url(viewname, *args, **kwargs):
+    """Safely reverse a view name; return '#' if reversing the URL fails."""
     try:
         return reverse(viewname, args=args, kwargs=kwargs)
     except NoReverseMatch:
@@ -492,6 +516,7 @@ def verbose_name(obj, field_name):
 
 
 def display_fk(value):
+    """Return the string representation of a related foreign-key value if available."""
     if hasattr(value, "__str__"):
         return str(value)
     return value
@@ -521,6 +546,11 @@ time_format_mapping = {
 
 @register.filter(name="selected_format")
 def selected_format(value, company=None) -> str:
+    """Format a date or time value according to the given company's settings.
+
+    Uses mappings in `date_format_mapping` and `time_format_mapping` when
+    the company specifies a custom format; otherwise returns the original value.
+    """
     if not value:
         return ""
 
@@ -529,7 +559,7 @@ def selected_format(value, company=None) -> str:
             fmt = company.date_format
             format_str = date_format_mapping.get(fmt, fmt)
             return value.strftime(format_str)
-        elif isinstance(value, time):
+        if isinstance(value, time):
             fmt = company.time_format
             format_str = time_format_mapping.get(fmt, fmt)
             return value.strftime(format_str)
@@ -547,6 +577,7 @@ def is_image_file(filename):
 
 @register.filter
 def to_json(value):
+    """Serialize a Python value to JSON for use in templates."""
     return json_module.dumps(value, ensure_ascii=False)
 
 
@@ -617,6 +648,7 @@ def render_field_with_name(context, form, field_name, row_id=None, selected_valu
 
 @register.filter
 def humanize_field_name(value):
+    """Convert an underscored field name into a human-readable title."""
     if not value:
         return value
     # Split by underscore, capitalize each word, and join with spaces
@@ -625,6 +657,7 @@ def humanize_field_name(value):
 
 @register.filter
 def getter(obj, attr):
+    """Return attribute value from object or empty string if missing."""
     return getattr(obj, attr, "")
 
 
@@ -699,6 +732,16 @@ def is_active(context, *url_names):
 
 @register.simple_tag(takes_context=True)
 def is_open(context, *url_names):
+    """Return 'open' when the current request matches any of the provided URLs.
+
+    The function accepts a mix of argument types:
+    - Strings representing view names or path strings
+    - Dicts with a 'url' key
+    - Lists/tuples containing any of the above
+
+    It normalizes inputs into a set and checks against the current view name
+    and the current path (without trailing slash).
+    """
     request = context.get("request")
     if not request or not request.resolver_match:
         return ""
@@ -802,9 +845,8 @@ def has_super_user(user, perm_data):
 
         if all_perms:
             return all(user.has_perm(perm) for perm in perms)
-        else:
-            return any(user.has_perm(perm) for perm in perms)
 
+        return any(user.has_perm(perm) for perm in perms)
     return False
 
 
@@ -852,12 +894,12 @@ def load_registered_js():
 
 
 @register.simple_tag
-def load_registered_html(slot):
+def load_registered_html(slot, page="base"):
     """
     Template tag to retrieve all registered HTML template fragments
     for a given slot in the base layout.
     """
-    return get_registered_html(slot)
+    return get_registered_html(slot, page)
 
 
 @register.simple_tag
@@ -1098,7 +1140,9 @@ def get_intermediate_instance(action, related_obj, request):
             try:
                 intermediate_model = apps.get_model(app_label, intermediate_model_name)
                 logger.debug(
-                    f"Found intermediate model '{intermediate_model_name}' in app '{app_label}'"
+                    "Found intermediate model '%s' in app '%s'",
+                    intermediate_model_name,
+                    app_label,
                 )
                 break
             except LookupError:
@@ -1106,8 +1150,9 @@ def get_intermediate_instance(action, related_obj, request):
 
         if not intermediate_model:
             logger.warning(
-                f"Could not find intermediate model '{intermediate_model_name}' "
-                f"in any of these apps: {app_labels_to_try[:5]}"  # Show first 5 for brevity
+                "Could not find intermediate model '%s' in any of these apps: %s",
+                intermediate_model_name,
+                app_labels_to_try[:5],  # Show first 5 for brevity
             )
             return None
 
@@ -1117,7 +1162,7 @@ def get_intermediate_instance(action, related_obj, request):
 
         if not intermediate_field_name or not parent_field_name:
             logger.error(
-                f"Action missing 'intermediate_field' or 'parent_field' configuration"
+                "Action missing 'intermediate_field' or 'parent_field' configuration"
             )
             return None
 
@@ -1132,13 +1177,13 @@ def get_intermediate_instance(action, related_obj, request):
 
         if not intermediate_obj:
             logger.debug(
-                f"No {intermediate_model_name} found with filters: {filter_kwargs}"
+                "No %s found with filters: %s", intermediate_model_name, filter_kwargs
             )
 
         return intermediate_obj
 
     except Exception as e:
-        logger.error(f"Error getting intermediate instance: {e}", exc_info=True)
+        logger.error("Error getting intermediate instance: %s", e, exc_info=True)
         return None
 
 
