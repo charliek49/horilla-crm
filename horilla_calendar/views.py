@@ -1,4 +1,4 @@
-"""Views for the calendar app in Horilla """
+"""Views for the calendar app in Horilla"""
 
 import datetime
 import json

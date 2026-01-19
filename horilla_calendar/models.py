@@ -1,4 +1,4 @@
-"""Models for user calendar preferences and availability in Horilla """
+"""Models for user calendar preferences and availability in Horilla"""
 
 from django.conf import settings
 from django.db import models
@@ -43,7 +43,8 @@ class UserCalendarPreference(HorillaCoreModel):
         verbose_name_plural = _("User Calendar Preferences")
 
     def __str__(self):
-        return f"{self.user.username} - {self.calendar_type} - {self.color} (Selected: {self.is_selected})"
+        return f"{self.user.username} - {self.calendar_type}\
+            - {self.color} (Selected: {self.is_selected})"
 
 
 class UserAvailability(HorillaCoreModel):
