@@ -1,4 +1,6 @@
-from horilla.settings import INSTALLED_APPS
+"""Extension of INSTALLED_APPS with Horilla modules."""
+
+from horilla.settings.base import INSTALLED_APPS
 
 INSTALLED_APPS.extend(
     [

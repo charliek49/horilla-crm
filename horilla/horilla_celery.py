@@ -1,3 +1,5 @@
+"""Celery application configuration for the Horilla project."""
+
 import os
 
 from celery import Celery

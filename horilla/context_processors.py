@@ -5,9 +5,6 @@ Provides sidebar, company, language, recently viewed items, notifications,
 and menu context for templates.
 """
 
-import json
-from importlib import import_module
-
 from django.conf import settings
 from django.utils.translation import get_language
 

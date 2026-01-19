@@ -1,4 +1,8 @@
 # horilla/api_urls.py
+"""
+API URL configuration for the Horilla project,
+including dynamic path collection and Swagger schema.
+"""
 import logging
 
 from django.apps import apps
@@ -37,21 +41,23 @@ def collect_api_paths():
 
                 if not isinstance(app_paths, list):
                     logger.error(
-                        f"App {app_config.name}: get_api_paths() must return a list"
+                        "App %s: get_api_paths() must return a list", app_config.name
                     )
                     continue
 
                 for path_info in app_paths:
                     if not isinstance(path_info, dict):
                         logger.error(
-                            f"App {app_config.name}: Each path must be a dictionary"
+                            "App %s: Each path must be a dictionary", app_config.name
                         )
                         continue
 
                     required_keys = {"pattern", "view_or_include"}
                     if not required_keys.issubset(path_info.keys()):
                         logger.error(
-                            f"App {app_config.name}: Path missing required keys: {required_keys}"
+                            "App %s: Path missing required keys: %s",
+                            app_config.name,
+                            required_keys,
                         )
                         continue
 
@@ -63,7 +69,7 @@ def collect_api_paths():
                     # Normalize pattern to ensure single trailing slash
                     if not isinstance(pattern, str):
                         logger.error(
-                            f"App {app_config.name}: 'pattern' must be a string"
+                            "App %s: 'pattern' must be a string", app_config.name
                         )
                         continue
 
@@ -73,8 +79,10 @@ def collect_api_paths():
                     full_pattern = normalized
                     if full_pattern in path_registry:
                         logger.warning(
-                            f"Path conflict detected: 'api/{full_pattern}' defined in both "
-                            f"{path_registry[full_pattern]} and {app_config.name}"
+                            "Path conflict detected: 'api/%s' defined in both %s and %s",
+                            full_pattern,
+                            path_registry[full_pattern],
+                            app_config.name,
                         )
                         continue
 
@@ -92,14 +100,18 @@ def collect_api_paths():
 
                     api_paths.append(api_path)
                     logger.debug(
-                        f"Registered API path: api/{full_pattern} from {app_config.name}"
+                        "Registered API path: api/%s from %s",
+                        full_pattern,
+                        app_config.name,
                     )
 
         except Exception as e:
-            logger.error(f"Error collecting API paths from {app_config.name}: {e}")
+            logger.error("Error collecting API paths from %s: %s", app_config.name, e)
             continue
 
-    logger.info(f"Collected {len(api_paths)} API paths from {len(path_registry)} apps")
+    logger.info(
+        "Collected %s API paths from %s apps", len(api_paths), len(path_registry)
+    )
     return api_paths
 
 
@@ -113,7 +125,7 @@ def get_dynamic_api_patterns():
     try:
         return collect_api_paths()
     except Exception as e:
-        logger.error(f"Failed to collect dynamic API patterns: {e}")
+        logger.error("Failed to collect dynamic API patterns: %s", e)
         # Fallback to empty list to prevent schema generation failure
         return []
 
@@ -175,7 +187,7 @@ def get_app_verbose_name_from_view(view):
             return str(best_match.verbose_name)
 
     except Exception as e:
-        logger.debug(f"Error getting app verbose_name for view {view}: {e}")
+        logger.debug("Error getting app verbose_name for view %s: %s", view, e)
 
     return None
 
@@ -201,7 +213,7 @@ class VerboseNameAutoSchema(SwaggerAutoSchema):
                 if verbose_name:
                     return [verbose_name]
         except Exception as e:
-            logger.debug(f"Error getting verbose_name for tags: {e}")
+            logger.debug("Error getting verbose_name for tags: %s", e)
 
         # Fallback to default behavior if verbose_name not found
         return super().get_tags(operation_keys)
@@ -209,6 +221,10 @@ class VerboseNameAutoSchema(SwaggerAutoSchema):
 
 # Custom generator to force Swagger base path to '/api/' and remove Models tab
 class ApiPrefixSchemaGenerator(OpenAPISchemaGenerator):
+    """
+    Custom OpenAPI schema generator that sets base path to '/api/' and removes Models tab.
+    """
+
     def get_schema(self, request=None, public=False):
         schema = super().get_schema(request, public)
         # Ensure examples and "Request URL" use '/api/' as base path

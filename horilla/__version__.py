@@ -1,3 +1,5 @@
+"""Module containing package metadata used by Horilla (version, name, icons)."""
+
 from django.utils.translation import gettext_lazy as _
 
 __version__ = "1.0.0"
