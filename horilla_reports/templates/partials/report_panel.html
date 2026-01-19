@@ -85,9 +85,10 @@
                   hx-vals='{"field_name": "{{ field.name }}"}'
                   hx-target="#report-content"
                   hx-select="#report-content"
+                  hx-indicator="#loading-indicator"
                   hx-select-oob="#nav-actions"
                   hx-swap="outerHTML"
-                  hx-headers='{"HX-Trigger": "refreshReport"}'>
+                  >
                   {{ field.verbose_name|title }}
                 </button>
               {% endif %}
@@ -104,8 +105,9 @@
                 hx-target="#report-content"
                 hx-select="#report-content"
                 hx-select-oob="#nav-actions"
+                hx-indicator="#loading-indicator"
                 hx-swap="outerHTML"
-                hx-headers='{"HX-Trigger": "refreshReport"}'>
+                >
                 {{ column|get_field_verbose_name:report.model_class }}
               </button>
             {% endfor %}
@@ -153,8 +155,9 @@
                         hx-target="#report-content"
                         hx-select="#report-content"
                         hx-select-oob="#nav-actions"
+                        hx-indicator="#loading-indicator"
                         hx-swap="outerHTML"
-                        hx-headers='{"HX-Trigger": "refreshReport"}'>
+                        >
                         {% trans "R" %}
                       </button>
                       {% if row_count > 0 %}
@@ -165,8 +168,9 @@
                           hx-target="#report-content"
                           hx-select="#report-content"
                           hx-select-oob="#nav-actions"
+                          hx-indicator="#loading-indicator"
                           hx-swap="outerHTML"
-                          hx-headers='{"HX-Trigger": "refreshReport"}'>
+                          >
                           {% trans "C" %}
                         </button>
                       {% endif %}
@@ -182,8 +186,9 @@
                       hx-target="#report-content"
                       hx-select="#report-content"
                       hx-select-oob="#nav-actions"
+                      hx-indicator="#loading-indicator"
                       hx-swap="outerHTML"
-                      hx-headers='{"HX-Trigger": "refreshReport"}'>
+                      >
                       {% trans "A" %}
                     </button>
                   {% endif %}
@@ -208,9 +213,10 @@
                     hx-vals='{"field_name": "{{ row_group }}"}'
                     hx-target="#report-content"
                     hx-select="#report-content"
+                    hx-indicator="#loading-indicator"
                     hx-select-oob="#nav-actions"
                     hx-swap="outerHTML"
-                    hx-headers='{"HX-Trigger": "refreshReport"}'>
+                    >
                     {{ row_group|get_field_verbose_name:report.model_class }}
                   </button>
                 {% endif %}
@@ -226,8 +232,9 @@
                   hx-target="#report-content"
                   hx-select="#report-content"
                   hx-select-oob="#nav-actions"
+                  hx-indicator="#loading-indicator"
                   hx-swap="outerHTML"
-                  hx-headers='{"HX-Trigger": "refreshReport"}'>
+                  >
                   {{ column_group|get_field_verbose_name:report.model_class }}
                 </button>
               {% endfor %}
@@ -245,9 +252,10 @@
                     hx-vals='{"field_name": "{{ agg.field }}"}'
                     hx-target="#report-content"
                     hx-select="#report-content"
+                    hx-indicator="#loading-indicator"
                     hx-select-oob="#nav-actions"
                     hx-swap="outerHTML"
-                    hx-headers='{"HX-Trigger": "refreshReport"}'>
+                    >
                     –
                   </button>
 
@@ -265,8 +273,9 @@
                       hx-target="#report-content"
                       hx-select="#report-content"
                       hx-select-oob="#nav-actions"
+                      hx-indicator="#loading-indicator"
                       hx-swap="outerHTML"
-                      hx-headers='{"HX-Trigger": "refreshReport"}'
+
                       name="aggfunc"
                       hx-vals='{"field_name": "{{ agg.field }}"}'>
                       <option value="sum" {% if agg.aggfunc == 'sum' %}selected{% endif %}>{% trans "Sum" %}</option>
@@ -311,7 +320,8 @@
                   hx-vals='{"field_name": "{{ field.name }}"}'
                   hx-target="#panel"
                   hx-swap="outerHTML"
-                  hx-headers='{"HX-Trigger": "refreshReport"}'>
+                  hx-indicator="#loading-indicator"
+                  >
                   {{ field.verbose_name|title }}
               </button>
             {% endfor %}
@@ -333,7 +343,8 @@
                                   hx-select-oob="#nav-actions"
                                   hx-swap="outerHTML"
                                   hx-trigger="change"
-                                  hx-headers='{"HX-Trigger": "refreshReport"}'>
+                                  hx-indicator="#loading-indicator"
+                                  >
                                   <option value="and" {% if filter_value.logic|default:'and' == 'and' %}selected{% endif %}>AND</option>
                                   <option value="or" {% if filter_value.logic|default:'and' == 'or' %}selected{% endif %}>OR</option>
                               </select>
@@ -353,7 +364,8 @@
                               hx-select-oob="#nav-actions"
                               hx-swap="outerHTML"
                               hx-trigger="change"
-                              hx-headers='{"HX-Trigger": "refreshReport"}'>
+                              hx-indicator="#loading-indicator"
+                              >
                               <option value="exact" {% if filter_value.operator == 'exact' %}selected{% endif %}>Is</option>
                               <option value="icontains" {% if filter_value.operator == 'icontains' %}selected{% endif %}>Contains</option>
                               <option value="gt" {% if filter_value.operator == 'gt' %}selected{% endif %}>Greater than</option>
@@ -372,7 +384,8 @@
                                   hx-select-oob="#nav-actions"
                                   hx-swap="outerHTML"
                                   hx-trigger="change"
-                                  hx-headers='{"HX-Trigger": "refreshReport"}'>
+                                  hx-indicator="#loading-indicator"
+                                  >
                                   <option value="">Select...</option>
                                   {% for choice in report|get_field_choices:filter_value.original_field %}
                                       <option value="{{ choice.value }}" {% if filter_value.value == choice.value|stringformat:"s" %}selected{% endif %}>
@@ -393,7 +406,8 @@
                                   hx-select-oob="#nav-actions"
                                   hx-swap="outerHTML"
                                   hx-trigger="change"
-                                  hx-headers='{"HX-Trigger": "refreshReport"}'
+
+
                               />
                           {% endif %}
                           <div class="flex items-center justify-center w-5 flex-shrink-0 close-button h-full">
@@ -405,7 +419,8 @@
                                   hx-select="#report-content"
                                   hx-select-oob="#nav-actions"
                                   hx-swap="outerHTML"
-                                  hx-headers='{"HX-Trigger": "refreshReport"}'>
+                                  hx-indicator="#loading-indicator"
+                                  >
                                   <i class="fas fa-times text-red-600 text-xs"></i>
                               </button>
                           </div>
