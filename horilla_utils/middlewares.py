@@ -1,14 +1,21 @@
+"""Thread-local request storage and language-switching middleware."""
+
 import threading
+
+from django.conf import settings
+from django.utils import translation
 
 _thread_local = threading.local()
 
 
 class ThreadLocalMiddleware:
+    """Middleware that stores the current request in thread-local storage."""
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # Store the request in thread local storageE
+        # Store the request in thread local storage
         _thread_local.request = request
 
         # Process the request
@@ -23,16 +30,13 @@ class ThreadLocalMiddleware:
 
 # Helper function to get the current request
 def get_current_request():
+    """Return the current HTTP request stored in thread-local storage, or None if unavailable."""
     return getattr(_thread_local, "request", None)
 
 
-from django.conf import settings
-
-# middleware.py
-from django.utils import translation
-
-
 class LanguageSwitchMiddleware:
+    """Middleware that activates a language based on session, user preference, or settings."""
+
     def __init__(self, get_response):
         self.get_response = get_response
 

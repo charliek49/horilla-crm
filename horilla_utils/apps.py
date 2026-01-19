@@ -7,8 +7,6 @@ application, specifying its metadata and settings.
 
 from django.apps import AppConfig
 
-from horilla.settings import horilla_apps
-
 
 class HorillaUtilsConfig(AppConfig):
     """
