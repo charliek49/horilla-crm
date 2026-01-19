@@ -15,7 +15,7 @@
             hx-select="#report-content"
             hx-select-oob="#nav-actions"
             hx-swap="outerHTML"
-            hx-headers='{"HX-Trigger": "refreshReport"}'>
+            >
             {% trans "R" %}
           </button>
           <button
@@ -26,7 +26,7 @@
             hx-select="#report-content"
             hx-select-oob="#nav-actions"
             hx-swap="outerHTML"
-            hx-headers='{"HX-Trigger": "refreshReport"}'>
+            >
             {% trans "C" %}
           </button>
         {% endif %}
@@ -42,7 +42,8 @@
           hx-select="#report-content"
           hx-select-oob="#nav-actions"
           hx-swap="outerHTML"
-          hx-headers='{"HX-Trigger": "refreshReport"}'>
+          hx-indicator="#loading-indicator"
+          >
           {% trans "A" %}
         </button>
       {% endif %}

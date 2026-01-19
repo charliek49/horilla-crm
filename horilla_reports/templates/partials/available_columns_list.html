@@ -10,7 +10,8 @@
       hx-select="#report-content"
       hx-select-oob="#nav-actions"
       hx-swap="outerHTML"
-      hx-headers='{"HX-Trigger": "refreshReport"}'>
+      hx-indicator="#loading-indicator"
+      >
       {{ field.verbose_name|title }}
     </button>
   {% else %}

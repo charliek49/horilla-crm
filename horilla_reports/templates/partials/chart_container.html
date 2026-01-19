@@ -14,19 +14,21 @@
                           hx-vals='{"chart_type": "bar"}'
                           hx-target="#chart-container"
                           hx-swap="innerHTML"
-                          hx-headers='{"HX-Trigger": "refreshReport"}'>{% trans "Bar Chart" %}</a></li>
+                          >{% trans "Bar Chart" %}</a></li>
                     <li><a href="#" class="block px-3 py-1.5 hover:text-primary-600 transition duration-300 text-[.8rem]"
                           hx-post="{% url 'horilla_reports:update_chart_type' report.pk %}"
                           hx-vals='{"chart_type": "pie"}'
                           hx-target="#chart-container"
                           hx-swap="innerHTML"
-                          hx-headers='{"HX-Trigger": "refreshReport"}'>{% trans "Pie Chart" %}</a></li>
+                          >
+                          {% trans "Pie Chart" %}</a></li>
                     <li><a href="#" class="block px-3 py-1.5 hover:text-primary-600 transition duration-300 text-[.8rem]"
                           hx-post="{% url 'horilla_reports:update_chart_type' report.pk %}"
                           hx-vals='{"chart_type": "line"}'
                           hx-target="#chart-container"
                           hx-swap="innerHTML"
-                          hx-headers='{"HX-Trigger": "refreshReport"}'>{% trans "Line Chart" %}</a></li>
+                          >
+                          {% trans "Line Chart" %}</a></li>
                     <li><a href="#" class="block px-3 py-1.5 hover:text-primary-600 transition duration-300 text-[.8rem]">{% trans "Add to Dashboard" %}</a></li>
                 </ul>
             </div>

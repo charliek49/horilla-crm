@@ -6,7 +6,8 @@
     hx-vals='{"field_name": "{{ field.name }}"}'
     hx-target="#panel"
     hx-swap="outerHTML"
-    hx-headers='{"HX-Trigger": "refreshReport"}'>
+    hx-indicator="#loading-indicator"
+    >
     {{ field.verbose_name|title }}
   </button>
 {% empty %}

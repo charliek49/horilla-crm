@@ -13,7 +13,7 @@
         hx-target="#panel"
         hx-swap="outerHTML"
         hx-trigger="change"
-        hx-headers='{"HX-Trigger": "refreshReport"}'>
+        >
         <option value="exact" {% if filter_value.operator == 'exact' %}selected{% endif %}>{% trans "Is" %}</option>
         <option value="icontains" {% if filter_value.operator == 'icontains' %}selected{% endif %}>{% trans "Contains" %}</option>
         <option value="gt" {% if filter_value.operator == 'gt' %}selected{% endif %}>{% trans "Greater than" %}</option>
@@ -31,7 +31,7 @@
             hx-select="#report-content"
             hx-swap="outerHTML"
             hx-trigger="change"
-            hx-headers='{"HX-Trigger": "refreshReport"}'>
+            >
             <option value="">Select...</option>
             {% for choice in field_choices %}
                 <option value="{{ choice.value }}">{{ choice.display }}</option>
@@ -50,7 +50,7 @@
             hx-select-oob="#nav-actions"
             hx-swap="outerHTML"
             hx-trigger="change"
-            hx-headers='{"HX-Trigger": "refreshReport"}'/>
+            />
     {% endif %}
     <div class="flex items-center w-3">
         <button
@@ -60,7 +60,7 @@
             hx-select="#report-content"
             hx-select-oob="#nav-actions"
             hx-swap="outerHTML"
-            hx-headers='{"HX-Trigger": "refreshReport"}'
+
         >
             <img src="{% static '/assets/icons/close.svg' %}" alt="{% trans 'Close' %}" />
         </button>
@@ -74,7 +74,6 @@
             hx-target="#panel"
             hx-swap="outerHTML"
             hx-trigger="change"
-            hx-headers='{"HX-Trigger": "refreshReport"}'
         >
             <option value="and" selected>{% trans "AND" %}</option>
             <option value="or">{% trans "OR" %}</option>
