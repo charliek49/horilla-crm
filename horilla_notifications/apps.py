@@ -40,6 +40,6 @@ class HorillaNotificationsConfig(AppConfig):
         except Exception as e:
             import logging
 
-            logging.warning(f"NotificationsConfig.ready failed: {e}")
+            logging.warning(f"HorillaNotificationsConfig.ready failed: %s", e)
 
         super().ready()
