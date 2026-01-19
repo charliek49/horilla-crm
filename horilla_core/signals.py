@@ -102,7 +102,9 @@ def create_default_currency(sender, instance, created, **kwargs):
                             curr.save()
         except Exception as e:
             logger.error(
-                f"Error creating default currency for company {instance.id}: {str(e)}"
+                "Error creating default currency for company %s: %s",
+                instance.id,
+                e,
             )
 
 
@@ -343,7 +345,12 @@ def clear_column_visibility_cache_on_permission_change(sender, instance, **kwarg
                     model.__name__
                 )  # Use class name (capitalized) as stored in ListColumnVisibility
             except (LookupError, AttributeError) as e:
-                logger.error(f"Model not found: {app_label}.{content_type.model}: {e}")
+                logger.error(
+                    "Model not found: %s.%s: %s",
+                    app_label,
+                    content_type.model,
+                    e,
+                )
                 return
 
             # Determine affected users
@@ -354,9 +361,9 @@ def clear_column_visibility_cache_on_permission_change(sender, instance, **kwarg
                 affected_users = list(instance.role.users.all())
 
             # Get the permission type (if it's a save, check the new permission; if delete, field is now visible)
-            permission_type = None
+            _permission_type = None
             if hasattr(instance, "permission_type"):
-                permission_type = instance.permission_type
+                _permission_type = instance.permission_type
 
             # Process each affected user
             for user in affected_users:
@@ -466,7 +473,7 @@ def clear_column_visibility_cache_on_permission_change(sender, instance, **kwarg
                             from django.db.models import Field as ModelField
                             from django.utils.encoding import force_str
 
-                            instance = model()
+                            model_instance = model()
                             model_fields = [
                                 [
                                     force_str(f.verbose_name or f.name.title()),
@@ -483,8 +490,8 @@ def clear_column_visibility_cache_on_permission_change(sender, instance, **kwarg
 
                             # Check if model has a columns property
                             default_fields = (
-                                getattr(instance, "columns", model_fields)
-                                if hasattr(instance, "columns")
+                                getattr(model_instance, "columns", model_fields)
+                                if hasattr(model_instance, "columns")
                                 else model_fields
                             )
 
@@ -591,7 +598,8 @@ def clear_column_visibility_cache_on_permission_change(sender, instance, **kwarg
                                 )
                         except Exception as e:
                             logger.error(
-                                f"Error checking default fields for re-adding: {e}"
+                                "Error checking default fields for re-adding: %s",
+                                e,
                             )
 
                     # Clear cache for this entry
@@ -600,7 +608,8 @@ def clear_column_visibility_cache_on_permission_change(sender, instance, **kwarg
 
         except Exception as e:
             logger.error(
-                f"Error cleaning up column visibility records on permission change: {e}"
+                "Error cleaning up column visibility records on permission change: %s",
+                e,
             )
 
     transaction.on_commit(cleanup_visibility_records)
@@ -640,4 +649,12 @@ def clear_list_column_cache_for_model(content_type, affected_users=None):
             cache.delete(cache_key)
 
     except Exception as e:
-        logger.error(f"Error clearing list column cache: {e}")
+        logger.error("Error clearing list column cache: %s", e)
+
+
+@receiver(post_save, sender=Company)
+def assign_first_company_to_all_users(sender, instance, created, **kwargs):
+    """Assign the first company created to all users"""
+    if created:
+        if Company.objects.count() == 1:
+            User.objects.filter(company__isnull=True).update(company=instance)
