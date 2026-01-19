@@ -1,4 +1,5 @@
-from django.apps import apps
+"""Helper methods for `horilla_reports` module configuration and filters."""
+
 from django.db import models
 
 from horilla.registry.feature import FEATURE_REGISTRY

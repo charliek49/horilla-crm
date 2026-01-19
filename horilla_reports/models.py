@@ -1,3 +1,9 @@
+"""Models for reports and folders used by `horilla_reports`.
+
+Includes `Report` and `ReportFolder` models with helper properties
+for presentation and serialization used by the reports UI.
+"""
+
 import json
 
 from django.conf import settings
@@ -11,6 +17,8 @@ from horilla_utils.methods import render_template
 
 
 class ReportFolder(HorillaCoreModel):
+    """Model representing a folder for organizing reports."""
+
     name = models.CharField(max_length=200, verbose_name=_("Folder Name"))
     parent = models.ForeignKey(
         "self",
@@ -30,13 +38,17 @@ class ReportFolder(HorillaCoreModel):
     OWNER_FIELDS = ["report_folder_owner"]
 
     class Meta:
+        """Meta options for ReportFolder."""
+
         verbose_name = _("Report Folder")
         verbose_name_plural = _("Report Folders")
 
     def __str__(self):
+        """Return the folder name as its string representation."""
         return self.name
 
     def get_item_type(self):
+        """Return a short label describing the item type (Folder)."""
         return "Folder"
 
     def get_detail_view_url(self):
@@ -126,13 +138,17 @@ class Report(HorillaCoreModel):
     OWNER_FIELDS = ["report_owner"]
 
     class Meta:
+        """Meta options for Report."""
+
         verbose_name = _("Report")
         verbose_name_plural = _("Reports")
 
     def __str__(self):
+        """Return the report name as its string representation."""
         return self.name
 
     def get_item_type(self):
+        """Return a short label describing the item type (Report)."""
         return "Report"
 
     @property
@@ -283,7 +299,7 @@ class Report(HorillaCoreModel):
                     {"value": value, "display": display}
                     for value, display in field.choices
                 ]
-            elif hasattr(field, "related_model") and field.related_model:
+            if hasattr(field, "related_model") and field.related_model:
                 related_objects = field.related_model.objects.all()
                 return [
                     {"value": obj.pk, "display": str(obj)} for obj in related_objects

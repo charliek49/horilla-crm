@@ -1,15 +1,21 @@
+"""Forms for creating and validating `horilla_reports` models (Report, ReportFolder)."""
+
+# Third-party imports (Django)
 from django import forms
-from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse_lazy
 
+# First-party / Horilla imports
 from horilla_generics.forms import HorillaModelForm
 from horilla_reports.models import Report, ReportFolder
 
 
 # Define your reports forms here
 class ReportForm(HorillaModelForm):
+    """Form for creating and editing reports with module, columns, and folder selection."""
 
     class Meta:
+        """Meta options for ReportForm."""
+
         model = Report
         fields = ["name", "module", "folder", "selected_columns", "report_owner"]
 
@@ -72,8 +78,11 @@ class ReportForm(HorillaModelForm):
 
 
 class ChangeChartReportForm(HorillaModelForm):
+    """Form for changing the chart type of a report."""
 
     class Meta:
+        """Meta options for ChangeChartReportForm."""
+
         model = Report
         fields = ["chart_type"]
 

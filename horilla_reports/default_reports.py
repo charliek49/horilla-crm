@@ -1,16 +1,19 @@
+"""HTMX-friendly views to load and create default reports provided by installed apps."""
+
+# Standard library
 import json
 from pathlib import Path
 
+# Django / third-party imports
 from django.apps import apps
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.contenttypes.models import ContentType
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.http import HttpResponse
 from django.utils.decorators import method_decorator
 from django.views.generic import TemplateView, View
 
+# First-party (Horilla) imports
 from horilla_core.decorators import htmx_required
 
 from .models import Report, ReportFolder
@@ -18,6 +21,8 @@ from .models import Report, ReportFolder
 
 @method_decorator(htmx_required, name="dispatch")
 class LoadDefaultReportsModalView(LoginRequiredMixin, TemplateView):
+    """Modal view that lists default reports provided by installed apps."""
+
     template_name = "reports/load_default_reports.html"
 
     def get_context_data(self, **kwargs):
@@ -62,7 +67,10 @@ class LoadDefaultReportsModalView(LoginRequiredMixin, TemplateView):
 
 @method_decorator(htmx_required, name="dispatch")
 class CreateSelectedDefaultReportsView(LoginRequiredMixin, View):
+    """Create Report instances for user-selected default reports discovered in installed apps."""
+
     def post(self, request, *args, **kwargs):
+        """Create selected default reports by reading report JSON files from installed apps and creating Report instances."""
         selected_reports = request.POST.getlist("selected_reports")
 
         # Collect all data from all apps
@@ -180,7 +188,7 @@ class CreateSelectedDefaultReportsView(LoginRequiredMixin, View):
             if parent_data:
                 parent = self._ensure_folder(parent_data, folder_lookup, request)
 
-        folder, created = ReportFolder.objects.get_or_create(
+        folder, _created = ReportFolder.objects.get_or_create(
             name=folder_name,
             defaults={
                 "company": getattr(

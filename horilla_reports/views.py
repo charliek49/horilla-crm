@@ -1,6 +1,11 @@
+"""
+Views for the `horilla_reports` app.
+
+Contains list, detail, and utility views used by the reports UI.
+"""
+
 import copy
 import csv
-import io
 import json
 import logging
 from datetime import datetime
@@ -8,7 +13,11 @@ from functools import cached_property
 from urllib.parse import urlencode, urlparse
 
 import openpyxl
+
+# Third-party imports (Others)
 import pandas as pd
+
+# Third-party imports (Django)
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -25,12 +34,8 @@ from django.views import View
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+# First-party / Horilla imports
 from horilla.exceptions import HorillaHttp404
 from horilla_core.decorators import (
     htmx_required,
@@ -62,6 +67,7 @@ logger = logging.getLogger(__name__)
     name="dispatch",
 )
 class ReportNavbar(LoginRequiredMixin, HorillaNavView):
+    """Navigation bar view for reports with search and filtering capabilities."""
 
     search_url = reverse_lazy("horilla_reports:reports_list_view")
     main_url = reverse_lazy("horilla_reports:reports_list_view")
@@ -86,6 +92,7 @@ class ReportNavbar(LoginRequiredMixin, HorillaNavView):
             self.all_view_types = False
 
     def get_context_data(self, **kwargs):
+        """Add navigation title from query params into the context."""
         context = super().get_context_data(**kwargs)
         title = self.request.GET.get("title")
         context["nav_title"] = _(title)
@@ -93,6 +100,7 @@ class ReportNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
+        """Return the configuration for the 'New Report' button when permitted."""
         if self.request.user.has_perm(
             "horilla_reports.add_report"
         ) or self.request.user.has_perm("horilla_reports.add_own_report"):
@@ -123,6 +131,7 @@ class ReportNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def second_button(self):
+        """Return the configuration for the 'New Folder' button when permitted."""
         if self.request.user.has_perm(
             "horilla_reports.add_reportfolder"
         ) or self.request.user.has_perm("horilla_reports.add_own_reportfolder"):
@@ -140,6 +149,7 @@ class ReportNavbar(LoginRequiredMixin, HorillaNavView):
     name="dispatch",
 )
 class ReportsListView(LoginRequiredMixin, HorillaListView):
+    """List view for displaying all reports with filtering and search."""
 
     model = Report
     template_name = "report_list_view.html"
@@ -152,11 +162,13 @@ class ReportsListView(LoginRequiredMixin, HorillaListView):
     sorting_target = f"#tableview-{view_id}"
 
     def get_context_data(self, **kwargs):
+        """Add page title to the template context."""
         context = super().get_context_data(**kwargs)
         context["title"] = "Reports"
         return context
 
     def no_record_add_button(self):
+        """Return configuration for the 'no records' add button when permitted."""
         if self.request.user.has_perm(
             "horilla_reports.add_reports"
         ) or self.request.user.has_perm("horilla_reports.add_own_reports"):
@@ -170,6 +182,7 @@ class ReportsListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def action_method(self):
+        """Return the action method name when user has change/delete permissions."""
         action_method = ""
         if self.request.user.has_perm(
             "horilla_reports.change_report"
@@ -179,6 +192,7 @@ class ReportsListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """Return column attributes for clickable rows in the reports list view."""
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
@@ -212,6 +226,7 @@ class ReportsListView(LoginRequiredMixin, HorillaListView):
     name="dispatch",
 )
 class FavouriteReportsListView(LoginRequiredMixin, HorillaListView):
+    """List view for displaying user's favourite reports."""
 
     model = Report
     template_name = "favourite_report_list_view.html"
@@ -224,6 +239,7 @@ class FavouriteReportsListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def action_method(self):
+        """Return the action method name when user has change/delete permissions for favourites."""
         action_method = ""
         if self.request.user.has_perm(
             "horilla_reports.change_report"
@@ -232,11 +248,13 @@ class FavouriteReportsListView(LoginRequiredMixin, HorillaListView):
         return action_method
 
     def get_context_data(self, **kwargs):
+        """Set page title to 'Favourite Reports'."""
         context = super().get_context_data(**kwargs)
         context["title"] = "Favourite Reports"
         return context
 
     def get_queryset(self):
+        """Return queryset filtered to favourite reports only."""
         queryset = super().get_queryset()
         queryset = queryset.filter(is_favourite=True)
         return queryset
@@ -245,6 +263,7 @@ class FavouriteReportsListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """Return column attributes for clickable rows in the favourite reports list view."""
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
@@ -278,11 +297,14 @@ class FavouriteReportsListView(LoginRequiredMixin, HorillaListView):
     name="dispatch",
 )
 class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
+    """Detail view for displaying individual report with data and configuration."""
+
     model = Report
     template_name = "report_detail.html"
     context_object_name = "report"
 
     def dispatch(self, request, *args, **kwargs):
+        """Ensure the user is authenticated and the object exists; handle HTMX errors gracefully."""
         if not request.user.is_authenticated:
             return redirect_to_login(request.get_full_path())
         try:
@@ -326,6 +348,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
         return columns_with_attrs
 
     def get(self, request, *args, **kwargs):
+        """Return the report detail if the user has permission to view it; otherwise render 403."""
         self.object = self.get_object()
         if not self.model.objects.filter(
             report_owner_id=self.request.user, pk=self.kwargs["pk"]
@@ -334,6 +357,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        """Build the context data for the report detail view including preview and aggregate info."""
         context = super().get_context_data(**kwargs)
         report = self.object
 
@@ -350,7 +374,46 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
 
         # Get model data
         model_class = temp_report.model_class
-        queryset = model_class.objects.all()
+
+        # PERFORMANCE OPTIMIZATION: This section has been optimized for faster report preview updates
+        # - Uses .values() queryset for DataFrame creation (avoids loading full model instances)
+        # - Adds select_related() for foreign keys to reduce N+1 queries
+        # - Uses iterator() for memory efficiency with large datasets
+        # - Separates queryset for DataFrame vs list_view needs
+
+        # Optimize: Collect all fields needed first before querying
+        fields = []
+        if temp_report.selected_columns_list:
+            fields.extend(temp_report.selected_columns_list)
+        if temp_report.row_groups_list:
+            fields.extend(temp_report.row_groups_list)
+        if temp_report.column_groups_list:
+            fields.extend(temp_report.column_groups_list)
+        for agg in aggregate_columns_dict:
+            if agg.get("field"):
+                fields.append(agg["field"])
+
+        # Remove duplicates while preserving order
+        fields = list(dict.fromkeys(fields))
+
+        # Optimize: Create base queryset with select_related for foreign keys
+        # This reduces N+1 queries significantly
+        base_queryset = model_class.objects.all()
+
+        # Optimize: Add select_related/prefetch_related for foreign key fields
+        select_related_fields = []
+        for field_name in fields:
+            try:
+                field = model_class._meta.get_field(field_name)
+                if isinstance(field, ForeignKey):
+                    select_related_fields.append(field_name)
+            except:
+                pass
+
+        if select_related_fields:
+            # Remove duplicates from select_related_fields
+            select_related_fields = list(dict.fromkeys(select_related_fields))
+            base_queryset = base_queryset.select_related(*select_related_fields)
 
         # Apply filters
         filters = temp_report.filters_dict
@@ -396,25 +459,27 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                     query &= current_query
 
             if query:
-                queryset = queryset.filter(query)
+                base_queryset = base_queryset.filter(query)
 
-        # Convert queryset to DataFrame
-        fields = []
-        if temp_report.selected_columns_list:
-            fields.extend(temp_report.selected_columns_list)
-        if temp_report.row_groups_list:
-            fields.extend(temp_report.row_groups_list)
-        if temp_report.column_groups_list:
-            fields.extend(temp_report.column_groups_list)
-        for agg in aggregate_columns_dict:
-            if agg.get("field"):
-                fields.append(agg["field"])
+        # Optimize: Use values() for DataFrame creation to avoid loading full objects
+        # This is much faster for large datasets
+        if fields:
+            # Create a values() queryset for DataFrame - much faster
+            data_queryset = base_queryset.values(*fields)
+            # Use iterator for memory efficiency with large datasets
+            data = list(data_queryset.iterator(chunk_size=1000))
+        else:
+            data = []
 
-        # Remove duplicates while preserving order
-        fields = list(dict.fromkeys(fields))
+        # Optimize: Create DataFrame more efficiently
+        if data:
+            df = pd.DataFrame(data)
+        else:
+            # Create empty DataFrame with correct columns
+            df = pd.DataFrame(columns=fields if fields else [])
 
-        data = list(queryset.values(*fields)) if fields else list(queryset.values())
-        df = pd.DataFrame(data)
+        # Keep base_queryset for list_view (needs model instances, not dicts)
+        queryset = base_queryset
 
         # Initialize context
         context["panel_open"] = bool(preview_data)
@@ -439,6 +504,20 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             for field_name in temp_report.column_groups_list
         ]
 
+        # PERFORMANCE: Pre-load foreign key cache to avoid N+1 queries
+        # This batches all FK lookups into a single query per FK field
+        all_grouping_fields = (
+            temp_report.row_groups_list + temp_report.column_groups_list
+        )
+        fk_cache = (
+            self._batch_load_foreign_keys(df, model_class, all_grouping_fields)
+            if not df.empty
+            else {}
+        )
+
+        # Store cache in context for use in handlers
+        context["_fk_cache"] = fk_cache
+
         # Handle different configurations
         row_count = len(temp_report.row_groups_list)
         col_count = len(temp_report.column_groups_list)
@@ -446,24 +525,24 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
         if row_count == 0 and col_count == 0:
             self.handle_0_row_0_col(df, temp_report, context)
         elif row_count == 1 and col_count == 0:
-            self.handle_1_row_0_col(df, temp_report, context)
+            self.handle_1_row_0_col(df, temp_report, context, fk_cache)
         elif row_count == 1 and col_count == 1:
-            self.handle_1_row_1_col(df, temp_report, context)
+            self.handle_1_row_1_col(df, temp_report, context, fk_cache)
         elif row_count == 1 and col_count == 2:
-            self.handle_1_row_2_col(df, temp_report, context)
+            self.handle_1_row_2_col(df, temp_report, context, fk_cache)
         elif row_count == 2 and col_count == 0:
-            self.handle_2_row_0_col(df, temp_report, context)
+            self.handle_2_row_0_col(df, temp_report, context, fk_cache)
         elif row_count == 2 and col_count == 1:
-            self.handle_2_row_1_col(df, temp_report, context)
+            self.handle_2_row_1_col(df, temp_report, context, fk_cache)
         elif row_count == 3 and col_count == 0:
-            self.handle_3_row_0_col(df, temp_report, context)
+            self.handle_3_row_0_col(df, temp_report, context, fk_cache)
         else:
             context["error"] = (
                 f"Configuration not supported: {row_count} rows, {col_count} columns"
             )
 
-        # Chart data
-        chart_data = self.generate_chart_data(df, temp_report)
+        # Chart data - pass FK cache for optimization
+        chart_data = self.generate_chart_data(df, temp_report, fk_cache)
         context["chart_data"] = chart_data
         context["total_count"] = len(data)
         context["total_amount"] = sum(
@@ -503,6 +582,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
         list_view.bulk_select_option = False
         list_view.clear_session_button_enabled = False
         list_view.list_column_visibility = False
+        list_view.paginate_by = 10
         list_view.table_height = False
         list_view.table_height_as_class = "h-[200px]"
         if hasattr(report.model_class, "get_detail_url"):
@@ -510,12 +590,14 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
         sort_field = self.request.GET.get("sort")
         sort_direction = self.request.GET.get("direction", "asc")
 
+        # Apply sorting to the queryset for list view
         if sort_field:
             queryset = list_view._apply_sorting(queryset, sort_field, sort_direction)
         else:
             queryset = queryset.order_by("-id")
         list_view.object_list = queryset
         context.update(list_view.get_context_data(object_list=queryset))
+
         session_referer_key = f"report_detail_referer_{report.pk}"
         current_referer = self.request.META.get("HTTP_REFERER")
         hx_current_url = self.request.headers.get("HX-Current-URL")
@@ -553,6 +635,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
         return context
 
     def create_temp_report(self, original_report, preview_data):
+        """Create a temporary Report used for front-end preview operations."""
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
             temp_report.selected_columns = preview_data["selected_columns"]
@@ -573,6 +656,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
         return temp_report
 
     def get_configuration_type(self, report):
+        """Return configuration type string based on row and column group counts."""
         row_count = len(report.row_groups_list)
         col_count = len(report.column_groups_list)
         return f"{row_count}_row_{col_count}_col"
@@ -585,6 +669,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             return field_name.title()
 
     def handle_0_row_0_col(self, df, report, context):
+        """Handle pivot configuration with 0 rows and 0 columns (simple aggregate / record count)."""
         try:
             aggregate_columns = []
             if report.aggregate_columns_dict:
@@ -639,7 +724,8 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             context["error"] = f"Error in 0x0 configuration: {str(e)}"
             context["aggregate_columns"] = []
 
-    def handle_1_row_0_col(self, df, report, context):
+    def handle_1_row_0_col(self, df, report, context, fk_cache=None):
+        """Build pivot data when there is 1 row group and 0 column groups (simple grouped counts and aggregates)."""
         try:
             if df.empty:
                 context["pivot_index"] = []
@@ -651,13 +737,47 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             model_class = report.model_class
             row_field = report.row_groups_list[0]
 
-            # Always compute counts
-            count_grouped = df.groupby(row_field).size().to_dict()
+            # OPTIMIZE: Compute all aggregations in a single groupby operation
+            # This is much faster than multiple groupby calls
+            groupby_obj = df.groupby(row_field)
+            count_grouped = groupby_obj.size().to_dict()
+
+            # Pre-compute all aggregate functions in one pass
+            aggregate_functions = {}
+            for agg in report.aggregate_columns_dict:
+                aggregate_field = agg["field"]
+                aggfunc = agg.get("aggfunc", "sum")
+                if aggregate_field in df.columns:
+                    if aggfunc == "sum":
+                        aggregate_functions[aggregate_field] = (
+                            "sum",
+                            groupby_obj[aggregate_field].sum().to_dict(),
+                        )
+                    elif aggfunc == "avg":
+                        aggregate_functions[aggregate_field] = (
+                            "avg",
+                            groupby_obj[aggregate_field].mean().to_dict(),
+                        )
+                    elif aggfunc == "min":
+                        aggregate_functions[aggregate_field] = (
+                            "min",
+                            groupby_obj[aggregate_field].min().to_dict(),
+                        )
+                    elif aggfunc == "max":
+                        aggregate_functions[aggregate_field] = (
+                            "max",
+                            groupby_obj[aggregate_field].max().to_dict(),
+                        )
+                    elif aggfunc == "count":
+                        aggregate_functions[aggregate_field] = ("count", count_grouped)
+                    else:
+                        aggregate_functions[aggregate_field] = ("count", count_grouped)
+
             display_grouped = {}
             display_rows = []
             pivot_columns = ["Count"]
 
-            # Compute aggregate values for all aggregate columns
+            # Build aggregate columns list
             aggregate_columns = []
             for agg in report.aggregate_columns_dict:
                 aggregate_field = agg["field"]
@@ -665,26 +785,10 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                 aggregate_column_name = f"{aggfunc.title()} of {self.get_verbose_name(aggregate_field, model_class)}"
                 pivot_columns.append(aggregate_column_name)
 
-                if aggfunc == "sum":
-                    aggregate_data = (
-                        df.groupby(row_field)[aggregate_field].sum().to_dict()
-                    )
-                elif aggfunc == "avg":
-                    aggregate_data = (
-                        df.groupby(row_field)[aggregate_field].mean().to_dict()
-                    )
-                elif aggfunc == "min":
-                    aggregate_data = (
-                        df.groupby(row_field)[aggregate_field].min().to_dict()
-                    )
-                elif aggfunc == "max":
-                    aggregate_data = (
-                        df.groupby(row_field)[aggregate_field].max().to_dict()
-                    )
-                elif aggfunc == "count":
-                    aggregate_data = df.groupby(row_field).size().to_dict()
+                if aggregate_field in aggregate_functions:
+                    _, aggregate_data = aggregate_functions[aggregate_field]
                 else:
-                    aggregate_data = df.groupby(row_field).size().to_dict()
+                    aggregate_data = {}
 
                 aggregate_columns.append(
                     {
@@ -695,9 +799,11 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                     }
                 )
 
-            # Convert to display values
+            # Convert to display values using cached FK lookups
             for row, count in count_grouped.items():
-                display_info = self.get_display_value(row, row_field, model_class)
+                display_info = self.get_display_value(
+                    row, row_field, model_class, fk_cache
+                )
                 composite_key = display_info["composite_key"]
                 display_grouped[composite_key] = {
                     "Count": count,
@@ -719,7 +825,8 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             context["error"] = f"Error in 1x0 configuration: {str(e)}"
             context["aggregate_columns"] = []
 
-    def handle_1_row_1_col(self, df, report, context):
+    def handle_1_row_1_col(self, df, report, context, fk_cache=None):
+        """Build pivot table for configuration with 1 row group and 1 column group."""
         try:
             if df.empty:
                 context["pivot_index"] = []
@@ -743,11 +850,23 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             all_rows = pivot_table.index.tolist()
             all_columns = pivot_table.columns.tolist()
 
+            # OPTIMIZE: Pre-compute all display values to avoid repeated lookups
+            row_display_cache = {}
+            col_display_cache = {}
+            for row in all_rows:
+                row_display_cache[row] = self.get_display_value(
+                    row, row_field, model_class, fk_cache
+                )
+            for col in all_columns:
+                col_display_cache[col] = self.get_display_value(
+                    col, col_field, model_class, fk_cache
+                )
+
             # Convert row indices to display values
             display_rows = []
             display_columns = []
             for row in all_rows:
-                display_info = self.get_display_value(row, row_field, model_class)
+                display_info = row_display_cache[row]
                 composite_key = display_info["composite_key"]
                 display_rows.append(composite_key)
                 transposed_dict[composite_key] = {
@@ -756,7 +875,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                     "_id": display_info["id"],
                 }
                 for col in all_columns:
-                    col_info = self.get_display_value(col, col_field, model_class)
+                    col_info = col_display_cache[col]
                     col_composite = col_info["composite_key"]
                     if col_composite not in display_columns:
                         display_columns.append(col_composite)
@@ -764,37 +883,33 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                     transposed_dict[composite_key][col_composite] = value
                     transposed_dict[composite_key]["total"] += value
 
-            # Compute aggregate columns
+            # OPTIMIZE: Compute aggregate columns using single groupby
             aggregate_columns = []
+            groupby_obj = df.groupby(row_field)
             for agg in report.aggregate_columns_dict:
                 aggregate_field = agg["field"]
                 aggfunc = agg.get("aggfunc", "sum")
                 aggregate_column_name = f"{aggfunc.title()} of {self.get_verbose_name(aggregate_field, model_class)}"
-                if aggfunc == "sum":
-                    aggregate_data = (
-                        df.groupby(row_field)[aggregate_field].sum().to_dict()
-                    )
-                elif aggfunc == "avg":
-                    aggregate_data = (
-                        df.groupby(row_field)[aggregate_field].mean().to_dict()
-                    )
-                elif aggfunc == "min":
-                    aggregate_data = (
-                        df.groupby(row_field)[aggregate_field].min().to_dict()
-                    )
-                elif aggfunc == "max":
-                    aggregate_data = (
-                        df.groupby(row_field)[aggregate_field].max().to_dict()
-                    )
-                elif aggfunc == "count":
-                    aggregate_data = df.groupby(row_field).size().to_dict()
+
+                if aggregate_field in df.columns:
+                    if aggfunc == "sum":
+                        aggregate_data = groupby_obj[aggregate_field].sum().to_dict()
+                    elif aggfunc == "avg":
+                        aggregate_data = groupby_obj[aggregate_field].mean().to_dict()
+                    elif aggfunc == "min":
+                        aggregate_data = groupby_obj[aggregate_field].min().to_dict()
+                    elif aggfunc == "max":
+                        aggregate_data = groupby_obj[aggregate_field].max().to_dict()
+                    elif aggfunc == "count":
+                        aggregate_data = groupby_obj.size().to_dict()
+                    else:
+                        aggregate_data = groupby_obj.size().to_dict()
                 else:
-                    aggregate_data = df.groupby(row_field).size().to_dict()
+                    aggregate_data = {}
 
                 # Add aggregate values to transposed_dict
                 for row in all_rows:
-                    display_value = self.get_display_value(row, row_field, model_class)
-                    display_info = self.get_display_value(row, row_field, model_class)
+                    display_info = row_display_cache[row]
                     composite_key = display_info["composite_key"]
                     transposed_dict[composite_key][aggregate_column_name] = (
                         aggregate_data.get(row, 0)
@@ -817,7 +932,8 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             context["error"] = f"Error in 1x1 configuration: {str(e)}"
             context["aggregate_columns"] = []
 
-    def handle_1_row_2_col(self, df, report, context):
+    def handle_1_row_2_col(self, df, report, context, fk_cache=None):
+        """Build multi-level pivot table for 1 row group and 2 column groups."""
         try:
             if df.empty:
                 context["pivot_index"] = []
@@ -956,7 +1072,8 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             context["error"] = f"Error in 1x2 configuration: {str(e)}"
             context["aggregate_columns"] = []
 
-    def handle_2_row_0_col(self, df, report, context):
+    def handle_2_row_0_col(self, df, report, context, fk_cache=None):
+        """Build hierarchical data for configuration with 2 row groups and 0 columns."""
         try:
             if df.empty:
                 context["hierarchical_data"] = {"groups": [], "grand_total": 0}
@@ -1071,7 +1188,8 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             context["error"] = f"Error in 2x0 configuration: {str(e)}"
             context["aggregate_columns"] = []
 
-    def handle_2_row_1_col(self, df, report, context):
+    def handle_2_row_1_col(self, df, report, context, fk_cache=None):
+        """Build hierarchical data for configuration with 2 row groups and 1 column group."""
         try:
             if df.empty:
                 context["hierarchical_data"] = {"groups": [], "grand_total": 0}
@@ -1205,7 +1323,8 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             context["error"] = f"Error in 2x1 configuration: {str(e)}"
             context["aggregate_columns"] = []
 
-    def handle_3_row_0_col(self, df, report, context):
+    def handle_3_row_0_col(self, df, report, context, fk_cache=None):
+        """Handle pivot formatting for configuration with 3 rows and 0 columns."""
         try:
             if df.empty:
                 context["three_level_data"] = {"groups": [], "grand_total": 0}
@@ -1348,23 +1467,85 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             context["error"] = f"Error in 3x0 configuration: {str(e)}"
             context["aggregate_columns"] = []
 
-    def get_display_value(self, value, field_name, model_class):
+    def _get_display_value_cache(self, model_class, fields_list):
+        """Pre-cache display values for foreign keys to avoid N+1 queries."""
+        cache = {}
+        for field_name in fields_list:
+            try:
+                field = model_class._meta.get_field(field_name)
+                if hasattr(field, "related_model") and field.related_model:
+                    # Mark this field as needing caching
+                    cache[field_name] = {
+                        "field": field,
+                        "related_model": field.related_model,
+                        "values": {},
+                    }
+            except:
+                pass
+        return cache
+
+    def _batch_load_foreign_keys(self, df, model_class, fields_list):
+        """Batch load all foreign key values at once to avoid N+1 queries."""
+        fk_cache = {}
+        for field_name in fields_list:
+            try:
+                field = model_class._meta.get_field(field_name)
+                if (
+                    hasattr(field, "related_model")
+                    and field.related_model
+                    and field_name in df.columns
+                ):
+                    # Get all unique foreign key values
+                    unique_values = df[field_name].dropna().unique()
+                    if len(unique_values) > 0:
+                        # Batch load all related objects in one query
+                        related_objects = field.related_model.objects.filter(
+                            pk__in=unique_values
+                        )
+                        # Create lookup dict
+                        fk_cache[field_name] = {obj.pk: obj for obj in related_objects}
+            except:
+                pass
+        return fk_cache
+
+    def get_display_value(self, value, field_name, model_class, fk_cache=None):
+        """Return a dict with display text, id and composite_key for a given field value and model.
+
+        Optimized to use pre-loaded cache to avoid N+1 queries.
+        """
         try:
             field = model_class._meta.get_field(field_name)
             if hasattr(field, "related_model") and field.related_model:
-                try:
-                    related_obj = field.related_model.objects.get(pk=value)
-                    return {
-                        "display": str(related_obj),
-                        "id": related_obj.pk,
-                        "composite_key": f"{str(related_obj)}||{related_obj.pk}",
-                    }
-                except field.related_model.DoesNotExist:
-                    return {
-                        "display": f"Unknown ({value})",
-                        "id": value,
-                        "composite_key": f"Unknown ({value})",
-                    }
+                # Use cache if provided, otherwise fall back to single query
+                if fk_cache and field_name in fk_cache:
+                    related_obj = fk_cache[field_name].get(value)
+                    if related_obj:
+                        return {
+                            "display": str(related_obj),
+                            "id": related_obj.pk,
+                            "composite_key": f"{str(related_obj)}||{related_obj.pk}",
+                        }
+                    else:
+                        return {
+                            "display": f"Unknown ({value})",
+                            "id": value,
+                            "composite_key": f"Unknown ({value})",
+                        }
+                else:
+                    # Fallback: single query (slower but works if cache not provided)
+                    try:
+                        related_obj = field.related_model.objects.get(pk=value)
+                        return {
+                            "display": str(related_obj),
+                            "id": related_obj.pk,
+                            "composite_key": f"{str(related_obj)}||{related_obj.pk}",
+                        }
+                    except field.related_model.DoesNotExist:
+                        return {
+                            "display": f"Unknown ({value})",
+                            "id": value,
+                            "composite_key": f"Unknown ({value})",
+                        }
             if hasattr(field, "choices") and field.choices:
                 choice_dict = dict(field.choices)
                 display = choice_dict.get(value, value)
@@ -1383,7 +1564,11 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                 "composite_key": str(value) if value is not None else "Unspecified (-)",
             }
 
-    def generate_chart_data(self, df, report):
+    def generate_chart_data(self, df, report, fk_cache=None):
+        """Generate chart-friendly labels and datasets for the given DataFrame and report configuration.
+
+        Optimized to use pre-loaded FK cache to avoid N+1 queries.
+        """
         chart_data = {
             "labels": [],
             "data": [],
@@ -1418,7 +1603,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             ):
                 # Handle stacked charts with multiple grouping fields
                 chart_data.update(
-                    self._generate_stacked_chart_data(df, report, model_class)
+                    self._generate_stacked_chart_data(df, report, model_class, fk_cache)
                 )
 
             else:
@@ -1433,17 +1618,21 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                     chart_field = report.chart_field
                 elif report.row_groups_list and report.row_groups_list[0] in df.columns:
                     chart_field = report.row_groups_list[0]
-                    if not report.chart_field:
-                        report.chart_field = chart_field
-                        report.save(update_fields=["chart_field"])
+                    # Don't save during preview - only save when user explicitly saves
+                    if not hasattr(report, "_temp_report"):
+                        if not report.chart_field:
+                            report.chart_field = chart_field
+                            report.save(update_fields=["chart_field"])
                 elif (
                     report.column_groups_list
                     and report.column_groups_list[0] in df.columns
                 ):
                     chart_field = report.column_groups_list[0]
-                    if not report.chart_field:
-                        report.chart_field = chart_field
-                        report.save(update_fields=["chart_field"])
+                    # Don't save during preview
+                    if not hasattr(report, "_temp_report"):
+                        if not report.chart_field:
+                            report.chart_field = chart_field
+                            report.save(update_fields=["chart_field"])
 
                 if chart_field:
                     grouped = df.groupby(chart_field).size()
@@ -1454,7 +1643,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
 
                     for k in grouped.index:
                         display_info = self.get_display_value(
-                            k, chart_field, model_class
+                            k, chart_field, model_class, fk_cache
                         )
                         if isinstance(display_info, dict):
                             base_display = display_info["display"]
@@ -1502,8 +1691,11 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
 
         return chart_data
 
-    def _generate_stacked_chart_data(self, df, report, model_class):
-        """Generate data for stacked charts when multiple grouping fields are available"""
+    def _generate_stacked_chart_data(self, df, report, model_class, fk_cache=None):
+        """Generate data for stacked charts when multiple grouping fields are available.
+
+        Optimized to use pre-loaded FK cache to avoid N+1 queries.
+        """
 
         try:
             # Determine fields for stacking with priority to user-selected fields
@@ -1558,21 +1750,22 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                         secondary_field = report.column_groups_list[1]
 
             if not primary_field or not secondary_field:
-                return self._fallback_chart_data(df, report, model_class)
+                return self._fallback_chart_data(df, report, model_class, fk_cache)
 
             if primary_field not in df.columns or secondary_field not in df.columns:
-                return self._fallback_chart_data(df, report, model_class)
+                return self._fallback_chart_data(df, report, model_class, fk_cache)
 
-            # Save chart fields if not already set
-            fields_to_update = []
-            if not report.chart_field:
-                report.chart_field = primary_field
-                fields_to_update.append("chart_field")
-            if not report.chart_field_stacked:
-                report.chart_field_stacked = secondary_field
-                fields_to_update.append("chart_field_stacked")
-            if fields_to_update:
-                report.save(update_fields=fields_to_update)
+            # Don't save chart fields during preview - only save when user explicitly saves
+            if not hasattr(report, "_temp_report"):
+                fields_to_update = []
+                if not report.chart_field:
+                    report.chart_field = primary_field
+                    fields_to_update.append("chart_field")
+                if not report.chart_field_stacked:
+                    report.chart_field_stacked = secondary_field
+                    fields_to_update.append("chart_field_stacked")
+                if fields_to_update:
+                    report.save(update_fields=fields_to_update)
 
             # Create pivot table for stacked data
             try:
@@ -1584,17 +1777,19 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                     fill_value=0,
                 )
             except Exception as pivot_error:
-                return self._fallback_chart_data(df, report, model_class)
+                return self._fallback_chart_data(df, report, model_class, fk_cache)
 
             if pivot_table.empty:
-                return self._fallback_chart_data(df, report, model_class)
+                return self._fallback_chart_data(df, report, model_class, fk_cache)
 
             # Prepare categories (x-axis labels) with unique names for duplicates
             categories = []
             category_count = {}
 
             for idx in pivot_table.index:
-                display_info = self.get_display_value(idx, primary_field, model_class)
+                display_info = self.get_display_value(
+                    idx, primary_field, model_class, fk_cache
+                )
                 if isinstance(display_info, dict):
                     base_display = display_info["display"]
                 else:
@@ -1616,7 +1811,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
 
             for col in pivot_table.columns:
                 col_display_info = self.get_display_value(
-                    col, secondary_field, model_class
+                    col, secondary_field, model_class, fk_cache
                 )
                 if isinstance(col_display_info, dict):
                     base_col_display = col_display_info["display"]
@@ -1641,7 +1836,10 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                         series_data.append(int(value) if pd.notna(value) else 0)
                     except Exception as val_error:
                         logger.error(
-                            f"Value extraction error for {idx}, {col}: {str(val_error)}"
+                            "Value extraction error for %s, %s: %s",
+                            idx,
+                            col,
+                            str(val_error),
                         )
                         series_data.append(0)
 
@@ -1684,14 +1882,17 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
             }
 
         except Exception as e:
-            logger.error(f"Error in stacked chart generation: {str(e)}")
+            logger.error("Error in stacked chart generation: %s", str(e))
             import traceback
 
             traceback.print_exc()
             return self._fallback_chart_data(df, report, model_class)
 
-    def _fallback_chart_data(self, df, report, model_class):
-        """Fallback to simple chart when stacking fails"""
+    def _fallback_chart_data(self, df, report, model_class, fk_cache=None):
+        """Fallback to simple chart when stacking fails.
+
+        Optimized to use pre-loaded FK cache to avoid N+1 queries.
+        """
 
         fallback_field = None
         if (
@@ -1717,7 +1918,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
 
                 for k in grouped.index:
                     display_info = self.get_display_value(
-                        k, fallback_field, model_class
+                        k, fallback_field, model_class, fk_cache
                     )
                     if isinstance(display_info, dict):
                         base_display = display_info["display"]
@@ -1756,7 +1957,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
                     "has_stacked_data": False,
                 }
             except Exception as e:
-                logger.error(f"Fallback chart error: {str(e)}")
+                logger.error("Fallback chart error: %s", str(e))
 
         # Ultimate fallback
         return {
@@ -1777,6 +1978,7 @@ class ReportDetailView(RecentlyViewedMixin, LoginRequiredMixin, DetailView):
     name="dispatch",
 )
 class ReportDetailFilteredView(LoginRequiredMixin, View):
+    """View for displaying filtered report data with dynamic column and row grouping."""
 
     def col_attrs(self):
         """Define column attributes for clickable rows in the report list view."""
@@ -1811,6 +2013,7 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
         return columns_with_attrs
 
     def get(self, request, pk, *args, **kwargs):
+        """Handle GET request to render the report detail or preview."""
         # Get the report
         try:
             report = Report.objects.get(pk=pk)
@@ -1875,7 +2078,7 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
                 if query:
                     queryset = queryset.filter(query)
             except Exception as e:
-                logger.error(f"Filter Error in ReportDetailFilteredView: {e}")
+                logger.error("Filter Error in ReportDetailFilteredView: %s", e)
                 queryset = model_class.objects.none()
 
         row_group1 = request.GET.get("row_group1")
@@ -1925,6 +2128,7 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
             return lookup_fields
 
         def get_filter_value(field_name, value, model):
+            """Convert a filter string/value into an actual model field value for lookup."""
             if not value or not field_name:
                 return None
             try:
@@ -1940,7 +2144,7 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
                                     return related_model.objects.get(pk=pk_value)
                                 except related_model.DoesNotExist:
                                     logger.warning(
-                                        f"Related object not found with pk={pk_value}"
+                                        "Related object not found with pk=%s", pk_value
                                     )
                                     return None
                             except (ValueError, TypeError):
@@ -1960,7 +2164,7 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
                         except AttributeError:
                             continue
                         except Exception as e:
-                            logger.error(f"Error trying lookup {lookup_field}: {e}")
+                            logger.error("Error trying lookup %s: %s", lookup_field, e)
                             continue
 
                     # If exact match fails, try case-insensitive for string fields
@@ -1980,7 +2184,7 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
                         except (related_model.DoesNotExist, AttributeError, Exception):
                             continue
                     return None
-                elif field.choices:
+                if field.choices:
                     # Check if value is a composite key for choices
                     if isinstance(value, str) and "||" in value:
                         parts = value.split("||")
@@ -1993,30 +2197,30 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
                     if normalized_value in choice_map:
                         return choice_map[normalized_value]
                     return value  # Fallback to original value if no match
-                else:
-                    # For non-FK fields, check if it's a composite key and extract the value
-                    if isinstance(value, str) and "||" in value:
-                        parts = value.split("||")
-                        # For non-FK fields, try to convert to appropriate type
-                        try:
-                            if hasattr(field, "get_internal_type"):
-                                field_type = field.get_internal_type()
-                                if field_type in [
-                                    "IntegerField",
-                                    "BigIntegerField",
-                                    "SmallIntegerField",
-                                ]:
-                                    return int(parts[1])
-                                elif field_type in ["FloatField", "DecimalField"]:
-                                    return float(parts[1])
-                        except (ValueError, TypeError, IndexError):
-                            pass
-                        # If conversion fails, use the display part
-                        value = parts[0]
-                    return value
+                # else:
+                # For non-FK fields, check if it's a composite key and extract the value
+                if isinstance(value, str) and "||" in value:
+                    parts = value.split("||")
+                    # For non-FK fields, try to convert to appropriate type
+                    try:
+                        if hasattr(field, "get_internal_type"):
+                            field_type = field.get_internal_type()
+                            if field_type in [
+                                "IntegerField",
+                                "BigIntegerField",
+                                "SmallIntegerField",
+                            ]:
+                                return int(parts[1])
+                            if field_type in ["FloatField", "DecimalField"]:
+                                return float(parts[1])
+                    except (ValueError, TypeError, IndexError):
+                        pass
+                    # If conversion fails, use the display part
+                    value = parts[0]
+                return value
             except Exception as e:
                 logger.error(
-                    f"Error resolving filter value for {field_name}={value}: {e}"
+                    "Error resolving filter value for %s=%s: %s", field_name, value, e
                 )
                 return None
 
@@ -2050,7 +2254,7 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
             try:
                 queryset = queryset.filter(**filter_kwargs)
             except Exception as e:
-                logger.error(f"Filter Error: {e}")
+                logger.error("Filter Error: %s", e)
                 queryset = model_class.objects.none()
 
         columns = []
@@ -2078,6 +2282,7 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
         list_view.table_width = False
         list_view.bulk_select_option = False
         list_view.clear_session_button_enabled = False
+        list_view.paginate_by = 10
         list_view.list_column_visibility = False
         list_view.table_height = False
         list_view.table_height_as_class = "h-[200px]"
@@ -2101,7 +2306,6 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
 
     def create_temp_report(self, original_report, preview_data):
         """Create a temporary report object with preview data (same as ReportDetailView)"""
-        import copy
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -2129,11 +2333,14 @@ class ReportDetailFilteredView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class ToggleAggregateView(LoginRequiredMixin, View):
+    """View for toggling aggregate functions on report columns."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Toggle aggregate column presence for the report preview session."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -2172,6 +2379,7 @@ class ToggleAggregateView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
+        """Create a temporary report object with preview data applied for ToggleAggregateView."""
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
             temp_report.selected_columns = preview_data["selected_columns"]
@@ -2197,11 +2405,14 @@ class ToggleAggregateView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class UpdateAggregateFunctionView(LoginRequiredMixin, View):
+    """View for updating aggregate function (SUM, AVG, COUNT, etc.) on report columns."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Update aggregation function for a field in the report preview session."""
         report = get_object_or_404(Report, pk=pk)
         aggfunc = request.POST.get("aggfunc")
         field_name = request.POST.get("field_name")
@@ -2235,6 +2446,7 @@ class UpdateAggregateFunctionView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
+        """Create a temporary report object with preview data applied for UpdateAggregateFunctionView."""
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
             temp_report.selected_columns = preview_data["selected_columns"]
@@ -2260,11 +2472,14 @@ class UpdateAggregateFunctionView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class SaveReportChangesView(LoginRequiredMixin, View):
+    """View for saving temporary report configuration changes."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Persist preview changes to the Report model when requested."""
         report = get_object_or_404(Report, pk=pk)
         session_key = f"report_preview_{report.pk}"
         preview_data = request.session.get(session_key, {})
@@ -2312,11 +2527,14 @@ class SaveReportChangesView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class DiscardReportChangesView(LoginRequiredMixin, View):
+    """View for discarding temporary report configuration changes."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Discard any preview changes for the given report by clearing session data."""
         report = get_object_or_404(Report, pk=pk)
         session_key = f"report_preview_{pk}"
 
@@ -2343,6 +2561,8 @@ class DiscardReportChangesView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class ReportUpdateView(LoginRequiredMixin, DetailView):
+    """View for updating report configuration in a panel interface."""
+
     model = Report
     template_name = "partials/report_panel.html"
     context_object_name = "report"
@@ -2393,7 +2613,6 @@ class ReportUpdateView(LoginRequiredMixin, DetailView):
 
     def create_temp_report(self, original_report, preview_data):
         """Create a temporary report object with preview data"""
-        import copy
 
         temp_report = copy.copy(original_report)
 
@@ -2417,11 +2636,14 @@ class ReportUpdateView(LoginRequiredMixin, DetailView):
     name="dispatch",
 )
 class AddColumnView(LoginRequiredMixin, View):
+    """View for adding columns to a report."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Add a column to the report preview's selected columns list."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -2458,7 +2680,7 @@ class AddColumnView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary report object with preview data applied for AddColumnView."""
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -2479,11 +2701,14 @@ class AddColumnView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class RemoveColumnView(LoginRequiredMixin, View):
+    """View for removing columns from a report."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Remove a column from the report preview's selected columns list."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -2517,7 +2742,15 @@ class RemoveColumnView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary copy of the report with preview data applied.
+
+        Args:
+            original_report: The original report instance to copy.
+            preview_data: Dictionary containing preview configuration data.
+
+        Returns:
+            A copy of the original report with preview data applied.
+        """
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -2540,6 +2773,8 @@ class RemoveColumnView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class CloseReportPanelView(LoginRequiredMixin, View):
+    """View for closing the report configuration panel and returning to detail view."""
+
     def get(self, request, pk):
         """Close the report panel and redirect to detail view"""
         # Clear any session data if needed
@@ -2557,11 +2792,14 @@ class CloseReportPanelView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class AddFilterFieldView(LoginRequiredMixin, View):
+    """View for adding filter fields to a report."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to add a filter field to the report."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -2602,13 +2840,26 @@ class AddFilterFieldView(LoginRequiredMixin, View):
         # Create temp report for context
         temp_report = self.create_temp_report(report, preview_data)
 
+        # Generate available fields (filter out reverse relationships)
+        model_class = report.model_class
+        available_fields = []
+        for field in model_class._meta.get_fields():
+            if not field.many_to_many and not field.one_to_many:
+                available_fields.append(
+                    {
+                        "name": field.name,
+                        "verbose_name": field.verbose_name,
+                        "field_type": field.__class__.__name__,
+                    }
+                )
+
         # Render the entire panel template with updated context
         return render(
             request,
             "partials/report_panel.html",
             {
                 "report": temp_report,
-                "available_fields": report.model_class._meta.get_fields(),
+                "available_fields": available_fields,
                 "has_unsaved_changes": True,
                 "is_choice_or_fk": is_choice_or_fk,
                 "field_choices": field_choices,
@@ -2616,6 +2867,7 @@ class AddFilterFieldView(LoginRequiredMixin, View):
         )
 
     def create_temp_report(self, original_report, preview_data):
+        """Create a temporary report object with preview data applied for AddFilterFieldView."""
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
             temp_report.selected_columns = preview_data["selected_columns"]
@@ -2635,11 +2887,14 @@ class AddFilterFieldView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class UpdateFilterOperatorView(View):
+    """View for updating the operator (equals, contains, etc.) for a report filter."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to update filter operator for a report filter."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         operator = request.POST.get("operator")
@@ -2687,6 +2942,15 @@ class UpdateFilterOperatorView(View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
+        """Create a temporary copy of the report with preview data applied.
+
+        Args:
+            original_report: The original report instance to copy.
+            preview_data: Dictionary containing preview configuration data including chart settings.
+
+        Returns:
+            A copy of the original report with preview data applied.
+        """
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
             temp_report.selected_columns = preview_data["selected_columns"]
@@ -2707,6 +2971,7 @@ class UpdateFilterOperatorView(View):
         return temp_report
 
     def get_available_fields(self, model_class):
+        """Get available fields from the model class for filter/group selection."""
         available_fields = []
         for field in model_class._meta.get_fields():
             if not field.many_to_many and not field.one_to_many:
@@ -2725,11 +2990,14 @@ class UpdateFilterOperatorView(View):
     name="dispatch",
 )
 class UpdateFilterValueView(LoginRequiredMixin, View):
+    """View for updating the value of a report filter."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to update filter value for a report filter."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         value = request.POST.get("value")
@@ -2777,6 +3045,15 @@ class UpdateFilterValueView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
+        """Create a temporary copy of the report with preview data applied.
+
+        Args:
+            original_report: The original report instance to copy.
+            preview_data: Dictionary containing preview configuration data including chart settings.
+
+        Returns:
+            A copy of the original report with preview data applied.
+        """
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
             temp_report.selected_columns = preview_data["selected_columns"]
@@ -2797,6 +3074,7 @@ class UpdateFilterValueView(LoginRequiredMixin, View):
         return temp_report
 
     def get_available_fields(self, model_class):
+        """Get available fields from the model class for filter/group selection."""
         available_fields = []
         for field in model_class._meta.get_fields():
             if not field.many_to_many and not field.one_to_many:
@@ -2815,11 +3093,14 @@ class UpdateFilterValueView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class UpdateFilterLogicView(LoginRequiredMixin, View):
+    """View for updating the logic operator (AND/OR) between report filters."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to update filter logic (AND/OR) between report filters."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get(
             "field_name"
@@ -2853,7 +3134,7 @@ class UpdateFilterLogicView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary report object with preview data applied for UpdateFilterLogicView."""
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -2880,11 +3161,14 @@ class UpdateFilterLogicView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class RemoveFilterView(LoginRequiredMixin, View):
+    """View for removing filters from a report."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to remove a filter from the report."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -2911,7 +3195,15 @@ class RemoveFilterView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary copy of the report with preview data applied.
+
+        Args:
+            original_report: The original report instance to copy.
+            preview_data: Dictionary containing preview configuration data including chart settings.
+
+        Returns:
+            A copy of the original report with preview data applied.
+        """
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -2933,6 +3225,7 @@ class RemoveFilterView(LoginRequiredMixin, View):
         return temp_report
 
     def get_available_fields(self, model_class):
+        """Get available fields from the model class for filter/group selection."""
         available_fields = []
         for field in model_class._meta.get_fields():
             if not field.many_to_many and not field.one_to_many:
@@ -2951,11 +3244,14 @@ class RemoveFilterView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class ToggleRowGroupView(LoginRequiredMixin, View):
+    """View for toggling row grouping on/off for a report."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to toggle row grouping on/off for a report."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -2993,7 +3289,7 @@ class ToggleRowGroupView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary report object with preview data applied for ToggleRowGroupView."""
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -3020,11 +3316,14 @@ class ToggleRowGroupView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class RemoveRowGroupView(LoginRequiredMixin, View):
+    """View for removing row grouping from a report."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to remove a field from row grouping."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -3058,7 +3357,7 @@ class RemoveRowGroupView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary report object with preview data applied for RemoveRowGroupView."""
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -3086,11 +3385,22 @@ class RemoveRowGroupView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class ToggleColumnGroupView(LoginRequiredMixin, View):
+    """View for toggling column grouping on/off for a report."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to toggle column grouping for a field in the report.
+
+        Args:
+            request: The HTTP request object.
+            pk: Primary key of the report.
+
+        Returns:
+            Rendered report detail template with updated column grouping.
+        """
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -3126,7 +3436,7 @@ class ToggleColumnGroupView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary report object with preview data applied for ToggleColumnGroupView."""
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -3154,11 +3464,14 @@ class ToggleColumnGroupView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class RemoveColumnGroupView(LoginRequiredMixin, View):
+    """View for removing column grouping from a report."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to remove a field from column grouping."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -3194,7 +3507,15 @@ class RemoveColumnGroupView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary copy of the report with preview data applied.
+
+        Args:
+            original_report: The original report instance to copy.
+            preview_data: Dictionary containing preview configuration data including chart settings.
+
+        Returns:
+            A copy of the original report with preview data applied.
+        """
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -3221,12 +3542,14 @@ class RemoveColumnGroupView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class RemoveAggregateColumnView(LoginRequiredMixin, View):
+    """View for removing aggregate columns from a report."""
 
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to remove an aggregate column from the report."""
         report = get_object_or_404(Report, pk=pk)
         field_name = request.POST.get("field_name")
         session_key = f"report_preview_{report.pk}"
@@ -3260,7 +3583,7 @@ class RemoveAggregateColumnView(LoginRequiredMixin, View):
         return render(request, "report_detail.html", context)
 
     def create_temp_report(self, original_report, preview_data):
-        import copy
+        """Create a temporary report object with preview data applied for RemoveAggregateColumnView."""
 
         temp_report = copy.copy(original_report)
         if "selected_columns" in preview_data:
@@ -3288,6 +3611,8 @@ class RemoveAggregateColumnView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class SearchAvailableFieldsView(LoginRequiredMixin, DetailView):
+    """View for searching and selecting available fields for report configuration."""
+
     model = Report
 
     def dispatch(self, request, *args, **kwargs):
@@ -3370,7 +3695,6 @@ class SearchAvailableFieldsView(LoginRequiredMixin, DetailView):
 
     def create_temp_report(self, original_report, preview_data):
         """Create a temporary report object with preview data"""
-        import copy
 
         temp_report = copy.copy(original_report)
 
@@ -3395,6 +3719,7 @@ class SearchAvailableFieldsView(LoginRequiredMixin, DetailView):
     name="dispatch",
 )
 class ChangeChartTypeView(LoginRequiredMixin, HorillaSingleFormView):
+    """View for changing the chart type (bar, line, pie, etc.) of a report."""
 
     model = Report
     fields = ["chart_type"]
@@ -3404,6 +3729,7 @@ class ChangeChartTypeView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Return the form URL for the change chart type view."""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_reports:change_chart_type", kwargs={"pk": pk})
@@ -3417,6 +3743,8 @@ class ChangeChartTypeView(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class ChangeChartFieldView(LoginRequiredMixin, HorillaSingleFormView):
+    """View for changing the primary and secondary chart fields for a report."""
+
     model = Report
     fields = ["chart_field", "chart_field_stacked"]
     modal_height = False
@@ -3461,6 +3789,8 @@ class ChangeChartFieldView(LoginRequiredMixin, HorillaSingleFormView):
         field_choices.insert(0, ("", "-- Select Chart Field --"))
 
         class ChartFieldForm(HorillaModelForm):
+            """Dynamically generated form for selecting chart fields."""
+
             chart_field = forms.ChoiceField(
                 choices=field_choices,
                 label="Primary Chart Field",
@@ -3476,6 +3806,8 @@ class ChangeChartFieldView(LoginRequiredMixin, HorillaSingleFormView):
             )
 
             class Meta:
+                """Meta options for ChartFieldForm."""
+
                 model = Report
                 fields = ["chart_field", "chart_field_stacked"]
 
@@ -3543,6 +3875,7 @@ class ChangeChartFieldView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Return the form URL for changing the chart field (preview-aware)."""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_reports:change_chart_field", kwargs={"pk": pk})
@@ -3550,6 +3883,8 @@ class ChangeChartFieldView(LoginRequiredMixin, HorillaSingleFormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class CreateReportView(LoginRequiredMixin, HorillaSingleFormView):
+    """View for creating new reports with module, columns, and folder selection."""
+
     model = Report
     fields = ["name", "module", "folder", "selected_columns", "report_owner"]
     modal_height = False
@@ -3560,6 +3895,7 @@ class CreateReportView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Return the form URL for creating a new report."""
         return reverse_lazy("horilla_reports:create_report")
 
     def get_initial(self):
@@ -3599,6 +3935,8 @@ class CreateReportView(LoginRequiredMixin, HorillaSingleFormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class UpdateReportView(LoginRequiredMixin, HorillaSingleFormView):
+    """View for updating report name and basic information."""
+
     model = Report
     fields = ["name"]
     modal_height = False
@@ -3607,6 +3945,7 @@ class UpdateReportView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Return the form URL for updating a report."""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_reports:update_report", kwargs={"pk": pk})
@@ -3637,6 +3976,8 @@ class UpdateReportView(LoginRequiredMixin, HorillaSingleFormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class MoveReportView(LoginRequiredMixin, HorillaSingleFormView):
+    """View for moving reports between folders."""
+
     model = Report
     fields = ["folder"]
     modal_height = False
@@ -3644,6 +3985,7 @@ class MoveReportView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Return the form URL for moving a report to a folder."""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy(
@@ -3691,6 +4033,8 @@ class MoveReportView(LoginRequiredMixin, HorillaSingleFormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class MoveFolderView(LoginRequiredMixin, HorillaSingleFormView):
+    """View for moving report folders to different parent folders."""
+
     model = ReportFolder
     fields = ["parent"]
     modal_height = False
@@ -3698,6 +4042,7 @@ class MoveFolderView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Return the form URL for moving a folder to a different parent folder."""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy(
@@ -3748,6 +4093,7 @@ class GetModuleColumnsHTMXView(LoginRequiredMixin, View):
     """HTMX view to return updated selected_columns field based on module selection"""
 
     def get(self, request, *args, **kwargs):
+        """Handle GET request to return updated selected_columns widget HTML based on module."""
         module_id = request.GET.get("module")
 
         widget_html = self.get_columns_widget_html(module_id)
@@ -3789,6 +4135,8 @@ class GetModuleColumnsHTMXView(LoginRequiredMixin, View):
 
 @method_decorator(htmx_required, name="dispatch")
 class CreateFolderView(LoginRequiredMixin, HorillaSingleFormView):
+    """View for creating new report folders."""
+
     model = ReportFolder
     fields = ["name", "parent", "report_folder_owner"]
     modal_height = False
@@ -3810,6 +4158,7 @@ class CreateFolderView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Return the form URL for creating or updating a folder."""
         pk = self.kwargs.get("pk")
         if pk:
             return reverse_lazy("horilla_reports:update_folder", kwargs={"pk": pk})
@@ -3823,6 +4172,8 @@ class CreateFolderView(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class ReportFolderListView(LoginRequiredMixin, HorillaListView):
+    """List view for displaying report folders."""
+
     template_name = "report_folder_detail.html"
     model = ReportFolder
     view_id = "folder-list-view"
@@ -3838,6 +4189,7 @@ class ReportFolderListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """Return attributes for folder list columns used to link to details."""
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
@@ -3870,6 +4222,7 @@ class ReportFolderListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def action_method(self):
+        """Return the action method name based on user permissions."""
         action_method = ""
         if self.request.user.has_perm(
             "horilla_reports.change_report"
@@ -3885,6 +4238,8 @@ class ReportFolderListView(LoginRequiredMixin, HorillaListView):
     name="dispatch",
 )
 class FavouriteReportFolderListView(LoginRequiredMixin, HorillaListView):
+    """List view for displaying user's favourite report folders."""
+
     template_name = "favourite_folder_list.html"
     model = ReportFolder
     table_width = False
@@ -3892,6 +4247,7 @@ class FavouriteReportFolderListView(LoginRequiredMixin, HorillaListView):
     sorting_target = f"#tableview-{view_id}"
 
     def action_method(self):
+        """Return the action method name for favourite folder list view based on user permissions."""
         action_method = ""
         if self.request.user.has_perm(
             "horilla_reports.change_report"
@@ -3908,6 +4264,7 @@ class FavouriteReportFolderListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """Return attributes for favourite folder list columns used to link to details."""
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
@@ -3946,6 +4303,8 @@ class FavouriteReportFolderListView(LoginRequiredMixin, HorillaListView):
     name="dispatch",
 )
 class ReportFolderDetailView(LoginRequiredMixin, HorillaListView):
+    """Detail view for displaying reports within a specific folder."""
+
     template_name = "report_folder_detail.html"
     model = ReportFolder
     table_width = False
@@ -3959,6 +4318,7 @@ class ReportFolderDetailView(LoginRequiredMixin, HorillaListView):
     ]
 
     def action_method(self):
+        """Return the action method name for folder detail view based on user permissions."""
         action_method = ""
         if self.request.user.has_perm(
             "horilla_reports.change_reportfolder"
@@ -4083,11 +4443,14 @@ class ReportFolderDetailView(LoginRequiredMixin, HorillaListView):
 
 @method_decorator(htmx_required, name="dispatch")
 class MarkFolderAsFavouriteView(LoginRequiredMixin, View):
+    """View for marking/unmarking report folders as favourites."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to toggle folder favourite status."""
         folder = get_object_or_404(ReportFolder, pk=pk)
         user = request.user
         if (
@@ -4100,16 +4463,20 @@ class MarkFolderAsFavouriteView(LoginRequiredMixin, View):
         return HttpResponse("<script>$('#reloadButton').click();</script>")
 
     def get(self, request, *args, **kwargs):
+        """Return 403 error page for GET requests."""
         return render(request, "error/403.html")
 
 
 @method_decorator(htmx_required, name="dispatch")
 class MarkReportAsFavouriteView(LoginRequiredMixin, View):
+    """View for marking/unmarking reports as favourites."""
+
     @method_decorator(require_POST)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, pk):
+        """Handle POST request to toggle report favourite status."""
         report = get_object_or_404(Report, pk=pk)
         user = request.user
         if (
@@ -4122,6 +4489,7 @@ class MarkReportAsFavouriteView(LoginRequiredMixin, View):
         return HttpResponse("<script>$('#reloadButton').click();</script>")
 
     def get(self, request, *args, **kwargs):
+        """Return 403 error page for GET requests."""
         return render(request, "error/403.html")
 
 
@@ -4131,6 +4499,8 @@ class MarkReportAsFavouriteView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class ReportDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """View for deleting reports."""
+
     model = Report
 
     def get_post_delete_response(self):
@@ -4143,6 +4513,8 @@ class ReportDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
     name="dispatch",
 )
 class FolderDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """View for deleting report folders."""
+
     model = ReportFolder
 
     def get_post_delete_response(self):
@@ -4158,6 +4530,7 @@ class ReportExportView(LoginRequiredMixin, View):
     """
 
     def get(self, request, pk):
+        """Handle GET request to export report data in Excel or CSV format."""
         try:
             report = get_object_or_404(Report, pk=pk)
         except Exception as e:
@@ -4182,10 +4555,10 @@ class ReportExportView(LoginRequiredMixin, View):
 
         if export_format == "excel":
             return self.export_excel(report, df, detail_context, temp_report)
-        elif export_format == "csv":
+        if export_format == "csv":
             return self.export_csv(report, df, detail_context, temp_report)
-        else:
-            return self.export_excel(report, df, detail_context, temp_report)
+        # else:
+        return self.export_excel(report, df, detail_context, temp_report)
 
     def create_temp_report(self, original_report, preview_data):
         """Create temporary report with preview data"""
@@ -4358,6 +4731,7 @@ class ReportExportView(LoginRequiredMixin, View):
         return df, context
 
     def get_configuration_type(self, report):
+        """Return configuration type string based on row and column group counts for export."""
         row_count = len(report.row_groups_list)
         col_count = len(report.column_groups_list)
         return f"{row_count}_row_{col_count}_col"
@@ -5056,80 +5430,6 @@ class ReportExportView(LoginRequiredMixin, View):
             self._create_pivot_csv(writer, detail_context, temp_report)
 
         return response
-
-    # def _create_hierarchical_csv(self, writer, detail_context, hierarchy_type):
-    #     """Create CSV for hierarchical data structures"""
-
-    #     if hierarchy_type == "3_level":
-    #         three_level_data = detail_context.get("three_level_data", {})
-    #         groups = three_level_data.get("groups", [])
-    #         grand_total = three_level_data.get("grand_total", 0)
-    #         aggregate_columns = detail_context.get("aggregate_columns", [])
-    #         row_verbose_names = detail_context.get("row_group_verbose_names", [])
-
-    #         if not groups:
-    #             writer.writerow(["No data available"])
-    #             return
-
-    #         # Headers - use verbose names
-    #         level1_header = row_verbose_names[0] if row_verbose_names and len(row_verbose_names) > 0 else "Level 1"
-    #         level2_header = row_verbose_names[1] if row_verbose_names and len(row_verbose_names) > 1 else "Level 2"
-    #         level3_header = row_verbose_names[2] if row_verbose_names and len(row_verbose_names) > 2 else "Level 3"
-    #         headers = [level1_header, level2_header, level3_header, "Count"]
-    #         for agg in aggregate_columns:
-    #             headers.append(agg["name"])
-    #         writer.writerow(headers)
-
-    #         # Data rows
-    #         for level1_group in groups:
-    #             for level2_group in level1_group["level2_groups"]:
-    #                 for level3_item in level2_group["level3_items"]:
-    #                     row = [
-    #                         level1_group["level1_group_display"],
-    #                         level2_group["level2_group_display"],
-    #                         level3_item["level3_group_display"],
-    #                         level3_item["count"]
-    #                     ]
-    #                     for agg in aggregate_columns:
-    #                         row.append(level3_item["aggregate_values"].get(agg["name"], 0))
-    #                     writer.writerow(row)
-
-    #         # Grand total
-    #         total_row = ["Grand Total", "", "", grand_total]
-    #         writer.writerow(total_row)
-
-    #     elif hierarchy_type in ["2_level", "2_level_with_col"]:
-    #         hierarchical_data = detail_context.get("hierarchical_data", {})
-    #         groups = hierarchical_data.get("groups", [])
-    #         grand_total = hierarchical_data.get("grand_total", 0)
-    #         pivot_columns = detail_context.get("pivot_columns", [])
-    #         row_verbose_names = detail_context.get("row_group_verbose_names", [])
-
-    #         if not groups:
-    #             writer.writerow(["No data available"])
-    #             return
-
-    #         # Headers - use verbose names
-    #         primary_header = row_verbose_names[0] if row_verbose_names and len(row_verbose_names) > 0 else "Primary Group"
-    #         secondary_header = row_verbose_names[1] if row_verbose_names and len(row_verbose_names) > 1 else "Secondary Group"
-    #         headers = [primary_header, secondary_header]
-    #         headers.extend(pivot_columns)
-    #         writer.writerow(headers)
-
-    #         # Data rows
-    #         for group in groups:
-    #             for item in group["items"]:
-    #                 row = [group["primary_group_display"], item["secondary_group_display"]]
-    #                 for col_name in pivot_columns:
-    #                     row.append(item["values"].get(col_name, 0))
-    #                 writer.writerow(row)
-
-    #             # Subtotal row
-    #             subtotal_row = ["", f"{group['primary_group_display']} Subtotal", group["subtotal"]]
-    #             writer.writerow(subtotal_row)
-
-    #         # Grand total
-    #         writer.writerow(["", "Grand Total", grand_total])
 
     def _create_pivot_csv(self, writer, detail_context, temp_report):
         """Create CSV for pivot table data"""

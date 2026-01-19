@@ -1,3 +1,5 @@
+"""Template tags and filters for report rendering and aggregation helpers used in report templates."""
+
 from django import template
 from django.db.models import (
     BigIntegerField,
@@ -346,6 +348,7 @@ def get_field_verbose_name(field_name, model_class):
 
 @register.filter
 def total_sum_excluding_aggregate(pivot_table, aggregate_column_name):
+    """Return the sum of precomputed 'total' values from a pivot table (ignores aggregate column)."""
     total = 0
     for row, values in pivot_table.items():
         total += values.get("total", 0)  # Use precomputed total
@@ -372,15 +375,14 @@ def sum_aggregate(items, aggregate_column_name):
     if not values:
         return "-"
 
-    if agg_func == "sum":
-        return sum(values)
-    elif agg_func == "max":
-        return max(values)
-    elif agg_func == "min":
-        return min(values)
-    elif agg_func == "count":
-        return len(values)
-    return "-"
+    funcs = {
+        "sum": sum,
+        "max": max,
+        "min": min,
+        "count": len,
+    }
+
+    return funcs.get(agg_func, lambda _: "-")(values)
 
 
 @register.filter
@@ -408,15 +410,14 @@ def sum_level2_aggregate(level2_groups, aggregate_column_name):
     if not values:
         return "-"
 
-    if agg_func == "sum":
-        return sum(values)
-    elif agg_func == "max":
-        return max(values)
-    elif agg_func == "min":
-        return min(values)
-    elif agg_func == "count":
-        return len(values)
-    return "-"
+    return {
+        "sum": sum,
+        "max": max,
+        "min": min,
+        "count": len,
+    }.get(
+        agg_func, lambda _: "-"
+    )(values)
 
 
 @register.filter
@@ -445,29 +446,26 @@ def sum_level1_aggregate(level1_groups, aggregate_column_name):
     if not values:
         return "-"
 
-    if agg_func == "sum":
-        return sum(values)
-    elif agg_func == "max":
-        return max(values)
-    elif agg_func == "min":
-        return min(values)
-    elif agg_func == "count":
-        return len(values)
-    return "-"
+    return {"sum": sum, "max": max, "min": min, "count": len}.get(
+        agg_func, lambda _: "-"
+    )(values)
 
 
 @register.filter
 def aggregate_names(aggregate_columns):
+    """Return a list of aggregate column names from the aggregate_columns definition."""
     return [agg["name"] for agg in aggregate_columns]
 
 
 @register.filter
 def is_choice_or_foreign(report, field_name):
+    """Return True when the given field on the report's model is a choice field or a foreign key."""
     return report.is_choice_or_foreign_key_field(field_name)
 
 
 @register.filter
 def get_field_choices(report, field_name):
+    """Return choices or related object options for the report's given field."""
     return report.get_field_choices(field_name)
 
 

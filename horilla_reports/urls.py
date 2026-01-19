@@ -1,3 +1,5 @@
+"""URL patterns for the `horilla_reports` app."""
+
 from django.urls import path
 
 from horilla_reports.default_reports import (
