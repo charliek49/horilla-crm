@@ -1,3 +1,7 @@
+"""
+My settings menu system for Horilla, with registration and permission-based filtering.
+"""
+
 from typing import Any, List, Type
 
 my_settings_menu: List[Any] = []
@@ -10,6 +14,7 @@ def register(cls: Type[Any]):
 
 
 def get_my_settings_menu(request=None) -> list[dict]:
+    """Return registered settings menu items, filtered by conditions and permissions."""
     items = []
     for cls in my_settings_menu:
         obj = cls()

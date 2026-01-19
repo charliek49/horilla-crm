@@ -1,5 +1,8 @@
-# horilla/settings_page.py
-from typing import Any, Callable, Dict, List, Type
+"""
+Settings menu registry for Horilla, managing settings pages with permissions and ordering.
+"""
+
+from typing import Any, Dict, List, Type
 
 settings_registry: List[Any] = []
 

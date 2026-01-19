@@ -1,4 +1,11 @@
 # horilla_core/registry.py
+"""
+Feature registry system for Horilla.
+
+This module provides a centralized registry to dynamically associate
+Django models with application features such as import, export,
+global search, and other pluggable capabilities.
+"""
 
 import logging
 from collections import defaultdict
@@ -47,39 +54,48 @@ def register_feature(feature_name, registry_key=None):
 
     if feature_name in FEATURE_CONFIG:
         logger.warning(
-            f"Feature '{feature_name}' is already registered. "
-            f"Overwriting registry key from '{FEATURE_CONFIG[feature_name]}' to '{registry_key}'"
+            "Feature '%s' is already registered. "
+            "Overwriting registry key from '%s' to '%s'",
+            feature_name,
+            FEATURE_CONFIG[feature_name],
+            registry_key,
         )
         FEATURE_CONFIG[feature_name] = registry_key
         return False
-    else:
-        FEATURE_CONFIG[feature_name] = registry_key
-        logger.info(f"Registered new feature '{feature_name}' -> '{registry_key}'")
 
-        # Register this new feature for all models that were registered with all=True
-        # (unless they excluded this feature)
-        for model_class, excluded_features in ALL_FEATURES_MODELS.items():
-            if feature_name not in excluded_features:
-                if model_class not in FEATURE_REGISTRY[registry_key]:
-                    FEATURE_REGISTRY[registry_key].append(model_class)
-                    logger.debug(
-                        f"Auto-registered model {model_class.__name__} for new feature '{feature_name}' "
-                        f"(was registered with all=True)"
-                    )
+    FEATURE_CONFIG[feature_name] = registry_key
+    logger.info(
+        "Registered new feature '%s' -> '%s'",
+        feature_name,
+        registry_key,
+    )
 
-        # Register models that tried to use this feature before it was registered
-        if feature_name in PENDING_FEATURE_MODELS:
-            for model_class in PENDING_FEATURE_MODELS[feature_name]:
-                if model_class not in FEATURE_REGISTRY[registry_key]:
-                    FEATURE_REGISTRY[registry_key].append(model_class)
-                    logger.debug(
-                        f"Registered model {model_class.__name__} for feature '{feature_name}' "
-                        f"(was pending before feature registration)"
-                    )
-            # Clear pending list for this feature
-            del PENDING_FEATURE_MODELS[feature_name]
+    # Register this new feature for all models that were registered with all=True
+    # (unless they excluded this feature)
+    for model_class, excluded_features in ALL_FEATURES_MODELS.items():
+        if feature_name not in excluded_features:
+            if model_class not in FEATURE_REGISTRY[registry_key]:
+                FEATURE_REGISTRY[registry_key].append(model_class)
+                logger.debug(
+                    "Auto-registered model %s for new feature '%s' (was registered with all=True)",
+                    model_class,
+                    feature_name,
+                )
 
-        return True
+    # Register models that tried to use this feature before it was registered
+    if feature_name in PENDING_FEATURE_MODELS:
+        for model_class in PENDING_FEATURE_MODELS[feature_name]:
+            if model_class not in FEATURE_REGISTRY[registry_key]:
+                FEATURE_REGISTRY[registry_key].append(model_class)
+                logger.debug(
+                    "Registered model %s for feature '%s' (was pending before feature registration)",
+                    model_class.__name__,
+                    feature_name,
+                )
+        # Clear pending list for this feature
+        del PENDING_FEATURE_MODELS[feature_name]
+
+    return True
 
 
 def register_model_for_feature(
@@ -131,7 +147,10 @@ def register_model_for_feature(
             model_class = apps.get_model(app_label, model_name)
         except LookupError as e:
             logger.error(
-                f"register_model_for_feature: Model '{app_label}.{model_name}' not found: {e}"
+                "register_model_for_feature: Model '%s.%s' not found: %s",
+                app_label,
+                model_name,
+                e,
             )
             return False
     else:
@@ -185,8 +204,9 @@ def register_model_for_feature(
 
     if not enabled_features:
         logger.warning(
-            f"register_model_for_feature: No features specified for model "
-            f"{app_label}.{model_name}"
+            "register_model_for_feature: No features specified for model %s.%s",
+            app_label,
+            model_name,
         )
         # Even if no features to register now, return True if all=True (for tracking)
         return all
@@ -200,16 +220,25 @@ def register_model_for_feature(
                 FEATURE_REGISTRY[registry_key].append(model_class)
                 registered = True
                 logger.info(
-                    f"Registered model {app_label}.{model_name} for feature '{feature_name}'"
+                    "Registered model %s.%s for feature '%s'",
+                    app_label,
+                    model_name,
+                    feature_name,
                 )
             else:
                 logger.debug(
-                    f"Model {app_label}.{model_name} already registered for feature '{feature_name}'"
+                    "Model %s.%s already registered for feature '%s'",
+                    app_label,
+                    model_name,
+                    feature_name,
                 )
         else:
             logger.warning(
-                f"Unknown feature '{feature_name}' for model {app_label}.{model_name}. "
-                f"Make sure to register it using register_feature('{feature_name}')"
+                "Unknown feature '%s' for model %s.%s. Make sure to register it using register_feature('%s')",
+                feature_name,
+                app_label,
+                model_name,
+                feature_name,
             )
 
     return registered
@@ -266,7 +295,8 @@ def register_models_for_feature(
             except Exception:
                 failed_models.append(str(model))
                 logger.error(
-                    f"register_models_for_feature: Invalid model format: {model}"
+                    "register_models_for_feature: Invalid model format: %s",
+                    model,
                 )
                 continue
 
@@ -306,7 +336,9 @@ def register_models_for_feature(
             model_identifier = str(model_info)
             failed_models.append(model_identifier)
             logger.error(
-                f"register_models_for_feature: Failed to register {model_identifier}: {e}"
+                "register_models_for_feature: Failed to register %s: %s",
+                model_identifier,
+                e,
             )
 
     result_summary = {
@@ -316,7 +348,9 @@ def register_models_for_feature(
     }
 
     logger.info(
-        f"register_models_for_feature: Registered {len(registered_models)}/{len(normalized_models)} models"
+        "register_models_for_feature: Registered %s/%s models",
+        len(registered_models),
+        len(normalized_models),
     )
 
     return result_summary
@@ -381,8 +415,9 @@ def feature_enabled(
                     if model_class not in PENDING_FEATURE_MODELS[feature_name]:
                         PENDING_FEATURE_MODELS[feature_name].append(model_class)
                     logger.debug(
-                        f"Feature '{feature_name}' not yet registered for model {model_class.__name__}. "
-                        f"Will register when feature is registered."
+                        "Feature '%s' not yet registered for model %s. Will register when feature is registered.",
+                        feature_name,
+                        model_class.__name__,
                     )
 
         # Handle 'all' flag
@@ -407,9 +442,11 @@ def feature_enabled(
                     FEATURE_REGISTRY[registry_key].append(model_class)
             else:
                 logger.warning(
-                    f"Unknown feature '{feature_name}' for model {model_class.__name__}. "
-                    f"Make sure to register it using register_feature('{feature_name}') "
-                    f"in your app's ready() method or models.py"
+                    "Unknown feature '%s' for model %s. Make sure to register it using register_feature('%s') "
+                    "in your app's ready() method or models.py",
+                    feature_name,
+                    model_class.__name__,
+                    feature_name,
                 )
 
         return model_class

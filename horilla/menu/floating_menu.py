@@ -1,4 +1,7 @@
-# horilla/menu/floating_menu.py
+"""
+Floating menu system for Horilla, with registration and permission-based filtering.
+"""
+
 from typing import Any, Dict, List, Type
 
 floating_registry: List[Any] = []

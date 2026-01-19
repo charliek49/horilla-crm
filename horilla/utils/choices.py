@@ -1,3 +1,11 @@
+"""
+Choice constants for various form fields and configuration options.
+
+This module contains predefined choice tuples for languages, date/time formats,
+currency formats, number grouping, months, days, and operators used throughout
+the Horilla application.
+"""
+
 from django.utils.translation import gettext_lazy as _
 
 LANGUAGE_CHOICES = [

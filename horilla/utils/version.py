@@ -1,3 +1,11 @@
+"""
+Version information utilities for Horilla modules.
+
+This module provides functions to retrieve and collect version information
+from installed Horilla modules, including version numbers, descriptions,
+and icons.
+"""
+
 from importlib import import_module
 
 from django.conf import settings
