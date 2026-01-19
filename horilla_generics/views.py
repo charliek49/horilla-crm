@@ -1,12 +1,20 @@
+"""
+Views and generic UI helpers for horilla_generics.
+
+Contains the primary class-based views and helper utilities used across
+horilla's generic list/detail/form/Kanban views, exports, and dynamic forms.
+"""
+
 import base64
 import csv
 import functools
-import importlib
 import inspect
 import json
 import logging
 import re
 from decimal import Decimal, InvalidOperation
+
+# Standard library
 from functools import cached_property, reduce
 from io import BytesIO
 from operator import or_
@@ -14,6 +22,8 @@ from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from auditlog.models import LogEntry
+
+# Django / third-party imports
 from django import forms
 from django.apps import apps
 from django.contrib import messages
@@ -27,14 +37,14 @@ from django.core.exceptions import (
     FieldError,
     ImproperlyConfigured,
     ObjectDoesNotExist,
+    PermissionDenied,
     ValidationError,
 )
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import IntegrityError, models, transaction
 from django.db.models import Case, ForeignKey, Max, Q, When
-from django.db.models.fields.related import ForeignKey, ManyToManyField
-from django.forms import ValidationError
+from django.db.models.fields.related import ManyToManyField
 from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -51,12 +61,15 @@ from django.views.generic import (
     ListView,
     TemplateView,
 )
+
+# Other third-party libraries
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
+# First-party (Horilla)
 from horilla.exceptions import HorillaHttp404
 from horilla_core.decorators import htmx_required, permission_required_or_denied
 from horilla_core.mixins import OwnerQuerysetMixin
@@ -104,6 +117,7 @@ class HorillaView(TemplateView):
 
 
 class HorillaNavView(TemplateView):
+    """View for rendering the navigation bar with filtering and search capabilities."""
 
     template_name = "navbar.html"
     nav_title: str = ""
@@ -132,6 +146,7 @@ class HorillaNavView(TemplateView):
     enable_actions = False
 
     def get_navbar_indication_attrs(self):
+        """Return additional attributes for navbar indication when enabled."""
         if self.navbar_indication:
             return self.navbar_indication_attrs
 
@@ -571,9 +586,9 @@ class HorillaListView(ListView):
             cache.set(cache_key, columns)
             return columns
 
-        elif self.columns:
+        if self.columns:
             with translation.override("en"):
-                current_lang = translation.get_language()
+                _current_lang = translation.get_language()
                 serializable_columns = []
                 for col in self.columns:
                     if isinstance(col, (list, tuple)) and len(col) >= 2:
@@ -662,8 +677,8 @@ class HorillaListView(ListView):
 
                 if direction == "desc":
                     return queryset.order_by(f"-{ct_field}", f"-{fk_field}")
-                else:
-                    return queryset.order_by(ct_field, fk_field)
+                # else:
+                return queryset.order_by(ct_field, fk_field)
         except Exception:
             pass
 
@@ -675,7 +690,7 @@ class HorillaListView(ListView):
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning(f"Could not sort by field '{mapped_field}': {str(e)}")
+            logger.warning("Could not sort by field '%s': %s", mapped_field, str(e))
             return queryset
 
     def render_to_response(self, context, **response_kwargs):
@@ -985,7 +1000,7 @@ class HorillaListView(ListView):
             queryset = queryset.prefetch_related(*prefetch_queries)
         except AttributeError as e:
             raise AttributeError(
-                f"Invalid prefetch_related lookup. Check related_name for {self.model.__name__} relations."
+                f"Invalid prefetch_related lookup. Check related_name for {self.model.__name__} relations. Error: {str(e)}"
             )
 
         # Loop over objects to collect dependencies
@@ -1068,7 +1083,7 @@ class HorillaListView(ListView):
                     )
 
             # Recalculate dependencies for ALL items
-            cannot_delete, can_delete, dependency_details = self._check_dependencies(
+            cannot_delete, can_delete, _dependency_details = self._check_dependencies(
                 selected_data
             )
 
@@ -1101,7 +1116,7 @@ class HorillaListView(ListView):
             return context
 
         except self.model.DoesNotExist:
-            logger.error(f"Record with ID {item_id} does not exist.")
+            logger.error("Record with ID %s does not exist.", item_id)
             self.object_list = self.get_queryset()
             context = self.get_context_data()
             context.update(
@@ -1113,7 +1128,7 @@ class HorillaListView(ListView):
             )
             return context
         except Exception as e:
-            logger.error(f"Hard delete of all dependencies failed: {str(e)}")
+            logger.error("Hard delete of all dependencies failed: %s", str(e))
             self.object_list = self.get_queryset()
             context = self.get_context_data()
             context.update(
@@ -1168,7 +1183,7 @@ class HorillaListView(ListView):
                         deleted_count += 1
 
             # Recalculate dependencies for ALL items including the current one
-            cannot_delete, can_delete, dependency_details = self._check_dependencies(
+            cannot_delete, can_delete, _dependency_details = self._check_dependencies(
                 selected_data
             )
 
@@ -1194,7 +1209,7 @@ class HorillaListView(ListView):
             return context
 
         except self.model.DoesNotExist:
-            logger.error(f"Record with ID {item_id} does not exist.")
+            logger.error("Record with ID %s does not exist.", item_id)
             self.object_list = self.get_queryset()
             context = self.get_context_data()
             context.update(
@@ -1206,7 +1221,7 @@ class HorillaListView(ListView):
             )
             return context
         except Exception as e:
-            logger.error(f"Hard delete of dependencies failed: {str(e)}")
+            logger.error("Hard delete of dependencies failed: %s", str(e))
             self.object_list = self.get_queryset()
             context = self.get_context_data()
             context.update(
@@ -1254,7 +1269,7 @@ class HorillaListView(ListView):
                 deleted_count += 1
             return deleted_count
         except Exception as e:
-            logger.error(f"Soft delete failed: {str(e)}")
+            logger.error("Soft delete failed: %s", str(e))
             raise
 
     def handle_custom_bulk_action(self, action, record_ids):
@@ -1265,10 +1280,10 @@ class HorillaListView(ListView):
                 handler = getattr(self, action["handler"], None)
                 if callable(handler):
                     return handler(record_ids, self.request)
-                else:
-                    return HttpResponse(
-                        f"Handler {action['handler']} not found.", status=500
-                    )
+                # else:
+                return HttpResponse(
+                    f"Handler {action['handler']} not found.", status=500
+                )
 
             # Default behavior: HTMX POST request
             url = action.get("url")
@@ -1304,7 +1319,7 @@ class HorillaListView(ListView):
             return render(self.request, "list_view.html", context)
 
         except Exception as e:
-            logger.error(f"Custom  action {action['name']} failed: {str(e)}")
+            logger.error("Custom  action %s failed: %s", action["name"], str(e))
             return HttpResponse(f"Action {action['name']} failed: {str(e)}", status=500)
 
     def post(self, request, *args, **kwargs):
@@ -1332,6 +1347,7 @@ class HorillaListView(ListView):
                 )
                 return self.handle_custom_bulk_action(bulk_action, record_ids)
             except json.JSONDecodeError as e:
+                logger.error("Error decoding record_ids JSON: %s", str(e))
                 return HttpResponse("Invalid JSON data for record_ids", status=400)
 
         if action in [
@@ -1346,6 +1362,7 @@ class HorillaListView(ListView):
                 )
                 return self.handle_custom_bulk_action(bulk_action, record_ids)
             except json.JSONDecodeError as e:
+                logger.error("Error decoding record_ids JSON: %s", str(e))
                 return HttpResponse("Invalid JSON data for record_ids", status=400)
 
         if request.POST.get("delete_mode_form") == "true":
@@ -1367,7 +1384,7 @@ class HorillaListView(ListView):
                     return HttpResponse("<script>$('#reloadButton').click();</script>")
                 return render(request, "partials/delete_mode_form.html", context)
             except (json.JSONDecodeError, ValueError) as e:
-                logger.error(f"Error processing selected_ids: {str(e)}")
+                logger.error("Error processing selected_ids: %s", str(e))
                 self.object_list = self.get_queryset()
                 context = self.get_context_data()
                 context["selected_ids"] = []
@@ -1390,7 +1407,7 @@ class HorillaListView(ListView):
                 context["selected_ids_json"] = json.dumps(selected_ids)
                 return render(request, "partials/bulk_update_form.html", context)
             except (json.JSONDecodeError, ValueError) as e:
-                logger.error(f"Error processing selected_ids: {str(e)}")
+                logger.error("Error processing selected_ids: %s", str(e))
                 self.object_list = self.get_queryset()
                 context = self.get_context_data()
                 context["selected_ids"] = []
@@ -1409,7 +1426,7 @@ class HorillaListView(ListView):
                     .values_list("id", flat=True)
                 )
                 # Check dependencies for the bulk delete form
-                cannot_delete, can_delete, dependency_details = (
+                cannot_delete, can_delete, _dependency_details = (
                     self._check_dependencies(valid_ids)
                 )
                 self.object_list = self.get_queryset()
@@ -1427,7 +1444,7 @@ class HorillaListView(ListView):
                 )
                 return render(request, "partials/bulk_delete_form.html", context)
             except (json.JSONDecodeError, ValueError) as e:
-                logger.error(f"Error processing selected_ids: {str(e)}")
+                logger.error("Error processing selected_ids: %s", str(e))
                 self.object_list = self.get_queryset()
                 context = self.get_context_data()
                 context.update(
@@ -1456,7 +1473,7 @@ class HorillaListView(ListView):
                     .values_list("id", flat=True)
                 )
                 # Check dependencies for the bulk delete form
-                cannot_delete, can_delete, dependency_details = (
+                cannot_delete, can_delete, _dependency_details = (
                     self._check_dependencies(valid_ids)
                 )
                 self.object_list = self.get_queryset()
@@ -1474,7 +1491,7 @@ class HorillaListView(ListView):
                 )
                 return render(request, "partials/soft_delete_form.html", context)
             except (json.JSONDecodeError, ValueError) as e:
-                logger.error(f"Error processing selected_ids: {str(e)}")
+                logger.error("Error processing selected_ids: %s", str(e))
                 self.object_list = self.get_queryset()
                 context = self.get_context_data()
                 context.update(
@@ -1511,7 +1528,7 @@ class HorillaListView(ListView):
                             return HttpResponse(
                                 f"<script>$('#reloadButton').click();closeModal();$('#clear-select-btn-{individual_view_id}').click();</script>"
                             )
-                        elif delete_type == "hard_non_dependent":  # Hard delete
+                        if delete_type == "hard_non_dependent":  # Hard delete
                             deleted_count = self.model.objects.filter(
                                 id__in=can_delete_ids
                             ).delete()[0]
@@ -1523,7 +1540,7 @@ class HorillaListView(ListView):
                                 f"<script>$('#reloadButton').click();$('#clear-select-btn-{individual_view_id}').click();</script>"
                             )
                     except Exception as e:
-                        logger.error(f"Delete failed: {str(e)}")
+                        logger.error("Delete failed: %s", str(e))
                         messages.error(request, f"Delete failed: {str(e)}")
                         return HttpResponse(
                             "<script>$('#reloadButton').click();</script>"
@@ -1546,7 +1563,7 @@ class HorillaListView(ListView):
                 return render(request, "partials/bulk_delete_form.html", context)
 
             except json.JSONDecodeError as e:
-                logger.error(f"JSON decode error: {e}")
+                logger.error("JSON decode error: %s", e)
                 return HttpResponse("Invalid JSON data for record_ids", status=400)
 
         if action == "delete_item_with_dependencies" and request.POST.get("record_id"):
@@ -1563,7 +1580,7 @@ class HorillaListView(ListView):
                 return render(request, "partials/bulk_delete_form.html", context)
 
             except json.JSONDecodeError as e:
-                logger.error(f"JSON decode error: {e}")
+                logger.error("JSON decode error: %s", e)
                 self.object_list = self.get_queryset()
                 context = self.get_context_data()
                 context["error_message"] = "Invalid JSON data for record_ids."
@@ -1578,13 +1595,13 @@ class HorillaListView(ListView):
                 return render(request, "partials/bulk_delete_form.html", context)
 
             except json.JSONDecodeError as e:
-                logger.error(f"JSON decode error: {e}")
+                logger.error("JSON decode error: %s", e)
                 self.object_list = self.get_queryset()
                 context = self.get_context_data()
                 context["error_message"] = "Invalid JSON data for record_ids."
                 return render(request, "partials/bulk_delete_form.html", context)
             except ValueError as e:
-                logger.error(f"Value error: {e}")
+                logger.error("Value error: %s", e)
                 self.object_list = self.get_queryset()
                 context = self.get_context_data()
                 context["error_message"] = "Invalid record ID provided."
@@ -1699,7 +1716,7 @@ class HorillaListView(ListView):
             data = []
             for obj in queryset:
                 row = []
-                for verbose_name, field_name, field in selected_fields:
+                for _verbose_name, field_name, field in selected_fields:
                     try:
                         value = getattr(obj, field_name, "")
                         if field == "method" or callable(value):
@@ -1722,6 +1739,9 @@ class HorillaListView(ListView):
                             value = value()
                         row.append(str(value) if value is not None else "")
                     except Exception as e:
+                        logger.error(
+                            "Error retrieving field %s: %s", field_name, str(e)
+                        )
                         row.append("")  # Fallback to empty string
                 data.append(row)
 
@@ -1740,7 +1760,7 @@ class HorillaListView(ListView):
                     writer.writerow(row)
                 return response
 
-            elif export_format == "xlsx":
+            if export_format == "xlsx":
                 wb = Workbook()
                 ws = wb.active
 
@@ -1980,6 +2000,12 @@ class HorillaListView(ListView):
             return HttpResponse(f"Export failed: {str(e)}", status=500)
 
     def handle_bulk_update(self, record_ids, bulk_updates):
+        """
+        Perform and validate bulk updates for given record IDs.
+
+        Coerces values according to field types and applies the updates; returns
+        an HTTP response with error info on failure.
+        """
         try:
             queryset = self.model.objects.filter(id__in=record_ids)
             field_infos = {field["name"]: field for field in self._get_model_fields()}
@@ -2543,6 +2569,7 @@ class HorillaListView(ListView):
 
 @method_decorator(htmx_required, name="dispatch")
 class HorillaKanbanView(HorillaListView):
+    """View for displaying data in a kanban board layout with group-by functionality."""
 
     template_name = "kanban_view.html"
     group_by_field = None
@@ -2569,6 +2596,7 @@ class HorillaKanbanView(HorillaListView):
             try:
                 self.model = apps.get_model(app_label=app_label, model_name=model_name)
             except Exception as e:
+                logger.error("Error fetching model: %s", str(e))
                 raise HorillaHttp404(
                     f"Invalid app_label/model_name: {app_label}/{model_name}"
                 )
@@ -2614,11 +2642,12 @@ class HorillaKanbanView(HorillaListView):
         self.object_list = self.get_queryset()
         if request.POST.get("item_id") and request.POST.get("new_column"):
             return self.update_kanban_item(request)
-        elif request.POST.get("column_order"):
+        if request.POST.get("column_order"):
             return self.update_kanban_column_order(request)
         return super().post(request, *args, **kwargs)
 
     def update_kanban_item(self, request):
+        """Move a Kanban item to a new column and render the updated content."""
         item_id = request.POST.get("item_id")
         new_column = request.POST.get("new_column")
         app_label = request.POST.get("app_label")
@@ -2736,6 +2765,7 @@ class HorillaKanbanView(HorillaListView):
             return HttpResponse(status=500, content=f"Error: {str(e)}")
 
     def update_kanban_column_order(self, request):
+        """Update stored Kanban column ordering for a model and return updated view."""
         app_label = request.POST.get("app_label")
         model_name = request.POST.get("model_name")
         class_name = request.POST.get("class_name")
@@ -2775,6 +2805,7 @@ class HorillaKanbanView(HorillaListView):
                         content=f"Related model {related_model.__name__} does not support ordering",
                     )
             except Exception as e:
+                logger.error("Error fetching group_by field: %s", str(e))
                 return HttpResponse(
                     status=400,
                     content=f"Invalid group_by field: {group_by}",
@@ -2859,6 +2890,7 @@ class HorillaKanbanView(HorillaListView):
             return HttpResponse(status=500, content=f"Error: {str(e)}")
 
     def get_group_by_field(self):
+        """Return the field used to group Kanban columns for this view's model."""
         model_name = self.model.__name__
         app_label = self.model._meta.app_label
         default_group = KanbanGroupBy.all_objects.filter(
@@ -2867,6 +2899,7 @@ class HorillaKanbanView(HorillaListView):
         return default_group.field_name if default_group else self.group_by_field
 
     def get_context_data(self, **kwargs):
+        """Populate Kanban view context including grouping, columns and items."""
         context = super().get_context_data(**kwargs)
         if not hasattr(self, "object_list"):
             self.object_list = self.get_queryset()
@@ -3241,11 +3274,12 @@ class HorillaKanbanView(HorillaListView):
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.error(f"Load more items failed: {str(e)}")
+            logger.error("Load more items failed: %s", str(e))
             return HttpResponse(status=500, content=f"Error: {str(e)}")
 
 
 class HorillaDetailView(DetailView):
+    """Generic detail view for displaying individual model instances."""
 
     template_name = "detail_view.html"
     context_object_name = "obj"
@@ -4090,6 +4124,8 @@ class HorillaDetailSectionView(DetailView):
 
 @method_decorator(htmx_required, name="dispatch")
 class HorillaRelatedListSectionView(DetailView):
+    """View for displaying related objects in a list section within detail views."""
+
     template_name = "related_list.html"
     context_object_name = "object"
 
@@ -4415,7 +4451,9 @@ class HorillaRelatedListSectionView(DetailView):
 
             logger = logging.getLogger(__name__)
             logger.error(
-                f"Error building custom related list {custom_name}: {str(e)}",
+                "Error building custom related list %s: %s",
+                custom_name,
+                str(e),
                 exc_info=True,
             )
             return None
@@ -4619,7 +4657,7 @@ class HorillaRelatedListContentView(LoginRequiredMixin, DetailView):
             if view_class:
                 return view_class
         except (ImportError, AttributeError) as e:
-            logger.error(f"Error resolving view {class_name} in {model}{str(e)}")
+            logger.error("Error resolving view %s in %s%s", class_name, model, str(e))
 
         return HorillaRelatedListSectionView
 
@@ -4681,6 +4719,7 @@ class HorillaRelatedListContentView(LoginRequiredMixin, DetailView):
     name="dispatch",
 )
 class HorillaNotesAttachementSectionView(DetailView):
+    """View for displaying notes and attachments section in detail views."""
 
     template_name = "notes_attachments.html"
     context_object_name = "obj"
@@ -4836,6 +4875,7 @@ class HorillaNotesAttachementSectionView(DetailView):
     name="dispatch",
 )
 class HorillaNotesAttachementDetailView(DetailView):
+    """Detail view for displaying individual notes and attachments."""
 
     template_name = "notes_attachments_detail.html"
     context_object_name = "obj"
@@ -4856,6 +4896,8 @@ class HorillaNotesAttachementDetailView(DetailView):
 
 @method_decorator(htmx_required, name="dispatch")
 class HorillaNotesAttachmentCreateView(LoginRequiredMixin, FormView):
+    """View for creating new notes and attachments."""
+
     template_name = "forms/notes_attachment_form.html"
     form_class = HorillaAttachmentForm
     model = HorillaAttachment
@@ -5028,6 +5070,8 @@ class HorillaNotesAttachmentCreateView(LoginRequiredMixin, FormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class HorillaHistorySectionView(DetailView):
+    """View for displaying object history/audit trail in detail views."""
+
     template_name = "history_tab.html"
     context_object_name = "obj"
     paginate_by = 2
@@ -5099,6 +5143,8 @@ class HorillaHistorySectionView(DetailView):
 
 
 class HorillaMultiStepFormView(FormView):
+    """View for handling multi-step form workflows."""
+
     template_name = "form_view.html"
     form_class = None
     model = None
@@ -5177,12 +5223,12 @@ class HorillaMultiStepFormView(FormView):
                     else None
                 )
             return reverse(self.single_step_url_name, kwargs={self.pk_url_kwarg: pk})
-        else:
-            # For create mode, use create URL
-            if isinstance(self.single_step_url_name, dict):
-                url_name = self.single_step_url_name.get("create")
-                return reverse(url_name) if url_name else None
-            return reverse(self.single_step_url_name)
+        # else:
+        # For create mode, use create URL
+        if isinstance(self.single_step_url_name, dict):
+            url_name = self.single_step_url_name.get("create")
+            return reverse(url_name) if url_name else None
+        return reverse(self.single_step_url_name)
 
     def get_create_url(self):
         """Get the create URL for the form"""
@@ -5232,11 +5278,11 @@ class HorillaMultiStepFormView(FormView):
 
         if is_edit_mode:
             return [f"{app_label}.change_{model_name}"]
-        else:
-            return [
-                f"{app_label}.add_{model_name}",
-                f"{app_label}.add_own_{model_name}",
-            ]
+        # else:
+        return [
+            f"{app_label}.add_{model_name}",
+            f"{app_label}.add_own_{model_name}",
+        ]
 
     def has_permission(self):
         """
@@ -5326,7 +5372,11 @@ class HorillaMultiStepFormView(FormView):
         if self.form_class is None and self.model is not None:
 
             class DynamicMultiStepForm(HorillaMultiStepForm):
+                """Dynamically generated multi-step form based on model."""
+
                 class Meta:
+                    """Meta options for DynamicMultiStepForm."""
+
                     model = self.model
                     fields = "__all__"
                     exclude = [
@@ -5367,7 +5417,7 @@ class HorillaMultiStepFormView(FormView):
                 "size": uploaded_file.size,
             }
         except Exception as e:
-            logger.error(f"Error encoding file: {e}")
+            logger.error("Error encoding file: %s", e)
             return None
 
     def decode_file_from_session(self, file_data):
@@ -5382,7 +5432,7 @@ class HorillaMultiStepFormView(FormView):
                 content_type=file_data["content_type"],
             )
         except Exception as e:
-            logger.error(f"Error decoding file: {e}")
+            logger.error("Error decoding file: %s", e)
             return None
 
     def get_form_kwargs(self):
@@ -5405,8 +5455,47 @@ class HorillaMultiStepFormView(FormView):
 
         form_data = self.request.session.get(self.storage_key, {})
         files_data = self.request.session.get(f"{self.storage_key}_files", {})
+
         form_class = self.get_form_class()
         step_fields = getattr(form_class, "step_fields", {}).get(step, [])
+
+        # Build a map of field_name -> step_number to identify fields from earlier steps
+        all_step_fields_map = {}
+        if hasattr(form_class, "step_fields") and form_class.step_fields:
+            for step_num, fields_list in form_class.step_fields.items():
+                for field_name in fields_list:
+                    all_step_fields_map[field_name] = step_num
+
+        # Clean up form_data: fix any ManyToMany fields that were stored as string representations
+        # This can happen when session serializes lists incorrectly
+        # Only process fields that are in at least one step
+        many_to_many_fields = [
+            field.name
+            for field in self.model._meta.get_fields()
+            if isinstance(field, models.ManyToManyField)
+        ]
+        for key in list(form_data.keys()):
+            if key in many_to_many_fields and key in all_step_fields_map:
+                value = form_data[key]
+                # Check if value is a list containing a string representation of a list
+                if isinstance(value, list) and len(value) == 1:
+                    first_item = value[0]
+                    if isinstance(first_item, str) and (
+                        first_item.startswith("[") and first_item.endswith("]")
+                    ):
+                        try:
+                            import ast
+
+                            parsed_list = ast.literal_eval(first_item)
+                            if isinstance(parsed_list, list):
+                                form_data[key] = parsed_list
+                        except (ValueError, SyntaxError):
+                            # If parsing fails, set to empty list
+                            form_data[key] = []
+            elif key in many_to_many_fields and key not in all_step_fields_map:
+                # Remove ManyToMany fields that aren't in any step from form_data
+                # They shouldn't be processed
+                form_data.pop(key, None)
 
         # Build a map of field_name -> step_number to identify fields from earlier steps
         all_step_fields = {}
@@ -5436,8 +5525,77 @@ class HorillaMultiStepFormView(FormView):
             for key in post_data:
                 if key not in ["csrfmiddlewaretoken", "step", "previous"]:
                     if key in many_to_many_fields:
-                        values = post_data.getlist(key)
-                        form_data[key] = values if values else []
+                        # Skip ManyToMany fields that are not in any step
+                        # (like groups, user_permissions in User form)
+                        if key not in all_step_fields:
+                            # Field not in any step - skip processing it
+                            continue
+
+                        # Check if this field belongs to the current step or earlier steps
+                        field_step = all_step_fields.get(key)
+                        is_in_current_step = field_step == step
+                        is_from_earlier_step = field_step and field_step < step
+
+                        # Check if key actually exists in POST (getlist returns [] even if key doesn't exist)
+                        has_key_in_post = key in post_data
+                        values = post_data.getlist(key) if has_key_in_post else []
+
+                        # Convert values to integers (they come as strings from POST)
+                        if values:
+                            try:
+                                values = [
+                                    int(v) for v in values if v and str(v).strip()
+                                ]
+                            except (ValueError, TypeError):
+                                values = []
+
+                        # Only update form_data if field is in current step or has values
+                        # If editing and field not in current step, preserve existing values
+                        if values:
+                            # POST has values, update form_data
+                            form_data[key] = values
+                        elif has_key_in_post and is_in_current_step:
+                            # Field is in current step and explicitly in POST with no values - set empty list
+                            form_data[key] = []
+                        elif self.object:
+                            # Editing existing instance - preserve or initialize from instance
+                            if is_from_earlier_step:
+                                # Field from earlier step - preserve existing values if not set or empty
+                                if key not in form_data or (
+                                    isinstance(form_data.get(key), list)
+                                    and not form_data[key]
+                                ):
+                                    # Initialize from instance if available
+                                    try:
+                                        instance_values = list(
+                                            getattr(self.object, key).values_list(
+                                                "pk", flat=True
+                                            )
+                                        )
+                                        form_data[key] = (
+                                            instance_values if instance_values else []
+                                        )
+                                    except Exception:
+                                        form_data[key] = []
+                            else:
+                                # Field not in any step (or step not defined) - preserve or initialize from instance
+                                if key not in form_data or (
+                                    isinstance(form_data.get(key), list)
+                                    and not form_data[key]
+                                ):
+                                    try:
+                                        instance_values = list(
+                                            getattr(self.object, key).values_list(
+                                                "pk", flat=True
+                                            )
+                                        )
+                                        form_data[key] = (
+                                            instance_values if instance_values else []
+                                        )
+                                    except Exception:
+                                        form_data[key] = []
+                        # If creating new instance and field not in current step, don't set anything
+                        # (will be handled by form initialization)
                         continue
 
                     # Check if this field belongs to an earlier step
@@ -5564,12 +5722,14 @@ class HorillaMultiStepFormView(FormView):
         return kwargs
 
     def get_form_title(self):
+        """Return a human-friendly form title based on create/update state."""
         if self.model:
             action = _("Update") if self.object else _("Create")
             verbose = self.model._meta.verbose_name
             return f"{action} {verbose}"
 
     def get_context_data(self, **kwargs):
+        """Provide context for multi-step forms including navigation and titles."""
         context = super().get_context_data(**kwargs)
         self.current_step = getattr(self, "current_step", self.get_initial_step())
         context["step_titles"] = self.step_titles
@@ -5727,7 +5887,7 @@ class HorillaMultiStepFormView(FormView):
                 next_step_form.errors.clear()
                 next_step_form.is_bound = False
             except Exception as e:
-                logger.error(f"Error creating next step form: {e}")
+                logger.error("Error creating next step form: %s", e)
                 next_step_form = self.get_form_class()(**next_step_form_kwargs)
 
             return self.render_to_response(self.get_context_data(form=next_step_form))
@@ -5827,11 +5987,28 @@ class HorillaMultiStepFormView(FormView):
                         if hasattr(_thread_local, "request")
                         else self.request.user.company
                     )
+
+                    # Handle file fields - Django's save(commit=False) doesn't set files on instance
+                    # We need to explicitly set them from cleaned_data or final_files
                     for field in self.model._meta.get_fields():
                         if isinstance(field, (models.FileField, models.ImageField)):
-                            if form_data.get(f"{field.name}_cleared"):
-                                setattr(instance, field.name, None)
+                            field_name = field.name
+                            if form_data.get(f"{field_name}_cleared"):
+                                setattr(instance, field_name, None)
+                            elif field_name in final_form.cleaned_data:
+                                # File is in cleaned_data (from form.save()), use it
+                                file_value = final_form.cleaned_data[field_name]
+                                if file_value:
+                                    setattr(instance, field_name, file_value)
+                            elif field_name in final_files:
+                                # File from earlier step - set it explicitly
+                                file_obj = final_files[field_name]
+                                if file_obj:
+                                    setattr(instance, field_name, file_obj)
+
                     instance.save()
+                    # Call save_m2m to ensure ManyToMany fields are saved
+                    final_form.save_m2m()
                     self.object = instance
 
                     for field in self.model._meta.get_fields():
@@ -5932,7 +6109,7 @@ class HorillaMultiStepFormView(FormView):
             messages.error(
                 self.request, f"Error {action} {self.model.__name__}: {str(e)}"
             )
-            logger.error(f"Exception in form_valid: {str(e)}")
+            logger.error("Exception in form_valid: %s", str(e))
             import traceback
 
             traceback.print_exc()
@@ -5997,6 +6174,7 @@ class HorillaMultiStepFormView(FormView):
 
 
 class HorillaSingleFormView(FormView):
+    """View for handling single-step form submissions."""
 
     template_name = "single_form_view.html"
     model = None
@@ -6088,12 +6266,12 @@ class HorillaSingleFormView(FormView):
                 url_name = self.multi_step_url_name.get("edit")
                 return reverse(url_name, kwargs={"pk": pk}) if url_name else None
             return reverse(self.multi_step_url_name, kwargs={"pk": pk})
-        else:
-            # For create mode, use create URL
-            if isinstance(self.multi_step_url_name, dict):
-                url_name = self.multi_step_url_name.get("create")
-                return reverse(url_name) if url_name else None
-            return reverse(self.multi_step_url_name)
+        # else:
+        # For create mode, use create URL
+        if isinstance(self.multi_step_url_name, dict):
+            url_name = self.multi_step_url_name.get("create")
+            return reverse(url_name) if url_name else None
+        return reverse(self.multi_step_url_name)
 
     def dispatch(self, request, *args, **kwargs):
         if "pk" in self.kwargs:
@@ -6132,11 +6310,11 @@ class HorillaSingleFormView(FormView):
 
         if is_edit_mode and not self.duplicate_mode:
             return [f"{app_label}.change_{model_name}"]
-        else:
-            return [
-                f"{app_label}.add_{model_name}",
-                f"{app_label}.add_own_{model_name}",
-            ]
+        # else:
+        return [
+            f"{app_label}.add_{model_name}",
+            f"{app_label}.add_own_{model_name}",
+        ]
 
     def has_permission(self):
         """
@@ -6317,6 +6495,11 @@ class HorillaSingleFormView(FormView):
         return condition_data
 
     def add_condition_row(self, request):
+        """
+        Return form kwargs for rendering an additional condition row.
+
+        Supports special 'next' keyword to allocate a sequential row identifier.
+        """
         row_id = request.GET.get("row_id", "0")
 
         new_row_id = "0"
@@ -6498,7 +6681,11 @@ class HorillaSingleFormView(FormView):
             save_and_new = self.save_and_new
 
             class DynamicForm(OwnerQuerysetMixin, HorillaModelForm):
+                """Dynamically generated form based on model and view configuration."""
+
                 class Meta:
+                    """Meta options for DynamicForm."""
+
                     model = self.model
                     fields = self.fields if self.fields is not None else "__all__"
                     exclude = (
@@ -7150,6 +7337,7 @@ class HorillaSingleFormView(FormView):
         return context
 
     def get_form_url(self):
+        """Return the configured form URL or fall back to the current request path."""
         return self.form_url or self.request.path
 
     def save_conditions(self, form=None):
@@ -7464,6 +7652,11 @@ class HorillaSingleFormView(FormView):
         return created_instances
 
     def get_add_condition_url(self):
+        """
+        Return a URL which adds a new condition row when accessed.
+
+        Builds a query string including content_type_field when provided.
+        """
         if not self.condition_fields:
             return None
 
@@ -7566,9 +7759,23 @@ class HorillaSingleFormView(FormView):
 
             self.request.session["condition_row_count"] = 0
             self.request.session.modified = True
+            action = (
+                _("duplicated")
+                if self.duplicate_mode
+                else (
+                    _("updated")
+                    if self.kwargs.get("pk") and not self.duplicate_mode
+                    else _("created")
+                )
+            )
+
             messages.success(
                 self.request,
-                f"{self.model._meta.verbose_name.title()} {'duplicated' if self.duplicate_mode else 'updated' if self.kwargs.get('pk') and not self.duplicate_mode else 'created'} successfully!",
+                _("%(model)s %(action)s successfully!")
+                % {
+                    "model": self.model._meta.verbose_name,
+                    "action": action,
+                },
             )
 
             # Check if "save_and_new" button was clicked (only in create mode)
@@ -7670,7 +7877,10 @@ class HorillaSingleFormView(FormView):
         except Exception as e:
             # Handle any other database errors
             logger.error(
-                f"Error saving {self.model._meta.verbose_name}: {str(e)}", exc_info=True
+                "Error saving %s: %s",
+                self.model._meta.verbose_name,
+                str(e),
+                exc_info=True,
             )
             form.add_error(
                 None,
@@ -7708,6 +7918,11 @@ class HorillaDynamicCreateView(LoginRequiredMixin, FormView):
         return None
 
     def get_model_and_fields(self):
+        """
+        Resolve and return a model and optional field list from kwargs/GET params.
+
+        Returns `(model, field_names)` or `(None, None)` if the model cannot be found.
+        """
         app_label = self.kwargs.get("app_label")
         model_name = self.kwargs.get("model_name")
         fields_param = self.request.GET.get("fields", "")
@@ -7720,7 +7935,7 @@ class HorillaDynamicCreateView(LoginRequiredMixin, FormView):
             model = apps.get_model(app_label, model_name)
             return model, field_names
         except LookupError:
-            logger.warning(f"Model {app_label}.{model_name} not found")
+            logger.warning("Model %s.%s not found", app_label, model_name)
             messages.error(self.request, f"Model {app_label}.{model_name} not found")
             return None, None
 
@@ -7752,7 +7967,11 @@ class HorillaDynamicCreateView(LoginRequiredMixin, FormView):
         target_model, field_names = self.target_model, self.field_names
 
         class DynamicCreateForm(HorillaModelForm):
+            """Dynamically generated form for creating related objects."""
+
             class Meta:
+                """Meta options for DynamicCreateForm."""
+
                 model = target_model
                 fields = (
                     field_names if field_names and field_names != [""] else "__all__"
@@ -7874,6 +8093,7 @@ class HorillaDynamicCreateView(LoginRequiredMixin, FormView):
 
 
 class HorillaSingleDeleteView(DeleteView):
+    """Generic delete view for single object deletion with dependency handling."""
 
     template_name = None
     success_url = None
@@ -7948,7 +8168,7 @@ class HorillaSingleDeleteView(DeleteView):
                 excluded.append(found_models[0])
             else:
                 logger.warning(
-                    f"Model '{model_name}' could not be resolved in any app."
+                    "Model '%s' could not be resolved in any app.", model_name
                 )
 
         return excluded
@@ -7993,7 +8213,7 @@ class HorillaSingleDeleteView(DeleteView):
             }
 
         except Exception as e:
-            logger.error(f"Error getting paginated individual records: {str(e)}")
+            logger.error("Error getting paginated individual records: %s", str(e))
             return {
                 "records": [],
                 "has_more": False,
@@ -8016,7 +8236,9 @@ class HorillaSingleDeleteView(DeleteView):
             obj = self.model.all_objects.filter(id=record_id).only("id").first()
             if not obj:
                 logger.warning(
-                    f"No record found with id {record_id} for model {self.model.__name__}"
+                    "No record found with id %s for model %s",
+                    record_id,
+                    self.model.__name__,
                 )
                 return cannot_delete, can_delete, dependency_details
 
@@ -8091,7 +8313,7 @@ class HorillaSingleDeleteView(DeleteView):
             }
             return cannot_delete, can_delete, dependency_details
         except Exception as e:
-            logger.error(f"Error checking dependencies: {str(e)}")
+            logger.error("Error checking dependencies: %s", str(e))
             return cannot_delete, can_delete, dependency_details
 
     def _get_paginated_dependencies(self, record_id, related_name, page=1, per_page=8):
@@ -8139,7 +8361,7 @@ class HorillaSingleDeleteView(DeleteView):
                 "total_count": 0,
             }
         except Exception as e:
-            logger.error(f"Error getting paginated dependencies: {str(e)}")
+            logger.error("Error getting paginated dependencies: %s", str(e))
             return {
                 "records": [],
                 "has_more": False,
@@ -8390,13 +8612,13 @@ class HorillaSingleDeleteView(DeleteView):
                 return render(
                     request, "partials/Single_delete/bulk_reassign_form.html", context
                 )
-            elif action == "show_individual_reassign":
+            if action == "show_individual_reassign":
                 return render(
                     request,
                     "partials/Single_delete/individual_reassign_form.html",
                     context,
                 )
-            elif action == "show_delete_confirmation":
+            if action == "show_delete_confirmation":
                 related_objects = self.model._meta.related_objects
                 related_model = None
                 related_verbose_name_plural = "records"
@@ -8418,15 +8640,15 @@ class HorillaSingleDeleteView(DeleteView):
                 return render(
                     request, "partials/Single_delete/delete_mode_modal.html", context
                 )
-            else:
-                return render(
-                    request,
-                    "partials/Single_delete/delete_dependency_modal.html",
-                    context,
-                )
+            # else:
+            return render(
+                request,
+                "partials/Single_delete/delete_dependency_modal.html",
+                context,
+            )
 
         except Exception as e:
-            logger.error(f"Error in get method: {str(e)}")
+            logger.error("Error in get method: %s", str(e))
             raise HorillaHttp404(e)
 
     def get_object(self, queryset=None):
@@ -8453,7 +8675,7 @@ class HorillaSingleDeleteView(DeleteView):
 
             if has_delete_all:
                 return obj
-            elif has_delete_own:
+            if has_delete_own:
                 owner_fields = getattr(self.model, "OWNER_FIELDS", None)
                 if owner_fields:
                     is_owner = any(
@@ -8463,17 +8685,13 @@ class HorillaSingleDeleteView(DeleteView):
                     if is_owner:
                         return obj
 
-                from django.core.exceptions import PermissionDenied
-
                 raise PermissionDenied(
                     f"You don't have permission to delete this {self.model._meta.verbose_name}."
                 )
-            else:
-                from django.core.exceptions import PermissionDenied
-
-                raise PermissionDenied(
-                    f"You don't have permission to delete {self.model._meta.verbose_name_plural}."
-                )
+            # else:
+            raise PermissionDenied(
+                f"You don't have permission to delete {self.model._meta.verbose_name_plural}."
+            )
 
         return obj
 
@@ -8531,7 +8749,10 @@ class HorillaSingleDeleteView(DeleteView):
                     from django.utils.translation import gettext_lazy as _
 
                     logger.error(
-                        f"Simple delete error for {self.model.__name__} id {record_id}: {str(e)}"
+                        "Simple delete error for %s id %s: %s",
+                        self.model.__name__,
+                        record_id,
+                        str(e),
                     )
                     messages.info(
                         self.request,
@@ -8611,7 +8832,7 @@ class HorillaSingleDeleteView(DeleteView):
                         "<script>htmx.trigger('#reloadButton','click');closeDeleteModal();closeModal();closeDeleteModeModal();</script>"
                     )
                 except Exception as e:
-                    logger.error(f"Bulk reassign error: {str(e)}")
+                    logger.error("Bulk reassign error: %s", str(e))
                     return HttpResponse(
                         f"<script>alert('Error: {str(e)}');</script>", status=500
                     )
@@ -8740,11 +8961,11 @@ class HorillaSingleDeleteView(DeleteView):
                                 f"Successfully soft deleted {str(record_to_delete)}.",
                             )
                             return HttpResponse("")
-                        else:
-                            return HttpResponse("Record not found", status=404)
+                        # else:
+                        return HttpResponse("Record not found", status=404)
 
                 except Exception as e:
-                    logger.error(f"Soft delete error: {str(e)}")
+                    logger.error("Soft delete error: %s", str(e))
                     return HttpResponse(
                         f"<script>alert('Error: {str(e)}');</script>", status=500
                     )
@@ -8783,8 +9004,8 @@ class HorillaSingleDeleteView(DeleteView):
                             request, f"Successfully deleted {str(record_to_delete)}."
                         )
                         return HttpResponse("")
-                    else:
-                        return HttpResponse("Record not found", status=404)
+                    # else:
+                    return HttpResponse("Record not found", status=404)
 
                 except Exception as e:
                     return HttpResponse(
@@ -8825,7 +9046,7 @@ class HorillaSingleDeleteView(DeleteView):
                         "<script>htmx.trigger('#reloadButton','click');closeDeleteModeModal();CloseDeleteConfirmModal();closeModal();</script>"
                     )
                 except Exception as e:
-                    logger.error(f"Bulk delete error: {str(e)}")
+                    logger.error("Bulk delete error: %s", str(e))
                     return HttpResponse(
                         f"<script>alert('Error: {str(e)}');</script>", status=500
                     )
@@ -8844,7 +9065,10 @@ class HorillaSingleDeleteView(DeleteView):
                     from django.utils.translation import gettext_lazy as _
 
                     logger.error(
-                        f"Simple delete error for {self.model.__name__} id {record_id}: {str(e)}"
+                        "Simple delete error for %s id %s: %s",
+                        self.model.__name__,
+                        record_id,
+                        str(e),
                     )
                     messages.info(
                         self.request,
@@ -8901,7 +9125,10 @@ class HorillaSingleDeleteView(DeleteView):
                                                 record_to_update.save()
                                                 updated = True
                                                 logger.info(
-                                                    f"Set {field_name} to null for {related_model.__name__} id {record_id_to_update}"
+                                                    "Set %s to null for %s id %s",
+                                                    field_name,
+                                                    related_model.__name__,
+                                                    record_id_to_update,
                                                 )
                                             break
                                     except ObjectDoesNotExist:
@@ -8962,15 +9189,15 @@ class HorillaSingleDeleteView(DeleteView):
                                     "partials/Single_delete/individual_reassign_form.html",
                                     context,
                                 )
-                            else:
-                                return render(
-                                    request,
-                                    "partials/Single_delete/delete_dependency_modal.html",
-                                    context,
-                                )
+                            # else:
+                            return render(
+                                request,
+                                "partials/Single_delete/delete_dependency_modal.html",
+                                context,
+                            )
 
                     except Exception as e:
-                        logger.error(f"Set null action error: {str(e)}")
+                        logger.error("Set null action error: %s", str(e))
                         return HttpResponse(
                             f"<script>alert('Error: {str(e)}');</script>", status=500
                         )
@@ -9012,7 +9239,7 @@ class HorillaSingleDeleteView(DeleteView):
             )
 
         except Exception as e:
-            logger.error(f"Error in delete method: {str(e)}")
+            logger.error("Error in delete method: %s", str(e))
             messages.error(self.request, f"Error in delete method: {str(e)}")
             return HttpResponse(
                 "<script>$('#reloadButton').click();closeDeleteModeModal();</script>"
@@ -9027,7 +9254,7 @@ class HorillaSingleDeleteView(DeleteView):
             if resolved_url:
                 return redirect(resolved_url)
         except Exception as e:
-            logger.error(f"Error getting success URL: {str(e)}")
+            logger.error("Error getting success URL: %s", str(e))
             return HttpResponse(
                 f"<script>alert('Error: {str(e)}');</script>", status=500
             )
@@ -9054,6 +9281,8 @@ class HorillaSingleDeleteView(DeleteView):
     name="dispatch",
 )
 class HorillaNotesAttachmentDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """View for deleting notes and attachments."""
+
     model = HorillaAttachment
 
     def get_post_delete_response(self):
@@ -9098,7 +9327,7 @@ class HorillaModalDetailView(DetailView):
         try:
             self.instance = super().get_object(queryset)
         except Exception as e:
-            logger.error(f"Error getting object: {e}")
+            logger.error("Error getting object: %s", e)
         return self.instance
 
     def get(self, request, *args, **kwargs):
@@ -9109,7 +9338,7 @@ class HorillaModalDetailView(DetailView):
         response = super().get(request, *args, **kwargs)
         if not self.instance and self.empty_template:
             return render(request, self.empty_template, context=self.get_context_data())
-        elif not self.instance:
+        if not self.instance:
             messages.error(request, "The requested record does not exist.")
             return HttpResponse("<script>$('#reloadButton').click();</script>")
         return response
