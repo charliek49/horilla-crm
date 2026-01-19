@@ -1,5 +1,9 @@
-# Uvicorn configuration for Horilla-CRM
-# This file provides advanced configuration options for the ASGI server
+"""
+Uvicorn configuration for Horilla.
+
+This module defines advanced configuration options for running the
+Horilla ASGI application using Uvicorn.
+"""
 
 import multiprocessing
 import os
@@ -27,8 +31,8 @@ ws_ping_interval = 20
 ws_ping_timeout = 20
 
 # SSL settings (if needed)
-# ssl_keyfile = os.environ.get('SSL_KEYFILE')
-# ssl_certfile = os.environ.get('SSL_CERTFILE')
+# ssl_keyfile = os.environ.get("SSL_KEYFILE")
+# ssl_certfile = os.environ.get("SSL_CERTFILE")
 
 # Additional ASGI settings
 lifespan = "on"  # Enable ASGI lifespan protocol
