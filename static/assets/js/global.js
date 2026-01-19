@@ -12,16 +12,36 @@ const horillaMessages = {
     confirmBulkUnArchive: gettext("Do you really want to unarchive all the selected records?"),
 };
 
-// Generic Modal Manager
+
 const ModalManager = {
+    stack: [],
+    baseZIndex: 1000,
+
     open(modalId, modalBoxId) {
         const $modal = $(`#${modalId}`);
         const $modalBox = $(`#${modalBoxId}`);
 
-        $modal.removeClass("hidden");
+        // Calculate and apply z-index based on stack position
+        const currentZIndex = this.baseZIndex + (this.stack.length * 10);
+        $modal.css('z-index', currentZIndex);
+
+        // Add to stack
+        this.stack.push({
+            id: modalId,
+            boxId: modalBoxId,
+            zIndex: currentZIndex
+        });
+
+        // Show modal
+        $modal.removeClass("hidden").addClass("flex");
         setTimeout(() => {
             $modalBox.removeClass("opacity-0 scale-95").addClass("opacity-100 scale-100");
         }, 10);
+
+        // Lock body scroll if first modal
+        if (this.stack.length === 1) {
+            $('body').css('overflow', 'hidden');
+        }
     },
 
     close(modalId, modalBoxId, clearContent = true) {
@@ -32,10 +52,36 @@ const ModalManager = {
         $modalBox.removeClass("opacity-100 scale-100").addClass("opacity-0 scale-95");
 
         setTimeout(() => {
-            $modal.addClass("hidden");
+            $modal.removeClass("flex").addClass("hidden");
+            // Reset z-index when closing
+            $modal.css('z-index', '');
         }, 300);
+
+        // Remove from stack
+        this.stack = this.stack.filter(m => m.id !== modalId);
+
+        // Unlock body scroll if no modals
+        if (this.stack.length === 0) {
+            $('body').css('overflow', '');
+        }
+    },
+
+    closeTop() {
+        if (this.stack.length > 0) {
+            const topModal = this.stack[this.stack.length - 1];
+            this.close(topModal.id, topModal.boxId);
+        }
+    },
+
+    closeAll() {
+        // Close in reverse order
+        const modalsToClose = [...this.stack].reverse();
+        modalsToClose.forEach(modal => {
+            this.close(modal.id, modal.boxId);
+        });
     }
 };
+
 
 // Modal functions using ModalManager
 function OpenDeleteConfirmModal() { ModalManager.open("deleteConfirmModal", "deleteConfirmModalBox"); }
@@ -1376,22 +1422,20 @@ $(document).on("htmx:afterSettle", function (e) {
     }
 });
 
-// Keyboard events
+
 $(document).on('keydown', function (e) {
     if (e.key === "Escape" || e.keyCode === 27) {
-        var visibleModals = $('.fixed.inset-0.flex').filter(function () {
-            return !$(this).hasClass('hidden');
-        });
+        ModalManager.closeTop();
+    }
+});
 
-        if (visibleModals.length > 0) {
-            var topmostModal = visibleModals.last();
-
-            topmostModal.find('.opacity-100, .scale-100').removeClass('opacity-100 scale-100').addClass('opacity-0 scale-95');
-
-            setTimeout(function () {
-                topmostModal.addClass('hidden');
-                topmostModal.find('.modal-box').empty();
-            }, 200);
+// Close on backdrop click
+$(document).on('click', '[id$="modal"], [id$="Modal"]', function(e) {
+    if (e.target === this) {
+        const modalId = $(this).attr('id');
+        const modalInStack = ModalManager.stack.find(m => m.id === modalId);
+        if (modalInStack) {
+            ModalManager.close(modalInStack.id, modalInStack.boxId);
         }
     }
 });
