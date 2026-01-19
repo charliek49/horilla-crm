@@ -1,3 +1,9 @@
+"""
+Forms for horilla_generics.
+
+Contains form classes and helpers used across the horilla_generics app.
+"""
+
 # Standard library imports
 import logging
 from datetime import date, datetime
@@ -31,7 +37,11 @@ logger = logging.getLogger(__name__)
 
 # Define your horilla_generics forms here
 class KanbanGroupByForm(forms.ModelForm):
+    """Form for configuring kanban board group-by settings."""
+
     class Meta:
+        """Meta options for KanbanGroupByForm."""
+
         model = KanbanGroupBy
         fields = ["model_name", "field_name", "app_label"]
         widgets = {
@@ -93,6 +103,8 @@ class KanbanGroupByForm(forms.ModelForm):
 
 
 class ColumnSelectionForm(forms.Form):
+    """Form for selecting visible columns in list views."""
+
     visible_fields = forms.MultipleChoiceField(
         required=False, widget=forms.MultipleHiddenInput
     )
@@ -103,7 +115,7 @@ class ColumnSelectionForm(forms.Form):
         path_context = kwargs.pop("path_context", None)
         user = kwargs.pop("user", None)
         model_name = kwargs.pop("model_name", None)
-        url_name = kwargs.pop("url_name", None)
+        _url_name = kwargs.pop("url_name", None)
         super().__init__(*args, **kwargs)
 
         if model:
@@ -183,6 +195,8 @@ class ColumnSelectionForm(forms.Form):
 
 
 class HorillaMultiStepForm(forms.ModelForm):
+    """Base form class for multi-step form workflows."""
+
     step_fields = {}
 
     def __init__(self, *args, **kwargs):
@@ -197,6 +211,28 @@ class HorillaMultiStepForm(forms.ModelForm):
 
         super().__init__(*args, **kwargs)
 
+        # Get all step fields to identify fields that should be excluded
+        all_step_fields = []
+        if hasattr(self, "step_fields") and self.step_fields:
+            for step_fields_list in self.step_fields.values():
+                all_step_fields.extend(step_fields_list)
+
+        # Remove ManyToMany fields that are not in any step from the form
+        # (like groups, user_permissions in User form)
+        if all_step_fields:
+            fields_to_remove = []
+            for field_name, field in list(self.fields.items()):
+                if field_name not in all_step_fields:
+                    try:
+                        model_field = self._meta.model._meta.get_field(field_name)
+                        if isinstance(model_field, models.ManyToManyField):
+                            fields_to_remove.append(field_name)
+                    except models.FieldDoesNotExist:
+                        pass
+
+            for field_name in fields_to_remove:
+                del self.fields[field_name]
+
         # Store original required state before any modifications
         for field_name, field in self.fields.items():
             field._original_required = field.required
@@ -210,8 +246,23 @@ class HorillaMultiStepForm(forms.ModelForm):
             for field_name, file_obj in self.files.items():
                 self.stored_files[field_name] = file_obj
 
+        # Get all step fields to check if a field should be processed
+        all_step_fields = []
+        if hasattr(self, "step_fields") and self.step_fields:
+            for step_fields_list in self.step_fields.values():
+                all_step_fields.extend(step_fields_list)
+
         if self.instance and self.instance.pk:
             for field_name in self.fields:
+                if all_step_fields and field_name not in all_step_fields:
+                    try:
+                        model_field = self._meta.model._meta.get_field(field_name)
+                        if isinstance(model_field, models.ManyToManyField):
+                            continue
+                    except models.FieldDoesNotExist:
+                        # If we can't determine the field type, process it to be safe
+                        pass
+
                 if field_name not in self.form_data or self.form_data[field_name] in [
                     None,
                     "",
@@ -222,9 +273,11 @@ class HorillaMultiStepForm(forms.ModelForm):
                         if hasattr(field_value, "pk"):
                             self.form_data[field_name] = field_value.pk
                         elif hasattr(field_value, "all"):
-                            self.form_data[field_name] = [
-                                obj.pk for obj in field_value.all()
-                            ]
+                            # Only populate ManyToMany if field is in at least one step
+                            if not all_step_fields or field_name in all_step_fields:
+                                self.form_data[field_name] = [
+                                    obj.pk for obj in field_value.all()
+                                ]
                         elif isinstance(field_value, datetime):
                             self.form_data[field_name] = field_value.strftime(
                                 "%Y-%m-%dT%H:%M"
@@ -582,7 +635,7 @@ class HorillaMultiStepForm(forms.ModelForm):
         fields_list = []
 
         # Check if we're in create mode
-        is_create_mode = not (self.instance and self.instance.pk)
+        _is_create_mode = not (self.instance and self.instance.pk)
 
         # Add fields from current step
         for field_name in current_fields:
@@ -680,7 +733,23 @@ class HorillaMultiStepForm(forms.ModelForm):
                         )
 
                 elif isinstance(model_field, models.ManyToManyField):
-                    self._configure_many_to_many_field(field, field_name, model_field)
+                    # Only configure ManyToMany fields that are in at least one step
+                    # Skip fields not in any step (like groups, user_permissions in User form)
+                    all_step_fields = []
+                    if hasattr(self, "step_fields") and self.step_fields:
+                        for step_fields_list in self.step_fields.values():
+                            all_step_fields.extend(step_fields_list)
+
+                    if field_name in all_step_fields:
+                        self._configure_many_to_many_field(
+                            field, field_name, model_field
+                        )
+                    else:
+                        # Field not in any step - hide it or make it not required
+                        # Don't configure pagination for it
+                        field.required = False
+                        if not isinstance(field.widget, forms.HiddenInput):
+                            field.widget = forms.HiddenInput()
 
                 elif isinstance(model_field, models.ForeignKey):
                     self._configure_foreign_key_field(field, field_name, model_field)
@@ -737,17 +806,86 @@ class HorillaMultiStepForm(forms.ModelForm):
         model_name = related_model._meta.model_name
 
         initial_value = []
-        if field_name in self.form_data:
+        # When editing, prioritize instance values over form_data to avoid losing data
+        # when field is not in current step
+        if self.instance and self.instance.pk:
+            # Get values from instance first
+            try:
+                initial_value = list(
+                    getattr(self.instance, field_name).values_list("pk", flat=True)
+                )
+                # Only override with form_data if it has actual values (not empty list)
+                if field_name in self.form_data:
+                    form_data_value = self.form_data[field_name]
+                    # Handle case where form_data contains string representation of list
+                    # (happens when session serializes lists)
+                    if isinstance(form_data_value, list) and len(form_data_value) == 1:
+                        first_item = form_data_value[0]
+                        # Check if it's a string that looks like a list representation
+                        if isinstance(first_item, str) and (
+                            first_item.startswith("[") and first_item.endswith("]")
+                        ):
+                            try:
+                                import ast
+
+                                parsed_list = ast.literal_eval(first_item)
+                                if isinstance(parsed_list, list) and parsed_list:
+                                    initial_value = parsed_list
+                                elif isinstance(parsed_list, list) and not parsed_list:
+                                    # Empty list from string '[]', keep instance values
+                                    pass
+                                else:
+                                    initial_value = [parsed_list] if parsed_list else []
+                            except (ValueError, SyntaxError):
+                                # Failed to parse, keep instance values
+                                pass
+                        elif form_data_value:
+                            # Normal list with actual values
+                            initial_value = form_data_value
+                    elif isinstance(form_data_value, list) and form_data_value:
+                        # form_data has values, use them
+                        initial_value = form_data_value
+                    elif form_data_value and not isinstance(form_data_value, list):
+                        initial_value = [form_data_value]
+                    # If form_data_value is empty list [], keep instance values
+            except Exception:
+                # If instance doesn't have the field or error, fall back to form_data
+                if field_name in self.form_data:
+                    form_data_value = self.form_data[field_name]
+                    if isinstance(form_data_value, list):
+                        initial_value = form_data_value
+                    elif form_data_value:
+                        initial_value = [form_data_value]
+        elif field_name in self.form_data:
+            # Creating new instance - use form_data
             form_data_value = self.form_data[field_name]
-            if isinstance(form_data_value, list):
+            # Handle case where form_data contains string representation of list
+            if isinstance(form_data_value, list) and len(form_data_value) == 1:
+                first_item = form_data_value[0]
+                # Check if it's a string that looks like a list representation
+                if isinstance(first_item, str) and (
+                    first_item.startswith("[") and first_item.endswith("]")
+                ):
+                    try:
+                        import ast
+
+                        parsed_list = ast.literal_eval(first_item)
+                        if isinstance(parsed_list, list):
+                            initial_value = parsed_list
+                        else:
+                            initial_value = [parsed_list] if parsed_list else []
+                    except (ValueError, SyntaxError):
+                        initial_value = []
+                else:
+                    initial_value = form_data_value
+            elif isinstance(form_data_value, list):
                 initial_value = form_data_value
             elif form_data_value:
                 initial_value = [form_data_value]
-        elif self.instance and self.instance.pk:
-            initial_value = list(
-                getattr(self.instance, field_name).values_list("pk", flat=True)
-            )
+            else:
+                initial_value = []
         elif field_name in self.initial:
+            # Fall back to initial data
             initial_data = self.initial[field_name]
             if isinstance(initial_data, list):
                 initial_value = []
@@ -762,6 +900,43 @@ class HorillaMultiStepForm(forms.ModelForm):
                 else:
                     initial_value = [initial_data]
 
+        # Clean up and convert initial_value to integers
+        # Handle case where initial_value might be a string representation of a list
+        if initial_value:
+            # If initial_value is a string that looks like a list, try to parse it
+            if isinstance(initial_value, str):
+                try:
+                    import ast
+
+                    initial_value = ast.literal_eval(initial_value)
+                except (ValueError, SyntaxError):
+                    # If parsing fails, treat as comma-separated string
+                    initial_value = [
+                        v.strip() for v in initial_value.split(",") if v.strip()
+                    ]
+
+            # Ensure it's a list
+            if not isinstance(initial_value, list):
+                initial_value = [initial_value] if initial_value else []
+
+            # Convert all values to integers and filter out invalid ones
+            cleaned_value = []
+            for val in initial_value:
+                if val is None or val == "" or val == []:
+                    continue
+                try:
+                    # Convert to int if it's a string or already an int
+                    int_val = int(val) if val else None
+                    if int_val is not None:
+                        cleaned_value.append(int_val)
+                except (ValueError, TypeError):
+                    # Skip invalid values
+                    continue
+
+            initial_value = cleaned_value
+        else:
+            initial_value = []
+
         # Get the selected objects for initial display
         initial_choices = []
         if initial_value:
@@ -770,7 +945,7 @@ class HorillaMultiStepForm(forms.ModelForm):
                 initial_choices = [(obj.pk, str(obj)) for obj in selected_objects]
             except Exception as e:
                 logger.error(
-                    f"Error loading initial choices for {field_name}: {str(e)}"
+                    "Error loading initial choices for %s: %s", field_name, str(e)
                 )
 
         field.widget = forms.SelectMultiple(
@@ -821,11 +996,25 @@ class HorillaMultiStepForm(forms.ModelForm):
                 selected_object = related_model.objects.get(pk=initial_value)
                 initial_choices = [(selected_object.pk, str(selected_object))]
             except related_model.DoesNotExist:
-                logger.error(
-                    f"Initial object not found for {field_name}: {initial_value}"
+                # Object doesn't exist (may have been deleted) - clear invalid value
+                # This is not a critical error, just log as warning
+                logger.warning(
+                    "Initial object not found for %s: %s (object may have been deleted)",
+                    field_name,
+                    initial_value,
                 )
+                # Clear invalid value from form_data to prevent issues
+                if (
+                    field_name in self.form_data
+                    and self.form_data[field_name] == initial_value
+                ):
+                    self.form_data[field_name] = None
+                initial_value = None
             except Exception as e:
-                logger.error(f"Error loading initial choice for {field_name}: {str(e)}")
+                logger.error(
+                    "Error loading initial choice for %s: %s", field_name, str(e)
+                )
+                initial_value = None
 
         field.widget = forms.Select(
             choices=[("", "---------")] + initial_choices,  # Set initial choices
@@ -837,7 +1026,7 @@ class HorillaMultiStepForm(forms.ModelForm):
                 ),
                 "data-placeholder": _("Select %(field)s")
                 % {"field": model_field.verbose_name.title()},
-                "data-initial": str(initial_value) if initial_value else "",
+                "data-initial": str(initial_value) if initial_value is not None else "",
                 "data-field-name": field_name,  # Add unique identifier
                 "id": f"id_{field_name}",
                 "data-form-class": f"{self.__module__}.{self.__class__.__name__}",
@@ -984,6 +1173,8 @@ class HorillaMultiStepForm(forms.ModelForm):
 
 
 class SaveFilterListForm(forms.Form):
+    """Form for saving filter configurations as reusable filter lists."""
+
     list_name = forms.CharField(
         max_length=100,
         required=True,
@@ -1009,6 +1200,8 @@ class SaveFilterListForm(forms.Form):
 
 
 class PasswordInputWithEye(forms.PasswordInput):
+    """Password input widget with eye icon toggle for showing/hiding password."""
+
     def __init__(self, attrs=None):
         default_attrs = {
             "class": "text-color-600 p-2 placeholder:text-xs font-normal w-full border border-dark-50 rounded-md mt-1 focus-visible:outline-0 placeholder:text-dark-100 text-sm transition duration-300 focus:border-primary-600 pr-10",
@@ -1052,6 +1245,7 @@ class PasswordInputWithEye(forms.PasswordInput):
 
 
 class HorillaModelForm(forms.ModelForm):
+    """Base model form class with enhanced field configuration and validation."""
 
     def __init__(self, *args, **kwargs):
         self.full_width_fields = kwargs.pop("full_width_fields", [])
@@ -1543,7 +1737,9 @@ class HorillaModelForm(forms.ModelForm):
                                     ]
                             except Exception as e:
                                 logger.error(
-                                    f"Error fetching choices for {field_name}: {str(e)}"
+                                    "Error fetching choices for %s: %s",
+                                    field_name,
+                                    str(e),
                                 )
 
                             # Check if field should be disabled (readonly)
@@ -1659,7 +1855,7 @@ class HorillaModelForm(forms.ModelForm):
                             field.disabled = True
 
             except Exception as e:
-                logger.error(f"Error processing field {field_name}: {str(e)}")
+                logger.error("Error processing field %s: %s", field_name, str(e))
 
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.update({"class": "sr-only peer"})
@@ -1903,7 +2099,9 @@ class HorillaModelForm(forms.ModelForm):
                         initial_choices = [(obj.pk, str(obj)) for obj in queryset]
                     except Exception as e:
                         logger.error(
-                            f"Error fetching choices for condition field {field_name}: {str(e)}"
+                            "Error fetching choices for condition field %s: %s",
+                            field_name,
+                            str(e),
                         )
 
                     form_field = forms.ChoiceField(
@@ -2001,7 +2199,7 @@ class HorillaModelForm(forms.ModelForm):
                     self.fields[field_name] = form_field
 
             except Exception as e:
-                logger.error(f"Error adding condition field {field_name}: {str(e)}")
+                logger.error("Error adding condition field %s: %s", field_name, str(e))
 
     def _add_generic_htmx_to_field(self):
         """
@@ -2282,7 +2480,9 @@ class HorillaModelForm(forms.ModelForm):
                         )
                         field_choices.append((field.name, verbose_name))
         except Exception as e:
-            logger.error(f"Error fetching model {model_name}: {str(e)}", exc_info=True)
+            logger.error(
+                "Error fetching model %s: %s", model_name, str(e), exc_info=True
+            )
 
         return field_choices
 
@@ -2452,7 +2652,7 @@ class HorillaModelForm(forms.ModelForm):
                             )
 
             except Exception as e:
-                logger.error(f"Error validating field {field_name}: {str(e)}")
+                logger.error("Error validating field %s: %s", field_name, str(e))
 
         if hasattr(self, "field_permissions") and self.field_permissions:
             # Only validate in edit mode (when instance exists)
@@ -2566,7 +2766,7 @@ class HorillaModelForm(forms.ModelForm):
 
                 except Exception as e:
                     logger.error(
-                        f"Error validating condition field {field_name}: {str(e)}"
+                        "Error validating condition field %s: %s", field_name, str(e)
                     )
 
         return cleaned_data
@@ -2602,7 +2802,7 @@ class HorillaModelForm(forms.ModelForm):
             return queryset
 
         except Exception as e:
-            logger.error(f"Error getting fresh queryset for {field_name}: {str(e)}")
+            logger.error("Error getting fresh queryset for %s: %s", field_name, str(e))
             return related_model.objects.all()
 
     def _get_allowed_user_ids(self, user):
@@ -2650,6 +2850,10 @@ class HorillaHistoryForm(forms.Form):
     )
 
     def apply_filter(self, history_by_date):
+        """Apply the selected date filter to a sequence of (date, entries) pairs.
+
+        If the form is invalid or no date is selected, the original sequence is returned.
+        """
         if not self.is_valid():
             return history_by_date
 
@@ -2664,6 +2868,8 @@ class HorillaHistoryForm(forms.Form):
 
 
 class RowFieldWidget(forms.MultiWidget):
+    """Multi-widget for rendering multiple fields in a single row layout."""
+
     template_name = "forms/widgets/row_field_widget.html"
 
     def __init__(self, field_configs, attrs=None):
@@ -2697,6 +2903,8 @@ class RowFieldWidget(forms.MultiWidget):
 
 
 class RowField(forms.MultiValueField):
+    """Multi-value field for handling multiple related fields in a row layout."""
+
     widget = RowFieldWidget
 
     def __init__(self, field_configs, *args, **kwargs):
@@ -2726,6 +2934,8 @@ class RowField(forms.MultiValueField):
 
 
 class CustomFileInput(forms.ClearableFileInput):
+    """Custom file input widget with enhanced display and preview capabilities."""
+
     template_name = "forms/widgets/custom_file_input.html"
 
     def get_context(self, name, value, attrs):
@@ -2745,7 +2955,11 @@ class CustomFileInput(forms.ClearableFileInput):
 
 
 class HorillaAttachmentForm(forms.ModelForm):
+    """Form for creating and editing attachments with title, file, and description."""
+
     class Meta:
+        """Meta options for HorillaAttachmentForm."""
+
         model = HorillaAttachment
         fields = ["title", "file", "description"]
         labels = {

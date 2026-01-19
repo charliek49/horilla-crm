@@ -1,6 +1,16 @@
+"""
+Filtering utilities for horilla_generics.
+
+Provides the HorillaFilterSet and operator choices used by generic filtering forms.
+"""
+
+# Standard library imports
 import logging
 
+# Third-party imports (Others)
 import django_filters
+
+# Third-party imports (Django)
 from django.db import models
 from django.db.models import Q
 
@@ -78,6 +88,13 @@ OPERATOR_CHOICES = {
 
 
 class HorillaFilterSet(django_filters.FilterSet):
+    """
+    Custom FilterSet for Horilla with enhanced search and filtering capabilities.
+
+    Provides field-type-specific operators and boolean value conversion
+    for generic filtering across Horilla models.
+    """
+
     search = django_filters.CharFilter(method="filter_search", label="Search")
 
     @classmethod
@@ -95,14 +112,9 @@ class HorillaFilterSet(django_filters.FilterSet):
             field = model._meta.get_field(field_name)
             if isinstance(field, models.BooleanField):
                 # Convert lowercase "true"/"false" to proper boolean or capitalized string
-                value_lower = str(value).lower()
-                if value_lower == "true":
-                    return True
-                elif value_lower == "false":
-                    return False
-                # If already "True" or "False", return as is
-                elif value in ("True", "False"):
-                    return value == "True"
+                value_str = str(value).lower()
+                return {"true": True, "false": False}.get(value_str)
+
         except (models.FieldDoesNotExist, AttributeError):
             pass
 
@@ -177,7 +189,7 @@ class HorillaFilterSet(django_filters.FilterSet):
                         queryset = queryset.filter(**{f"{field}__{operator}": value})
 
             except Exception as e:
-                logger.error(f"Filter error for {field} {operator}: {e}")
+                logger.error("Filter error for %s %s: %s", field, operator, e)
 
         search_query = self.data.get("search", "") or request.GET.get("search", "")
         if search_query:

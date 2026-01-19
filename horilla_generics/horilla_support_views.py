@@ -1,3 +1,11 @@
+"""
+Support views for horilla_generics.
+
+This module provides various small helper views used by the horilla_generics app
+such as field editing, list management, pinning views, and select2 helpers.
+"""
+
+# Standard library
 import importlib
 import logging
 import re
@@ -5,6 +13,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode, urlparse
 
+# Third-party
 import pytz
 from django.apps import apps
 from django.contrib import messages
@@ -14,13 +23,7 @@ from django.core.paginator import Paginator
 from django.db import IntegrityError, models
 from django.db.models import CharField, Q, TextField
 from django.db.models.fields import Field
-from django.http import (
-    Http404,
-    HttpResponse,
-    HttpResponseRedirect,
-    JsonResponse,
-    QueryDict,
-)
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.utils import timezone, translation
@@ -29,13 +32,19 @@ from django.utils.encoding import force_str
 from django.views import View
 from django.views.generic import FormView
 
-from horilla.auth.models import User
+# First-party (Horilla)
 from horilla.exceptions import HorillaHttp404
 from horilla_core.decorators import htmx_required
-from horilla_core.models import KanbanGroupBy, ListColumnVisibility, PinnedView
+from horilla_core.models import (
+    HorillaContentType,
+    KanbanGroupBy,
+    ListColumnVisibility,
+    PinnedView,
+)
 from horilla_core.utils import filter_hidden_fields
 from horilla_generics.views import HorillaKanbanView
 
+# Local imports
 from .forms import ColumnSelectionForm, KanbanGroupByForm, SaveFilterListForm
 
 logger = logging.getLogger(__name__)
@@ -43,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 @method_decorator(htmx_required, name="dispatch")
 class HorillaKanbanGroupByView(FormView):
+    """View for configuring kanban board group-by field settings."""
 
     template_name = "kanban_settings_form.html"
     form_class = KanbanGroupByForm
@@ -87,6 +97,8 @@ class HorillaKanbanGroupByView(FormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class ListColumnSelectFormView(LoginRequiredMixin, FormView):
+    """View for selecting and adding columns to list views."""
+
     template_name = "add_column_to_list.html"
     form_class = ColumnSelectionForm
 
@@ -540,9 +552,17 @@ class ListColumnSelectFormView(LoginRequiredMixin, FormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class MoveFieldView(LoginRequiredMixin, View):
+    """View for reordering columns/fields in list views."""
+
     template_name = "add_column_to_list.html"
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle requests to move a column/field in a list's column order.
+
+        Expects query parameters indicating model, field, and action and returns
+        an updated column selection UI or appropriate error responses.
+        """
         app_label = request.GET.get("app_label")
         model_name = request.GET.get("model_name")
         url_name = request.GET.get("url_name")
@@ -793,6 +813,8 @@ class MoveFieldView(LoginRequiredMixin, View):
 
 @method_decorator(htmx_required, name="dispatch")
 class SaveFilterListView(FormView):
+    """View for saving filter configurations as reusable filter lists."""
+
     template_name = "save_filter_form.html"
     form_class = SaveFilterListForm
 
@@ -828,7 +850,7 @@ class SaveFilterListView(FormView):
             form.add_error(None, "At least one filter is required.")
             return self.form_invalid(form)
         try:
-            saved_filter_list, created = (
+            saved_filter_list, _created = (
                 self.request.user.saved_filter_lists.update_or_create(
                     name=list_name,
                     model_name=model_name,
@@ -859,7 +881,15 @@ class SaveFilterListView(FormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class PinView(LoginRequiredMixin, View):
+    """View for pinning and unpinning filter lists for quick access."""
+
     def post(self, request):
+        """
+        Toggle a pinned view for the current user.
+
+        If `unpin` is provided, removes the pinned view; otherwise creates or
+        updates the pinned view and returns the updated navbar HTML.
+        """
         view_type = request.POST.get("view_type")
         model_name = request.POST.get("model_name")
         unpin = request.POST.get("unpin") or request.GET.get("unpin")
@@ -880,28 +910,37 @@ class PinView(LoginRequiredMixin, View):
                 }
                 html = render_to_string("navbar.html", context)
                 return HttpResponse(html)
-            else:
-                PinnedView.all_objects.update_or_create(
-                    user=request.user,
-                    model_name=model_name,
-                    defaults={"view_type": view_type},
-                )
-                context = {
-                    "request": request,
-                    "model_name": model_name,
-                    "view_type": view_type,
-                    "pinned_view": {"view_type": view_type},
-                    "all_view_types": True,
-                }
-                html = render_to_string("navbar.html", context)
-                return HttpResponse(html)
-        except Exception as e:
+
+            # else:
+            PinnedView.all_objects.update_or_create(
+                user=request.user,
+                model_name=model_name,
+                defaults={"view_type": view_type},
+            )
+            context = {
+                "request": request,
+                "model_name": model_name,
+                "view_type": view_type,
+                "pinned_view": {"view_type": view_type},
+                "all_view_types": True,
+            }
+            html = render_to_string("navbar.html", context)
+            return HttpResponse(html)
+        except Exception:
             return HttpResponse(status=500)
 
 
 @method_decorator(htmx_required, name="dispatch")
 class DeleteSavedListView(LoginRequiredMixin, View):
+    """View for deleting saved filter lists."""
+
     def post(self, request, *args, **kwargs):
+        """
+        Delete a user's saved filter list and update pinned views.
+
+        Validates the provided `saved_list_id`, deletes it if permitted, and
+        returns a redirect to `main_url` with an HTMX push header.
+        """
         saved_list_id = request.POST.get("saved_list_id")
         main_url = request.POST.get("main_url")
         model_name = request.POST.get("model_name")  # Fallback to a default URL
@@ -1111,6 +1150,12 @@ class EditFieldView(LoginRequiredMixin, View):
         return field_info
 
     def get(self, request, pk, field_name, app_label, model_name):
+        """
+        Render the editable field input for the given object and field.
+
+        Loads the object and field metadata and returns the rendered edit field
+        template or a JS snippet to trigger a page reload on error.
+        """
         pipeline_field = request.GET.get("pipeline_field", None)
         try:
             if not self.model:
@@ -1145,6 +1190,12 @@ class UpdateFieldView(LoginRequiredMixin, View):
     model = None
 
     def post(self, request, pk, field_name, app_label, model_name):
+        """
+        Update a single field on an object based on submitted POST data.
+
+        Handles many-to-many and simple field updates and returns an appropriate
+        HTTP response or error status on failure.
+        """
         try:
             if not self.model:
                 self.model = apps.get_model(app_label, model_name)
@@ -1293,6 +1344,12 @@ class CancelEditView(LoginRequiredMixin, View):
     model = None
 
     def get(self, request, pk, field_name, app_label, model_name):
+        """
+        Return the display mode for a field after canceling edit.
+
+        Re-uses EditFieldView.get_field_info to provide field rendering without
+        making changes to the object.
+        """
         try:
             if not self.model:
                 self.model = apps.get_model(app_label, model_name)
@@ -1349,7 +1406,15 @@ class KanbanLoadMoreView(LoginRequiredMixin, View):
 
 
 class HorillaSelect2DataView(LoginRequiredMixin, View):
+    """View for providing JSON data to Select2 AJAX dropdowns with search and pagination."""
+
     def get(self, request, *args, **kwargs):
+        """
+        Return JSON data for select2 AJAX queries.
+
+        Expects `app_label` and `model_name` in `kwargs` and supports searching and
+        paging parameters for select2 results.
+        """
         if not request.headers.get("x-requested-with") == "XMLHttpRequest":
             return render(request, "error/405.html", status=405)
         app_label = kwargs.get("app_label")
@@ -1390,10 +1455,11 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
                     ):
                         queryset = filter_obj.field.queryset
                         logger.info(
-                            f"[Select2] Using queryset from filter class for {field_name}"
+                            "[Select2] Using queryset from filter class for %s",
+                            field_name,
                         )
             except Exception as e:
-                logger.error(f"[Select2] Could not resolve queryset from filter: {e}")
+                logger.error("[Select2] Could not resolve queryset from filter: %s", e)
 
         # Fallback to form class (EXISTING CODE)
         form_class = self._get_form_class_from_request(request)
@@ -1403,7 +1469,7 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
                 if field_name in form.fields:
                     queryset = form.fields[field_name].queryset
             except Exception as e:
-                logger.error(f"[Select2] Could not resolve queryset from form: {e}")
+                logger.error("[Select2] Could not resolve queryset from form: %s", e)
 
         if queryset is None:
             queryset = model.objects.all()
@@ -1443,8 +1509,8 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
                     return JsonResponse(
                         {"results": results, "pagination": {"more": False}}
                     )
-                else:
-                    return JsonResponse({"results": [], "pagination": {"more": False}})
+                # else:
+                return JsonResponse({"results": [], "pagination": {"more": False}})
             except Exception:
                 return JsonResponse({"results": [], "pagination": {"more": False}})
 
@@ -1486,7 +1552,7 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
                 return getattr(module, class_name)
             except Exception as e:
                 logger.error(
-                    f"[Select2] Could not import filter_class {filter_path}: {e}"
+                    "[Select2] Could not import filter_class %s: %s", filter_path, e
                 )
 
         # Try to auto-discover filter class by convention
@@ -1499,10 +1565,12 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
                 f"{model_class_name}FilterSet",
             ]:
                 if hasattr(filters_module, class_name):
-                    logger.info(f"[Select2] Auto-discovered filter class: {class_name}")
+                    logger.info(
+                        "[Select2] Auto-discovered filter class: %s", class_name
+                    )
                     return getattr(filters_module, class_name)
         except Exception as e:
-            logger.debug(f"[Select2] Could not auto-discover filter class: {e}")
+            logger.debug("[Select2] Could not auto-discover filter class: %s", e)
 
         return None
 
@@ -1522,13 +1590,20 @@ class HorillaSelect2DataView(LoginRequiredMixin, View):
             module = importlib.import_module(module_path)
             return getattr(module, class_name)
         except Exception as e:
-            logger.error(f"[Select2] Could not import form_class {form_path}: {e}")
+            logger.error("[Select2] Could not import form_class %s: %s", form_path, e)
             return None
 
 
 @method_decorator(htmx_required, name="dispatch")
 class RemoveConditionRowView(LoginRequiredMixin, View):
+    """View for removing condition rows from multi-condition filter forms."""
+
     def delete(self, request, row_id, *args, **kwargs):
+        """
+        Remove a condition row from a multi-condition form via HTMX.
+
+        Returns an empty 200 response on success to indicate the row was removed.
+        """
 
         return HttpResponse("")
 
@@ -1538,6 +1613,12 @@ class GetFieldValueWidgetView(LoginRequiredMixin, View):
     """HTMX view to return dynamic value field widget based on selected field"""
 
     def get(self, request):
+        """
+        Return HTML for the input widget corresponding to the chosen field.
+
+        Accepts query parameters to determine the row and field and returns the
+        rendered widget HTML to be injected by HTMX.
+        """
         row_id = request.GET.get("row_id")
         field_name = request.GET.get(f"field_{row_id}", request.GET.get("field", ""))
         model_name = request.GET.get("model_name", "")
@@ -1600,33 +1681,33 @@ class GetFieldValueWidgetView(LoginRequiredMixin, View):
                     except (related_model.DoesNotExist, ValueError):
                         pass
                 return self._render_select_input(choices, row_id, existing_value)
-            elif hasattr(model_field, "choices") and model_field.choices:
+            if hasattr(model_field, "choices") and model_field.choices:
                 return self._render_select_input(
                     model_field.choices, row_id, existing_value
                 )
-            elif isinstance(model_field, models.BooleanField):
+            if isinstance(model_field, models.BooleanField):
                 return self._render_boolean_input(row_id, existing_value)
-            elif isinstance(model_field, models.DateField):
+            if isinstance(model_field, models.DateField):
                 return self._render_date_input(row_id, existing_value)
-            elif isinstance(model_field, models.DateTimeField):
+            if isinstance(model_field, models.DateTimeField):
                 return self._render_datetime_input(row_id, existing_value)
-            elif isinstance(model_field, models.TimeField):
+            if isinstance(model_field, models.TimeField):
                 return self._render_time_input(row_id, existing_value)
-            elif isinstance(model_field, models.IntegerField):
+            if isinstance(model_field, models.IntegerField):
                 return self._render_number_input(row_id, existing_value)
-            elif isinstance(model_field, models.DecimalField):
+            if isinstance(model_field, models.DecimalField):
                 return self._render_number_input(row_id, existing_value, step="0.01")
-            elif isinstance(model_field, models.EmailField):
+            if isinstance(model_field, models.EmailField):
                 return self._render_email_input(row_id, existing_value)
-            elif isinstance(model_field, models.URLField):
+            if isinstance(model_field, models.URLField):
                 return self._render_url_input(row_id, existing_value)
-            elif isinstance(model_field, models.TextField):
+            if isinstance(model_field, models.TextField):
                 return self._render_textarea_input(row_id, existing_value)
-            else:
-                return self._render_text_input(row_id, existing_value)
+            # else:
+            return self._render_text_input(row_id, existing_value)
 
         except Exception as e:
-            logger.error(f"Error generating value widget: {str(e)}")
+            logger.error("Error generating value widget: %s", str(e))
             return self._render_text_input(row_id, existing_value)
 
     def _render_text_input(self, row_id, existing_value=""):
@@ -1746,10 +1827,6 @@ class GetModelFieldChoicesView(LoginRequiredMixin, View):
 
     def get(self, request, *args, **kwargs):
         """Return a select element with field choices for the selected content type"""
-        from django.apps import apps
-        from django.db import models
-
-        from horilla_core.models import HorillaContentType
 
         # Get parameters - support both 'content_type' and 'model' parameter names
         content_type_id = request.GET.get("content_type") or request.GET.get("model")
