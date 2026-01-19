@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-19 10:14+0000\n"
+"POT-Creation-Date: 2026-01-13 10:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -203,9 +203,10 @@ msgstr ""
 "autoriser une autre. Continuer ?"
 
 msgid "You can select a maximum of 5 days for 24×5 business hours."
-msgstr "Vous pouvez sélectionner un maximum de 5 jours pour les heures d'ouverture 24×5."
-"Vous pouvez sélectionner un maximum de 5 jours pour les heures ouvrables "
-"24h/24 et 5j/7."
+msgstr ""
+"Vous pouvez sélectionner un maximum de 5 jours pour les heures d'ouverture "
+"24×5.Vous pouvez sélectionner un maximum de 5 jours pour les heures "
+"ouvrables 24h/24 et 5j/7."
 
 msgid "Password"
 msgstr "Mot de passe"
@@ -275,9 +276,10 @@ msgid "Current password is incorrect."
 msgstr "Le mot de passe actuel est incorrect."
 
 msgid "Confirm password and new password must be match"
-msgstr "Le mot de passe de confirmation et le nouveau mot de passe doivent correspondre"
-"La confirmation du mot de passe et le nouveau mot de passe doivent "
-"correspondre"
+msgstr ""
+"Le mot de passe de confirmation et le nouveau mot de passe doivent "
+"correspondreLa confirmation du mot de passe et le nouveau mot de passe "
+"doivent correspondre"
 
 msgid "New password must be different from current password."
 msgstr "Le nouveau mot de passe doit être différent du mot de passe actuel."
@@ -294,14 +296,21 @@ msgstr "Afficher"
 msgid "Delete"
 msgstr "Supprimer"
 
-msgid "View Own"
-msgstr "Afficher ses propres"
+#, fuzzy
+#| msgid "Create New"
+msgid "Create Own"
+msgstr "Créer nouveau"
 
 msgid "Change Own"
 msgstr "Modifier ses propres"
 
-msgid "Import"
-msgstr "importer"
+msgid "View Own"
+msgstr "Afficher ses propres"
+
+#, fuzzy
+#| msgid "Delete"
+msgid "Delete Own"
+msgstr "Supprimer"
 
 msgid "Role does not exist"
 msgstr "Le rôle n'existe pas"
@@ -313,11 +322,14 @@ msgid "Model not found"
 msgstr "Modèle non trouvé"
 
 msgid "Field-level permissions are not available for this model."
-msgstr "Les autorisations au niveau des champs ne sont pas disponibles pour ce modèle."
-"Les permissions au niveau des champs ne sont pas disponibles pour ce modèle."
+msgstr ""
+"Les autorisations au niveau des champs ne sont pas disponibles pour ce "
+"modèle.Les permissions au niveau des champs ne sont pas disponibles pour ce "
+"modèle."
 
 msgid "No users selected. Please select at least one user."
-msgstr "Aucun utilisateur sélectionné. Veuillez sélectionner au moins un utilisateur."
+msgstr ""
+"Aucun utilisateur sélectionné. Veuillez sélectionner au moins un utilisateur."
 "Aucun utilisateur sélectionné. Veuillez sélectionner au moins un utilisateur."
 
 msgid "Invalid user selection."
@@ -1001,9 +1013,10 @@ msgid "Frequency is required for recurring holidays"
 msgstr "La fréquence est requise pour les vacances récurrentes"
 
 msgid "Weekly days must be specified for weekly recurrence"
-msgstr "Les jours de la semaine doivent être spécifiés pour la récurrence hebdomadaire"
+msgstr ""
 "Les jours de la semaine doivent être spécifiés pour la récurrence "
-"hebdomadaire"
+"hebdomadaireLes jours de la semaine doivent être spécifiés pour la "
+"récurrence hebdomadaire"
 
 msgid "Recurs every weeks must be at least 1"
 msgstr "Les répétitions chaque semaine doivent être au moins 1"
@@ -1012,9 +1025,10 @@ msgid "Day of month is required for monthly recurrence"
 msgstr "Le jour du mois est requis pour la récurrence mensuelle"
 
 msgid "Both day of week and week of month are required for monthly recurrence"
-msgstr "Le jour de la semaine et la semaine du mois sont requis pour la récurrence mensuelle"
+msgstr ""
 "Le jour de la semaine et la semaine du mois sont requis pour la récurrence "
-"mensuelle"
+"mensuelleLe jour de la semaine et la semaine du mois sont requis pour la "
+"récurrence mensuelle"
 
 msgid "Please select a valid monthly repeat type"
 msgstr "Veuillez sélectionner un type de répétition mensuelle valide"
@@ -1026,9 +1040,10 @@ msgid "Day of month is required for yearly recurrence"
 msgstr "Le jour du mois est requis pour la récurrence annuelle"
 
 msgid "Both week of month and day of week are required for yearly recurrence"
-msgstr "La semaine du mois et le jour de la semaine sont requis pour la récurrence annuelle"
+msgstr ""
 "La semaine du mois et le jour de la semaine sont requis pour la récurrence "
-"annuelle"
+"annuelleLa semaine du mois et le jour de la semaine sont requis pour la "
+"récurrence annuelle"
 
 msgid "Please select a valid yearly repeat type"
 msgstr "Veuillez sélectionner un type de répétition annuelle valide"
@@ -1541,8 +1556,9 @@ msgid "Loading..."
 msgstr "Chargement..."
 
 msgid " Reset link will be sent to your registered email"
-msgstr "Le lien de réinitialisation sera envoyé à votre adresse e-mail enregistrée"
-"Le lien de réinitialisation sera envoyé à votre adresse e-mail enregistrée"
+msgstr ""
+"Le lien de réinitialisation sera envoyé à votre adresse e-mail enregistréeLe "
+"lien de réinitialisation sera envoyé à votre adresse e-mail enregistrée"
 
 msgid "Back to login"
 msgstr "Retour à la connexion"
@@ -1551,8 +1567,9 @@ msgid "Email Sent!"
 msgstr "E-mail envoyé !"
 
 msgid "Password reset link has been sent to your email."
-msgstr "Le lien de réinitialisation du mot de passe a été envoyé à votre adresse e-mail."
-"Le lien de réinitialisation du mot de passe a été envoyé à votre e-mail."
+msgstr ""
+"Le lien de réinitialisation du mot de passe a été envoyé à votre adresse e-"
+"mail.Le lien de réinitialisation du mot de passe a été envoyé à votre e-mail."
 
 msgid ""
 "Please check your inbox and click the link to reset your password. The link "
@@ -1598,14 +1615,16 @@ msgid "Password Reset Request"
 msgstr "Demande de réinitialisation du mot de passe"
 
 msgid "We received a request to reset your password for your"
-msgstr "Nous avons reçu une demande de réinitialisation de votre mot de passe pour votre"
+msgstr ""
 "Nous avons reçu une demande de réinitialisation de votre mot de passe pour "
-"votre"
+"votreNous avons reçu une demande de réinitialisation de votre mot de passe "
+"pour votre"
 
 msgid "account. Click the button below to reset your password:"
-msgstr "compte. Cliquez sur le bouton ci-dessous pour réinitialiser votre mot de passe :"
+msgstr ""
 "compte. Cliquez sur le bouton ci-dessous pour réinitialiser votre mot de "
-"passe :"
+"passe :compte. Cliquez sur le bouton ci-dessous pour réinitialiser votre mot "
+"de passe :"
 
 msgid ""
 "If the button above doesn't work, copy and paste this link into your browser:"
@@ -1644,6 +1663,9 @@ msgstr "Champs de carte"
 
 msgid "Action"
 msgstr "Action"
+
+msgid "Import"
+msgstr "importer"
 
 msgid "Choose Module"
 msgstr "Choisir le module"
@@ -1809,8 +1831,7 @@ msgstr "Datenbank-Authentifizierung"
 
 msgid "Authenticate with your password intialize the Database"
 msgstr ""
-"Authentifiez-vous avec votre mot de passe pour initialiser la base de "
-"données"
+"Authentifiez-vous avec votre mot de passe pour initialiser la base de données"
 
 msgid "Authenticate"
 msgstr "Authentifier"
@@ -1843,9 +1864,10 @@ msgid "Configure Demo Data"
 msgstr "Configurer les données de démonstration"
 
 msgid "Select the number of records to load for each data type"
-msgstr "Sélectionnez le nombre d'enregistrements à charger pour chaque type de données"
+msgstr ""
 "Sélectionnez le nombre d'enregistrements à charger pour chaque type de "
-"données"
+"donnéesSélectionnez le nombre d'enregistrements à charger pour chaque type "
+"de données"
 
 msgid "No configurable entities found"
 msgstr "Aucune entité configurable trouvée"
@@ -1868,15 +1890,17 @@ msgid "Start Loading"
 msgstr "Commencer le chargement"
 
 msgid "Authenticate with your password to load demo database"
-msgstr "Authentifiez-vous avec votre mot de passe pour charger la base de données de démonstration"
+msgstr ""
 "Authentifiez-vous avec votre mot de passe pour charger la base de données de "
-"démonstration"
+"démonstrationAuthentifiez-vous avec votre mot de passe pour charger la base "
+"de données de démonstration"
 
 msgid "Loading Demo Database"
 msgstr "Chargement de la base de données de démonstration"
 
 msgid "Please wait while we load the demo data..."
-msgstr "Veuillez patienter pendant le chargement des données de démonstration..."
+msgstr ""
+"Veuillez patienter pendant le chargement des données de démonstration..."
 "Veuillez patienter pendant que nous chargeons les données de démonstration..."
 
 msgid "Initializing..."
@@ -1932,8 +1956,14 @@ msgid "Warning:"
 msgstr "Attention :"
 
 msgid "No users selected. Please select atleast one user."
-msgstr "Aucun utilisateur sélectionné. Veuillez sélectionner au moins un utilisateur."
+msgstr ""
 "Aucun utilisateur sélectionné. Veuillez sélectionner au moins un utilisateur."
+"Aucun utilisateur sélectionné. Veuillez sélectionner au moins un utilisateur."
+
+msgid ""
+"Required fields are always visible when creating or duplicating. Permissions "
+"for these fields apply only during editing."
+msgstr ""
 
 msgid "Read Only"
 msgstr "Lecture seule"
@@ -1943,6 +1973,11 @@ msgstr "Lecture et écriture"
 
 msgid "Don't Show"
 msgstr "Ne pas afficher"
+
+#, fuzzy
+#| msgid "Enter %(field)s"
+msgid "Mandatory field"
+msgstr "Saisir %(field)s"
 
 msgid "No fields found for this model."
 msgstr "Aucun champ trouvé pour ce modèle."
@@ -1954,9 +1989,10 @@ msgid "Save All Changes"
 msgstr "Enregistrer toutes les modifications"
 
 msgid "To manage field-level permissions, simply click the name of a model."
-msgstr "Pour gérer les autorisations au niveau des champs, cliquez simplement sur le nom d'un modèle."
+msgstr ""
 "Pour gérer les autorisations au niveau des champs, cliquez simplement sur le "
-"nom d’un modèle."
+"nom d'un modèle.Pour gérer les autorisations au niveau des champs, cliquez "
+"simplement sur le nom d’un modèle."
 
 msgid "User Groups"
 msgstr "Groupes d'utilisateurs"
@@ -2192,9 +2228,6 @@ msgstr "semaine commence le"
 msgid "Business Days"
 msgstr "Jours ouvrables"
 
-msgid "Activity"
-msgstr "Activité"
-
 #, python-format
 msgid "Upload %(field)s"
 msgstr "Télécharger %(field)s"
@@ -2206,6 +2239,9 @@ msgstr "Saisir %(field)s"
 #, python-format
 msgid "Select %(field)s"
 msgstr "Sélectionner %(field)s"
+
+msgid "This field is read-only and cannot be modified."
+msgstr ""
 
 #, python-format
 msgid "Enter %(field)s here..."
@@ -2252,6 +2288,11 @@ msgstr "Aucun fichier choisi"
 
 msgid "Clear"
 msgstr "Effacer"
+
+#, fuzzy
+#| msgid "Create New"
+msgid "Save & New"
+msgstr "Créer nouveau"
 
 msgid "Add Notes and Attachment"
 msgstr "Ajouter des notes et une pièce jointe"
@@ -2475,7 +2516,8 @@ msgid "Hard Delete will permanently delete data."
 msgstr "La suppression définitive supprimera les données de façon permanente."
 
 msgid "Soft Delete allows you to restore deleted records."
-msgstr "La suppression douce vous permet de restaurer les enregistrements supprimés."
+msgstr ""
+"La suppression douce vous permet de restaurer les enregistrements supprimés."
 "La suppression douce vous permet de restaurer les enregistrements supprimés."
 
 msgid "Hard Delete"
@@ -2587,6 +2629,9 @@ msgstr "Vous n'avez pas la permission de mettre à jour cet enregistrement."
 msgid "{self.model._meta.verbose_name} Stage Updated Successfully"
 msgstr "Étape {self.model._meta.verbose_name} mise à jour avec succès"
 
+msgid "Activity"
+msgstr "Activité"
+
 msgid "Related Lists"
 msgstr "Listes associées"
 
@@ -2603,12 +2648,44 @@ msgid "The requested attachment does not exist."
 msgstr "La pièce jointe demandée n'existe pas."
 
 msgid "You don't have permission to add attachments to this record."
-msgstr "Vous n'avez pas l'autorisation d'ajouter des pièces jointes à cet enregistrement."
-"Vous n'avez pas la permission d'ajouter des pièces jointes à cet "
-"enregistrement."
+msgstr ""
+"Vous n'avez pas l'autorisation d'ajouter des pièces jointes à cet "
+"enregistrement.Vous n'avez pas la permission d'ajouter des pièces jointes à "
+"cet enregistrement."
 
 msgid "Invalid related object."
 msgstr "Objet associé invalide."
+
+msgid "duplicated"
+msgstr ""
+
+#, fuzzy
+#| msgid "Update"
+msgid "updated"
+msgstr "mise à jour"
+
+#, python-format
+msgid "%(model)s %(action)s successfully!"
+msgstr ""
+
+#, fuzzy, python-format
+#| msgid "A user with this username already exists."
+msgid "A %(model)s with this %(field)s already exists."
+msgstr "Un utilisateur avec ce nom d'utilisateur existe déjà."
+
+#, fuzzy, python-format
+#| msgid "A user with this username already exists."
+msgid "A %(model)s with this combination of %(fields)s already exists."
+msgstr "Un utilisateur avec ce nom d'utilisateur existe déjà."
+
+#, python-format
+msgid ""
+"This %(model)s could not be saved due to a duplicate entry. Please check "
+"your input and try again."
+msgstr ""
+
+msgid "An error occurred while saving. Please try again or contact support."
+msgstr ""
 
 msgid ""
 "Selected record is not associated with any company. Activate a company to "

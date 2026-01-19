@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-19 10:14+0000\n"
+"POT-Creation-Date: 2026-01-13 10:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -291,13 +291,16 @@ msgstr ""
 msgid "Delete"
 msgstr ""
 
-msgid "View Own"
+msgid "Create Own"
 msgstr ""
 
 msgid "Change Own"
 msgstr ""
 
-msgid "Import"
+msgid "View Own"
+msgstr ""
+
+msgid "Delete Own"
 msgstr ""
 
 msgid "Role does not exist"
@@ -1561,6 +1564,9 @@ msgstr ""
 msgid "Action"
 msgstr ""
 
+msgid "Import"
+msgstr ""
+
 msgid "Choose Module"
 msgstr ""
 
@@ -1838,6 +1844,11 @@ msgstr ""
 msgid "No users selected. Please select atleast one user."
 msgstr ""
 
+msgid ""
+"Required fields are always visible when creating or duplicating. Permissions "
+"for these fields apply only during editing."
+msgstr ""
+
 msgid "Read Only"
 msgstr ""
 
@@ -1845,6 +1856,9 @@ msgid "Read and Write"
 msgstr ""
 
 msgid "Don't Show"
+msgstr ""
+
+msgid "Mandatory field"
 msgstr ""
 
 msgid "No fields found for this model."
@@ -2093,9 +2107,6 @@ msgstr ""
 msgid "Business Days"
 msgstr ""
 
-msgid "Activity"
-msgstr ""
-
 #, python-format
 msgid "Upload %(field)s"
 msgstr ""
@@ -2106,6 +2117,9 @@ msgstr ""
 
 #, python-format
 msgid "Select %(field)s"
+msgstr ""
+
+msgid "This field is read-only and cannot be modified."
 msgstr ""
 
 #, python-format
@@ -2152,6 +2166,9 @@ msgid "No file chosen"
 msgstr ""
 
 msgid "Clear"
+msgstr ""
+
+msgid "Save & New"
 msgstr ""
 
 msgid "Add Notes and Attachment"
@@ -2487,6 +2504,9 @@ msgstr ""
 msgid "{self.model._meta.verbose_name} Stage Updated Successfully"
 msgstr ""
 
+msgid "Activity"
+msgstr ""
+
 msgid "Related Lists"
 msgstr ""
 
@@ -2506,6 +2526,33 @@ msgid "You don't have permission to add attachments to this record."
 msgstr ""
 
 msgid "Invalid related object."
+msgstr ""
+
+msgid "duplicated"
+msgstr ""
+
+msgid "updated"
+msgstr ""
+
+#, python-format
+msgid "%(model)s %(action)s successfully!"
+msgstr ""
+
+#, python-format
+msgid "A %(model)s with this %(field)s already exists."
+msgstr ""
+
+#, python-format
+msgid "A %(model)s with this combination of %(fields)s already exists."
+msgstr ""
+
+#, python-format
+msgid ""
+"This %(model)s could not be saved due to a duplicate entry. Please check "
+"your input and try again."
+msgstr ""
+
+msgid "An error occurred while saving. Please try again or contact support."
 msgstr ""
 
 msgid ""

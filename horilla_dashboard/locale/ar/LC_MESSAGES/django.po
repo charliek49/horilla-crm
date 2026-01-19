@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-19 10:06+0000\n"
+"POT-Creation-Date: 2026-01-13 10:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -311,12 +311,6 @@ msgstr "لوحة تحكم جديدة"
 msgid "New Folder"
 msgstr "مجلد جديد"
 
-msgid "Component updated successfully!"
-msgstr "تم تحديث المكوّن بنجاح!"
-
-msgid "Component added successfully!"
-msgstr "تمت إضافة المكوّن بنجاح!"
-
 msgid "Move to Dashboard"
 msgstr "نقل إلى لوحة التحكم"
 
@@ -348,3 +342,9 @@ msgstr "تمت إضافة التقرير إلى لوحة التحكم بنجاح
 
 msgid "Report not found."
 msgstr "لم يتم العثور على التقرير."
+
+#~ msgid "Component updated successfully!"
+#~ msgstr "تم تحديث المكوّن بنجاح!"
+
+#~ msgid "Component added successfully!"
+#~ msgstr "تمت إضافة المكوّن بنجاح!"

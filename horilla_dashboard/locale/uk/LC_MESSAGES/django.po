@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-19 10:06+0000\n"
+"POT-Creation-Date: 2026-01-13 10:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -303,12 +303,6 @@ msgid "New Dashboard"
 msgstr ""
 
 msgid "New Folder"
-msgstr ""
-
-msgid "Component updated successfully!"
-msgstr ""
-
-msgid "Component added successfully!"
 msgstr ""
 
 msgid "Move to Dashboard"

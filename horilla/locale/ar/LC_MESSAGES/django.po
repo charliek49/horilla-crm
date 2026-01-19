@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: demoprojecttest\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-19 10:14+0000\n"
+"POT-Creation-Date: 2026-01-13 10:49+0000\n"
 "PO-Revision-Date: 2025-07-03 03:58\n"
 "Last-Translator: \n"
 "Language-Team: Arabic\n"
@@ -289,14 +289,21 @@ msgstr "عرض"
 msgid "Delete"
 msgstr "حذف"
 
-msgid "View Own"
-msgstr "عرض السجل الخاص"
+#, fuzzy
+#| msgid "Create New"
+msgid "Create Own"
+msgstr "إنشاء جديد"
 
 msgid "Change Own"
 msgstr "تغيير السجل الخاص"
 
-msgid "Import"
-msgstr "يستورد"
+msgid "View Own"
+msgstr "عرض السجل الخاص"
+
+#, fuzzy
+#| msgid "Delete"
+msgid "Delete Own"
+msgstr "حذف"
 
 msgid "Role does not exist"
 msgstr "الدور غير موجود"
@@ -1185,7 +1192,6 @@ msgstr "فترة الاحتفاظ (أيام)"
 msgid "Recycle Bin Policy"
 msgstr "سياسة سلة المحذوفات"
 
-
 msgid "Recycle Bin Policies"
 msgstr "سياسات سلة المحذوفات"
 
@@ -1487,7 +1493,6 @@ msgstr "يوم من الشهر"
 msgid "End Date (optional)"
 msgstr "تاريخ الانتهاء (اختياري)"
 
-
 msgid "Logo"
 msgstr "الشعار"
 
@@ -1502,7 +1507,6 @@ msgstr "سهم"
 
 msgid "Send reset link"
 msgstr "إرسال رابط إعادة التعيين"
-
 
 msgid "Loading..."
 msgstr "جاري التحميل..."
@@ -1602,6 +1606,9 @@ msgstr "حقول الخريطة"
 
 msgid "Action"
 msgstr "فعل"
+
+msgid "Import"
+msgstr "يستورد"
 
 msgid "Choose Module"
 msgstr "اختر الوحدة النمطية"
@@ -1884,6 +1891,11 @@ msgstr "تحذير:"
 msgid "No users selected. Please select atleast one user."
 msgstr "لم يتم تحديد أي مستخدمين. الرجاء تحديد مستخدم واحد على الأقل."
 
+msgid ""
+"Required fields are always visible when creating or duplicating. Permissions "
+"for these fields apply only during editing."
+msgstr ""
+
 msgid "Read Only"
 msgstr "قراءة فقط"
 
@@ -1892,6 +1904,11 @@ msgstr "قراءة وكتابة"
 
 msgid "Don't Show"
 msgstr "لا تُظهر"
+
+#, fuzzy
+#| msgid "Enter %(field)s"
+msgid "Mandatory field"
+msgstr "أدخل %(field)s"
 
 msgid "No fields found for this model."
 msgstr "لم يتم العثور على حقول لهذا النموذج."
@@ -1973,7 +1990,6 @@ msgstr "آخر تحديث"
 
 msgid "Change Your Password"
 msgstr "تغيير كلمة المرور"
-
 
 msgid "Activate company"
 msgstr "تفعيل الشركة"
@@ -2140,9 +2156,6 @@ msgstr "يبدأ الأسبوع في"
 msgid "Business Days"
 msgstr "أيام العمل"
 
-msgid "Activity"
-msgstr "النشاط"
-
 #, python-format
 msgid "Upload %(field)s"
 msgstr "تحميل %(field)s"
@@ -2154,6 +2167,9 @@ msgstr "أدخل %(field)s"
 #, python-format
 msgid "Select %(field)s"
 msgstr "اختر %(field)s"
+
+msgid "This field is read-only and cannot be modified."
+msgstr ""
 
 #, python-format
 msgid "Enter %(field)s here..."
@@ -2200,6 +2216,11 @@ msgstr "لم يتم اختيار أي ملف"
 
 msgid "Clear"
 msgstr "مسح"
+
+#, fuzzy
+#| msgid "Create New"
+msgid "Save & New"
+msgstr "إنشاء جديد"
 
 msgid "Add Notes and Attachment"
 msgstr "إضافة ملاحظات ومرفقات"
@@ -2498,13 +2519,11 @@ msgstr "و"
 msgid "Select an option"
 msgstr "اختر خيارًا"
 
-
 msgid "Remove filter"
 msgstr "إزالة المرشح"
 
 msgid "Apply"
 msgstr "تطبيق"
-
 
 msgid "More Action"
 msgstr "المزيد من الإجراءات"
@@ -2540,6 +2559,9 @@ msgstr "ليس لديك الصلاحية لتحديث هذا السجل."
 msgid "{self.model._meta.verbose_name} Stage Updated Successfully"
 msgstr "تم تحديث مرحلة {self.model._meta.verbose_name} بنجاح"
 
+msgid "Activity"
+msgstr "النشاط"
+
 msgid "Related Lists"
 msgstr "قوائم ذات صلة"
 
@@ -2560,6 +2582,35 @@ msgstr "ليس لديك الصلاحية لإضافة مرفقات لهذا ال
 
 msgid "Invalid related object."
 msgstr "كائن مرتبط غير صالح."
+
+msgid "duplicated"
+msgstr "تم النسخ"
+
+msgid "updated"
+msgstr "تم التحديث"
+
+#, python-format
+msgid "%(model)s %(action)s successfully!"
+msgstr "تم %(action)s %(model)s بنجاح!"
+
+#, fuzzy, python-format
+#| msgid "A user with this username already exists."
+msgid "A %(model)s with this %(field)s already exists."
+msgstr "يوجد بالفعل مستخدم بهذا الاسم."
+
+#, fuzzy, python-format
+#| msgid "A user with this username already exists."
+msgid "A %(model)s with this combination of %(fields)s already exists."
+msgstr "يوجد بالفعل مستخدم بهذا الاسم."
+
+#, python-format
+msgid ""
+"This %(model)s could not be saved due to a duplicate entry. Please check "
+"your input and try again."
+msgstr ""
+
+msgid "An error occurred while saving. Please try again or contact support."
+msgstr ""
 
 msgid ""
 "Selected record is not associated with any company. Activate a company to "

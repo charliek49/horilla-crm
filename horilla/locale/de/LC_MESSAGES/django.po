@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-19 10:14+0000\n"
+"POT-Creation-Date: 2026-01-13 10:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -166,8 +166,9 @@ msgid "End date must be after start date."
 msgstr "Enddatum muss nach dem Startdatum liegen."
 
 msgid "Day of month and month are required for yearly schedule."
-msgstr "Tag des Monats und Monat sind für den jährlichen Zeitplan erforderlich."
-"Tag des Monats und Monat sind für den jährlichen Zeitplan erforderlich."
+msgstr ""
+"Tag des Monats und Monat sind für den jährlichen Zeitplan erforderlich.Tag "
+"des Monats und Monat sind für den jährlichen Zeitplan erforderlich."
 
 msgid "Day of week is required for weekly schedule."
 msgstr "Wochentag ist für den wöchentlichen Zeitplan erforderlich."
@@ -249,9 +250,10 @@ msgid "Select the role to assign to users."
 msgstr "Wählen Sie die Rolle aus, die den Benutzern zugewiesen werden soll."
 
 msgid "Select one or more users to assign to the role."
-msgstr "Wählen Sie einen oder mehrere Benutzer aus, die der Rolle zugewiesen werden sollen."
-"Wählen Sie einen oder mehrere Benutzer aus, denen Sie die Rolle zuweisen "
-"möchten."
+msgstr ""
+"Wählen Sie einen oder mehrere Benutzer aus, die der Rolle zugewiesen werden "
+"sollen.Wählen Sie einen oder mehrere Benutzer aus, denen Sie die Rolle "
+"zuweisen möchten."
 
 msgid "The following user(s) are already assigned to this role"
 msgstr "Folgende Benutzer sind dieser Rolle bereits zugewiesen"
@@ -295,14 +297,21 @@ msgstr "Anzeigen"
 msgid "Delete"
 msgstr "Löschen"
 
-msgid "View Own"
-msgstr "Eigene anzeigen"
+#, fuzzy
+#| msgid "Create New"
+msgid "Create Own"
+msgstr "Neu erstellen"
 
 msgid "Change Own"
 msgstr "Eigene ändern"
 
-msgid "Import"
-msgstr "Import"
+msgid "View Own"
+msgstr "Eigene anzeigen"
+
+#, fuzzy
+#| msgid "Delete"
+msgid "Delete Own"
+msgstr "Löschen"
 
 msgid "Role does not exist"
 msgstr "Rolle existiert nicht"
@@ -317,7 +326,8 @@ msgid "Field-level permissions are not available for this model."
 msgstr "Feldebenen-Berechtigungen sind für dieses Modell nicht verfügbar."
 
 msgid "No users selected. Please select at least one user."
-msgstr "Keine Benutzer ausgewählt. Bitte wählen Sie mindestens einen Benutzer aus."
+msgstr ""
+"Keine Benutzer ausgewählt. Bitte wählen Sie mindestens einen Benutzer aus."
 "Keine Benutzer ausgewählt. Bitte wählen Sie mindestens einen Benutzer aus."
 
 msgid "Invalid user selection."
@@ -1002,9 +1012,10 @@ msgid "Day of month is required for monthly recurrence"
 msgstr "Bei monatlicher Wiederholung ist der Tag des Monats erforderlich"
 
 msgid "Both day of week and week of month are required for monthly recurrence"
-msgstr "Sowohl der Wochentag als auch die Woche des Monats sind für die monatliche Wiederholung erforderlich"
-"Für die monatliche Wiederholung sind sowohl der Wochentag als auch die "
-"Monatswoche erforderlich"
+msgstr ""
+"Sowohl der Wochentag als auch die Woche des Monats sind für die monatliche "
+"Wiederholung erforderlichFür die monatliche Wiederholung sind sowohl der "
+"Wochentag als auch die Monatswoche erforderlich"
 
 msgid "Please select a valid monthly repeat type"
 msgstr "Bitte wählen Sie einen gültigen monatlichen Wiederholungstyp"
@@ -1016,9 +1027,10 @@ msgid "Day of month is required for yearly recurrence"
 msgstr "Bei jährlicher Wiederholung ist der Tag des Monats erforderlich"
 
 msgid "Both week of month and day of week are required for yearly recurrence"
-msgstr "Sowohl die Woche des Monats als auch der Wochentag sind für die jährliche Wiederholung erforderlich"
-"Für die jährliche Wiederholung sind sowohl die Monatswoche als auch der "
-"Wochentag erforderlich"
+msgstr ""
+"Sowohl die Woche des Monats als auch der Wochentag sind für die jährliche "
+"Wiederholung erforderlichFür die jährliche Wiederholung sind sowohl die "
+"Monatswoche als auch der Wochentag erforderlich"
 
 msgid "Please select a valid yearly repeat type"
 msgstr "Bitte wählen Sie einen gültigen jährlichen Wiederholungstyp"
@@ -1512,7 +1524,6 @@ msgstr "Tag des Monats"
 msgid "End Date (optional)"
 msgstr "Enddatum (optional)"
 
-
 msgid "Logo"
 msgstr "Logo"
 
@@ -1527,7 +1538,6 @@ msgstr "Pfeil"
 
 msgid "Send reset link"
 msgstr "Link zum Zurücksetzen senden"
-
 
 msgid "Loading..."
 msgstr "Wird geladen..."
@@ -1551,7 +1561,6 @@ msgid ""
 msgstr ""
 "Bitte überprüfen Sie Ihren Posteingang und klicken Sie auf den Link, um Ihr "
 "Passwort zurückzusetzen. Der Link läuft in 24 Stunden ab."
-
 
 msgid "Login"
 msgstr "Anmelden"
@@ -1581,7 +1590,8 @@ msgid "Invalid Link"
 msgstr "Ungültiger Link"
 
 msgid "This password reset link is invalid or has expired."
-msgstr "Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen."
+msgstr ""
+"Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen."
 "Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen."
 
 msgid "Please request a new password reset link."
@@ -1616,7 +1626,8 @@ msgstr ""
 "haben. Dieser Link läuft in 24 Stunden ab."
 
 msgid "This is an automated message from the system. Please do not reply."
-msgstr "Dies ist eine automatisierte Nachricht vom System. Bitte antworten Sie nicht."
+msgstr ""
+"Dies ist eine automatisierte Nachricht vom System. Bitte antworten Sie nicht."
 "Dies ist eine automatisierte Nachricht des Systems. Bitte antworten Sie "
 "nicht."
 
@@ -1637,6 +1648,9 @@ msgstr "Kartenfelder"
 
 msgid "Action"
 msgstr "Aktion"
+
+msgid "Import"
+msgstr "Import"
 
 msgid "Choose Module"
 msgstr "Wählen Sie Modul"
@@ -1774,7 +1788,8 @@ msgid "more errors."
 msgstr "weitere Fehler."
 
 msgid "Download the full report above to see all errors."
-msgstr "Laden Sie den vollständigen Bericht oben herunter, um alle Fehler zu sehen."
+msgstr ""
+"Laden Sie den vollständigen Bericht oben herunter, um alle Fehler zu sehen."
 "Laden Sie oben den vollständigen Bericht herunter, um alle Fehler anzuzeigen."
 
 msgid "Import More Data"
@@ -1859,8 +1874,10 @@ msgid "Start Loading"
 msgstr "Laden beginnen"
 
 msgid "Authenticate with your password to load demo database"
-msgstr "Authentifizieren Sie sich mit Ihrem Passwort, um die Demo-Datenbank zu laden"
-"Authentifizieren Sie sich mit Ihrem Passwort, um die Demo-Datenbank zu laden"
+msgstr ""
+"Authentifizieren Sie sich mit Ihrem Passwort, um die Demo-Datenbank zu "
+"ladenAuthentifizieren Sie sich mit Ihrem Passwort, um die Demo-Datenbank zu "
+"laden"
 
 msgid "Loading Demo Database"
 msgstr "Lade Demo-Datenbank"
@@ -1921,8 +1938,14 @@ msgid "Warning:"
 msgstr "Warnung:"
 
 msgid "No users selected. Please select atleast one user."
-msgstr "Keine Benutzer ausgewählt. Bitte wählen Sie mindestens einen Benutzer aus."
+msgstr ""
 "Keine Benutzer ausgewählt. Bitte wählen Sie mindestens einen Benutzer aus."
+"Keine Benutzer ausgewählt. Bitte wählen Sie mindestens einen Benutzer aus."
+
+msgid ""
+"Required fields are always visible when creating or duplicating. Permissions "
+"for these fields apply only during editing."
+msgstr ""
 
 msgid "Read Only"
 msgstr "Nur Lesen"
@@ -1932,6 +1955,11 @@ msgstr "Lesen und Schreiben"
 
 msgid "Don't Show"
 msgstr "Nicht anzeigen"
+
+#, fuzzy
+#| msgid "Enter %(field)s"
+msgid "Mandatory field"
+msgstr "%(field)s eingeben"
 
 msgid "No fields found for this model."
 msgstr "Keine Felder für dieses Modell gefunden."
@@ -1943,9 +1971,10 @@ msgid "Save All Changes"
 msgstr "Alle Änderungen speichern"
 
 msgid "To manage field-level permissions, simply click the name of a model."
-msgstr "Um Berechtigungen auf Feldebene zu verwalten, klicken Sie einfach auf den Namen eines Modells."
+msgstr ""
 "Um Berechtigungen auf Feldebene zu verwalten, klicken Sie einfach auf den "
-"Namen eines Modells."
+"Namen eines Modells.Um Berechtigungen auf Feldebene zu verwalten, klicken "
+"Sie einfach auf den Namen eines Modells."
 
 msgid "User Groups"
 msgstr "Benutzergruppen"
@@ -2152,9 +2181,10 @@ msgid "Invalid credentials. Please check and try again."
 msgstr "Ungültige Anmeldeinformationen. Bitte überprüfen und erneut versuchen."
 
 msgid "This user is archived or blocked. Please contact support."
-msgstr "Dieser Benutzer ist archiviert oder blockiert. Bitte kontaktieren Sie den Support."
-"Dieser Benutzer wurde archiviert oder gesperrt. Bitte wenden Sie sich an den "
-"Support."
+msgstr ""
+"Dieser Benutzer ist archiviert oder blockiert. Bitte kontaktieren Sie den "
+"Support.Dieser Benutzer wurde archiviert oder gesperrt. Bitte wenden Sie "
+"sich an den Support."
 
 msgid "Login successful."
 msgstr "Anmeldung erfolgreich."
@@ -2183,9 +2213,6 @@ msgstr "Die Woche beginnt am"
 msgid "Business Days"
 msgstr "Werktage"
 
-msgid "Activity"
-msgstr "Aktivität"
-
 #, python-format
 msgid "Upload %(field)s"
 msgstr "%(field)s hochladen"
@@ -2197,6 +2224,9 @@ msgstr "%(field)s eingeben"
 #, python-format
 msgid "Select %(field)s"
 msgstr "%(field)s auswählen"
+
+msgid "This field is read-only and cannot be modified."
+msgstr ""
 
 #, python-format
 msgid "Enter %(field)s here..."
@@ -2243,6 +2273,11 @@ msgstr "Keine Datei ausgewählt"
 
 msgid "Clear"
 msgstr "Klar"
+
+#, fuzzy
+#| msgid "Create New"
+msgid "Save & New"
+msgstr "Neu erstellen"
 
 msgid "Add Notes and Attachment"
 msgstr "Notizen und Anhang hinzufügen"
@@ -2466,7 +2501,8 @@ msgid "Hard Delete will permanently delete data."
 msgstr "Hartes Löschen löscht Daten dauerhaft."
 
 msgid "Soft Delete allows you to restore deleted records."
-msgstr "Soft Delete ermöglicht es Ihnen, gelöschte Datensätze wiederherzustellen."
+msgstr ""
+"Soft Delete ermöglicht es Ihnen, gelöschte Datensätze wiederherzustellen."
 "Weiches Löschen ermöglicht die Wiederherstellung gelöschter Datensätze."
 
 msgid "Hard Delete"
@@ -2578,6 +2614,9 @@ msgstr "Sie haben keine Berechtigung, diesen Datensatz zu aktualisieren."
 msgid "{self.model._meta.verbose_name} Stage Updated Successfully"
 msgstr "{self.model._meta.verbose_name}-Phase erfolgreich aktualisiert"
 
+msgid "Activity"
+msgstr "Aktivität"
+
 msgid "Related Lists"
 msgstr "Verknüpfte Listen"
 
@@ -2594,11 +2633,43 @@ msgid "The requested attachment does not exist."
 msgstr "Der angeforderte Anhang existiert nicht."
 
 msgid "You don't have permission to add attachments to this record."
-msgstr "Sie haben keine Berechtigung, Anhänge zu diesem Datensatz hinzuzufügen."
-"Sie haben keine Berechtigung, Anhänge zu diesem Datensatz hinzuzufügen."
+msgstr ""
+"Sie haben keine Berechtigung, Anhänge zu diesem Datensatz hinzuzufügen.Sie "
+"haben keine Berechtigung, Anhänge zu diesem Datensatz hinzuzufügen."
 
 msgid "Invalid related object."
 msgstr "Ungültiges verknüpftes Objekt."
+
+msgid "duplicated"
+msgstr ""
+
+#, fuzzy
+#| msgid "Update"
+msgid "updated"
+msgstr "Aktualisieren"
+
+#, python-format
+msgid "%(model)s %(action)s successfully!"
+msgstr ""
+
+#, fuzzy, python-format
+#| msgid "A user with this username already exists."
+msgid "A %(model)s with this %(field)s already exists."
+msgstr "Ein Benutzer mit diesem Benutzernamen existiert bereits."
+
+#, fuzzy, python-format
+#| msgid "A user with this username already exists."
+msgid "A %(model)s with this combination of %(fields)s already exists."
+msgstr "Ein Benutzer mit diesem Benutzernamen existiert bereits."
+
+#, python-format
+msgid ""
+"This %(model)s could not be saved due to a duplicate entry. Please check "
+"your input and try again."
+msgstr ""
+
+msgid "An error occurred while saving. Please try again or contact support."
+msgstr ""
 
 msgid ""
 "Selected record is not associated with any company. Activate a company to "
