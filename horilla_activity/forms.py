@@ -3,17 +3,16 @@ Forms module for Activity-related operations including Meetings,
 Calls, Events, and general Activity creation.
 """
 
+# Third-party imports (Django)
 from django import forms
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.forms import ValidationError
 from django.urls import reverse_lazy
 
+# First-party / Horilla imports
 from horilla.auth.models import User
-from horilla_activity.methods import (
-    get_activity_content_types_queryset,
-    limit_content_types,
-)
+from horilla_activity.methods import get_activity_content_types_queryset
 from horilla_activity.models import Activity
 from horilla_core.mixins import OwnerQuerysetMixin
 from horilla_generics.forms import HorillaModelForm
@@ -300,7 +299,7 @@ class ActivityContentTypeForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
-        request = kwargs.pop("request", None)
+        _request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
 
         # Set restricted queryset for content_type

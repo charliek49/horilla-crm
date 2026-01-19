@@ -2,8 +2,6 @@
 Helper methods for Activity models
 """
 
-from types import MethodType
-
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
