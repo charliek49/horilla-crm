@@ -419,15 +419,7 @@
                         }
                     });
 
-                    // Handle refreshReport trigger
-                    document.body.addEventListener('htmx:afterRequest', function(event) {
-                        if (event.detail.requestConfig.headers['HX-Trigger'] === 'refreshReport') {
-                            htmx.ajax('GET', '{% url "horilla_reports:report_update" report.pk %}', {
-                                target: '#panel',
-                                swap: 'outerHTML'
-                            });
-                        }
-                    });
+
                 })();
 
                 // Export dropdown handler
