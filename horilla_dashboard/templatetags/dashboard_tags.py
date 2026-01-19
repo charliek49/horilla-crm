@@ -1,5 +1,8 @@
-# File: horilla_dashboard/templatetags/dashboard_filters.py
-# Create this directory structure: horilla_dashboard/templatetags/__init__.py and dashboard_filters.py
+"""
+Template filters for horilla_dashboard templates.
+
+Provides simple filter helpers to narrow dashboard components by type.
+"""
 
 from django import template
 

@@ -199,7 +199,7 @@ class DefaultDashboardGenerator:
             return chart
 
         except Exception as e:
-            logger.warning(f"Failed to convert choice labels in chart: {e}")
+            logger.warning("Failed to convert choice labels in chart: %s", e)
             return chart
 
     def get_date_field(self, model_class):
@@ -211,6 +211,12 @@ class DefaultDashboardGenerator:
         return None
 
     def generate_table_data(self):
+        """
+        Generate table data for configured models, respecting permissions.
+
+        Iterates configured model info and invokes any provided table functions,
+        collecting their results into a list of tables.
+        """
         tables = []
         for model_info in self.models:
             try:

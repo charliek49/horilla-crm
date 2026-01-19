@@ -1,4 +1,10 @@
-# Define your horilla_dashboard helper methods here
+"""
+Helper methods used by the horilla_dashboard app.
+
+This module contains small helper functions used to support dashboard
+configuration and model choice restrictions.
+"""
+
 from django.apps import apps
 from django.db import models
 

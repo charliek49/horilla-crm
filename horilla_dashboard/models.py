@@ -1,8 +1,10 @@
 """Models for horilla_dashboard app."""
 
+# Standard library imports
 import json
 import logging
 
+# Third-party imports (Django)
 from django.apps import apps
 from django.conf import settings
 from django.core.validators import MinValueValidator
@@ -12,6 +14,8 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from horilla.registry.permission_registry import permission_exempt_model
+
+# First-party / Horilla imports
 from horilla.utils.choices import OPERATOR_CHOICES
 from horilla_core.models import HorillaContentType, HorillaCoreModel, upload_path
 from horilla_dashboard.methods import limit_content_types
@@ -178,6 +182,7 @@ class Dashboard(HorillaCoreModel):
         )
 
     def is_default_col(self):
+        """Return rendered HTML indicating whether this dashboard is the default."""
 
         html = render_template(
             path="is_default_dashboard.html", context={"instance": self}

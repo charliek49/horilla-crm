@@ -148,7 +148,7 @@ def get_queryset_for_module(user, model):
     if user.has_perm(f"{app_label}.view_{model_name}"):
         return model.objects.all()
 
-    elif user.has_perm(f"{app_label}.view_own_{model_name}"):
+    if user.has_perm(f"{app_label}.view_own_{model_name}"):
         owner_fields = getattr(model, "OWNER_FIELDS", [])
         if not owner_fields:
             return model.objects.none()
@@ -286,6 +286,7 @@ class DashboardDefaultToggleView(LoginRequiredMixin, View):
     """Toggle default dashboard for the current user via HTMX"""
 
     def post(self, request, *args, **kwargs):
+        """Handle HTMX POST to toggle the `is_default` flag for a dashboard."""
         try:
             dashboard = Dashboard.objects.get(pk=kwargs["pk"])
             user = request.user
@@ -578,7 +579,7 @@ class DashboardDetailView(RecentlyViewedMixin, LoginRequiredMixin, TemplateView)
 
         except Exception as e:
             logger.warning(
-                f"Failed to generate report chart for component {component.id}: {e}"
+                "Failed to generate report chart for component %s: %s", component.id, e
             )
             return None
 
@@ -704,7 +705,7 @@ class DashboardDetailView(RecentlyViewedMixin, LoginRequiredMixin, TemplateView)
 
         except Exception as e:
             logger.warning(
-                f"Failed to generate chart for component {component.id}: {e}"
+                "Failed to generate chart for component %s: %s", component.id, e
             )
             return None
 
@@ -747,7 +748,9 @@ class DashboardDetailView(RecentlyViewedMixin, LoginRequiredMixin, TemplateView)
                                 converted_value = int(value)
                         except (ValueError, TypeError):
                             logger.warning(
-                                f"Could not convert value '{value}' to numeric for field '{field}'"
+                                "Could not convert value '%s' to numeric for field '%s'",
+                                value,
+                                field,
                             )
                             continue
 
@@ -759,7 +762,9 @@ class DashboardDetailView(RecentlyViewedMixin, LoginRequiredMixin, TemplateView)
                             converted_value = False
                         else:
                             logger.warning(
-                                f"Invalid boolean value '{value}' for field '{field}'"
+                                "Invalid boolean value '%s' for field '%s'",
+                                value,
+                                field,
                             )
                             continue
 
@@ -769,7 +774,9 @@ class DashboardDetailView(RecentlyViewedMixin, LoginRequiredMixin, TemplateView)
                             converted_value = int(value)
                         except (ValueError, TypeError):
                             logger.warning(
-                                f"Could not convert FK value '{value}' to int for field '{field}'"
+                                "Could not convert FK value '%s' to int for field '%s'",
+                                value,
+                                field,
                             )
                             continue
 
@@ -820,7 +827,7 @@ class DashboardDetailView(RecentlyViewedMixin, LoginRequiredMixin, TemplateView)
 
             except Exception as e:
                 logger.error(
-                    f"Error applying condition {field} {operator} {value}: {e}"
+                    "Error applying condition %s %s %s: %s", field, operator, value, e
                 )
                 continue
 
@@ -1952,22 +1959,22 @@ class ChartPreviewView(View):
                 """
                 return HttpResponse(html)
 
-        if not component_type and not chart_type:
-            return HttpResponse(
-                '<div class="text-gray-500 text-sm flex items-center justify-center h-full">Select component type to see preview</div>'
+        message = (
+            "Select component type to see preview"
+            if not component_type and not chart_type
+            else (
+                f"Preview for {component_type} component"
+                if component_type and component_type != "chart" and not chart_type
+                else (
+                    "Select chart type to see preview"
+                    if component_type == "chart" and not chart_type
+                    else "Chart type not supported"
+                )
             )
-        elif component_type and component_type != "chart" and not chart_type:
-            return HttpResponse(
-                f'<div class="text-gray-500 text-sm flex items-center justify-center h-full">Preview for {component_type} component</div>'
-            )
-        elif component_type == "chart" and not chart_type:
-            return HttpResponse(
-                '<div class="text-gray-500 text-sm flex items-center justify-center h-full">Select chart type to see preview</div>'
-            )
-        else:
-            return HttpResponse(
-                '<div class="text-gray-500 text-sm flex items-center justify-center h-full">Chart type not supported</div>'
-            )
+        )
+        return HttpResponse(
+            f'<div class="text-gray-500 text-sm flex items-center justify-center h-full">{message}</div>'
+        )
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -2080,7 +2087,7 @@ class DashboardComponentChartView(View):
 
             except Exception as e:
                 logger.error(
-                    f"Error applying condition {field} {operator} {value}: {e}"
+                    "Error applying condition %s %s %s: %s", field, operator, value, e
                 )
                 continue
 
@@ -2256,8 +2263,8 @@ class DashboardComponentChartView(View):
                     "x_axis_label": x_axis_label,
                     "is_condition_based": conditions.exists(),
                 }
-            else:
-                return None
+
+            return None
         except:
             return None
 
@@ -2436,7 +2443,7 @@ class DashboardComponentChartView(View):
             }
 
         except Exception as e:
-            logger.error(f"Failed to generate stacked chart: {e}", exc_info=True)
+            logger.error("Failed to generate stacked chart: %s", e, exc_info=True)
             return None
 
     def get_report_chart_data(self, component):
@@ -2447,7 +2454,7 @@ class DashboardComponentChartView(View):
         try:
             report = component.reports
             if not report:
-                logger.warning(f"No report found for component {component.id}")
+                logger.warning("No report found for component %s", component.id)
                 return None
 
             model = None
@@ -2465,12 +2472,14 @@ class DashboardComponentChartView(View):
 
             if not model:
                 logger.warning(
-                    f"Model not found for component {component.id}, module: {component.module}"
+                    "Model not found for component %s, module: %s",
+                    component.id,
+                    component.module,
                 )
                 return None
 
             if not component.grouping_field:
-                logger.warning(f"No grouping field for component {component.id}")
+                logger.warning("No grouping field for component %s", component.id)
                 return None
 
             queryset = get_queryset_for_module(self.request.user, model)
@@ -2479,7 +2488,7 @@ class DashboardComponentChartView(View):
             queryset = self.apply_conditions(queryset, conditions)
 
             if queryset.count() == 0:
-                logger.warning(f"Empty queryset for component {component.id}")
+                logger.warning("Empty queryset for component %s", component.id)
                 return None
 
             field = model._meta.get_field(component.grouping_field)
@@ -2498,7 +2507,7 @@ class DashboardComponentChartView(View):
 
             # Handle stacked charts
             if is_stacked_chart and component.secondary_grouping:
-                logger.info(f"Processing stacked chart for component {component.id}")
+                logger.info("Processing stacked chart for component %s", component.id)
                 return self.get_stacked_chart_data(
                     queryset, component, conditions, field, x_axis_label, model
                 )
@@ -2576,7 +2585,9 @@ class DashboardComponentChartView(View):
             }
         except Exception as e:
             logger.error(
-                f"Failed to generate report chart for component {component.id}: {e}",
+                "Failed to generate report chart for component %s: %s",
+                component.id,
+                e,
                 exc_info=True,
             )
             return None
