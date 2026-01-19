@@ -75,7 +75,7 @@ class HorillaCoreConfig(AppConfig):
         except Exception as e:
             import logging
 
-            logging.warning(f"Horilla CoreConfig.ready failed: {e}")
+            logging.warning("Horilla CoreConfig.ready failed: %s", e)
 
         super().ready()
 

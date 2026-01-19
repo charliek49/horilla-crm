@@ -2,13 +2,17 @@
 This view handles the methods for user sepcific holidays view
 """
 
+# Standard library imports
+from functools import cached_property
+
+# Third-party imports (Django)
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
-from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
+# First-party / Horilla imports
 from horilla_core.decorators import htmx_required
 from horilla_core.filters import HolidayFilter
 from horilla_core.models import Holiday
@@ -98,6 +102,9 @@ class UserHolidayListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """
+        Get the column attributes for the list view.
+        """
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")

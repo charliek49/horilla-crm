@@ -1,10 +1,15 @@
-from django.contrib.staticfiles.storage import staticfiles_storage
-from django.urls import include, path, re_path
-from django.views.generic.base import RedirectView
+"""
+URL configuration for Horilla Core app.
+"""
 
+# Third-party imports (Django)
+from django.urls import include, path, re_path
+
+# First-party / Horilla core imports
 from horilla_core.change_password import ChangePasswordFormView, ChangePasswordView
 from horilla_core.forgot_password import ForgotPasswordView, PasswordResetConfirmView
 
+# Local app imports
 from . import branches as branches_views
 from . import customer_role as customer_role_views
 from . import departments as department_views

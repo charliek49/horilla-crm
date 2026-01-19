@@ -1,9 +1,11 @@
 """View to handle load demo data"""
 
+# Standard library imports
 import json
 import tempfile
 from pathlib import Path
 
+# Third-party imports (Django)
 from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
@@ -14,6 +16,7 @@ from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
+# First-party / Horilla imports
 from horilla.auth.models import User
 
 
@@ -30,6 +33,7 @@ class LoadDatabaseConditionView(View):
     """
 
     def get_initialize_condition(self):
+        """Check if database initialization is needed."""
         initialize_database = not User.objects.exists()
         return initialize_database
 
@@ -38,6 +42,7 @@ class LoadDatabase(View):
     """To load db init password"""
 
     def get(self, request, *args, **kwargs):
+        """Handle GET requests for database initialization."""
         condition_view = LoadDatabaseConditionView()
         load_data = condition_view.get_initialize_condition()
         next_url = request.GET.get("next", "/")
@@ -59,10 +64,10 @@ class ConfigureDemoData(View):
         """Format option value for display"""
         if value >= 10000:
             return "10,000+"
-        elif value > 8000:
+        if value > 8000:
             return "Above 8,000"
-        else:
-            return f"{value:,}"
+
+        return f"{value:,}"
 
     def get_configurable_entities(self):
         """
@@ -147,6 +152,7 @@ class LoadDemoDatabase(View):
     """
 
     def get_data_files(self):
+        """Collect all demo data files from installed apps in order."""
         data_files = []
 
         for app_config in apps.get_app_configs():
@@ -164,6 +170,9 @@ class LoadDemoDatabase(View):
         return [fpath for _, fpath in sorted(data_files, key=lambda x: x[0])]
 
     def get_file_limit_key(self, filename):
+        """
+        Determine the limit key for a given data file based on its app config.
+        """
         filename = Path(filename).name
 
         for app_config in apps.get_app_configs():
@@ -171,7 +180,7 @@ class LoadDemoDatabase(View):
             if not demo_data:
                 continue
 
-            app_path = Path(app_config.path)
+            _app_path = Path(app_config.path)
             configs = demo_data if isinstance(demo_data, list) else [demo_data]
 
             for cfg in configs:
@@ -268,8 +277,8 @@ class LoadDemoDatabase(View):
         if load_data:
             if request.session.get("init_password") == settings.DB_INIT_PASSWORD:
                 return redirect("horilla_core:configure_demo_data")
-            else:
-                return render(request, "load_data/init_password.html")
+
+            return render(request, "load_data/init_password.html")
 
         return redirect(next_url)
 

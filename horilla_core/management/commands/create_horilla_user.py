@@ -54,7 +54,12 @@ class Command(BaseCommand):
                 last_name=last_name,
                 contact_number=phone,
             )
-            bot = User.objects.filter(username="Horilla Bot").first()
+            bot = User.objects.filter(
+                username="Horilla Bot",
+                is_active=False,
+                first_name="Bot",
+                last_name="User",
+            ).first()
             if bot is None:
                 User.objects.create_user(
                     username="Horilla Bot",

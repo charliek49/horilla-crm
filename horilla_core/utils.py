@@ -1,12 +1,19 @@
+"""Utility functions for Horilla Core app."""
+
+# Standard library imports
 import json
 import logging
 
+# Third-party imports
 from dateutil.parser import parse
+
+# Third-party imports (Django)
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
 from django.db.models import QuerySet
 
+# First-party / Horilla imports
 from horilla_core.models import FieldPermission, MultipleCurrency, RecycleBin
 from horilla_utils.middlewares import _thread_local
 
@@ -177,7 +184,10 @@ def restore_recycle_bin_records(request, recycle_objs):
                                             TypeError,
                                         ) as e:
                                             logger.warning(
-                                                f"ForeignKey error for field {field_name} in {recycle_obj.record_name()}: {str(e)}"
+                                                "ForeignKey error for field %s in %s: %s",
+                                                field_name,
+                                                recycle_obj.record_name(),
+                                                e,
                                             )
                                             if field.null:
                                                 field_value = None
@@ -189,7 +199,11 @@ def restore_recycle_bin_records(request, recycle_objs):
                                                 if default_obj:
                                                     field_value = default_obj
                                                     logger.info(
-                                                        f"Assigned default {related_model.__name__} ID {default_obj.pk} to {recycle_obj.record_name()} for field {field_name}"
+                                                        "Assigned default %s ID %s to %s for field %s",
+                                                        related_model.__name__,
+                                                        default_obj.pk,
+                                                        recycle_obj.record_name(),
+                                                        field_name,
                                                     )
                                                 else:
                                                     failed_records.append(
@@ -213,8 +227,12 @@ def restore_recycle_bin_records(request, recycle_objs):
 
                             except (ValueError, TypeError) as e:
                                 logger.warning(
-                                    f"Error processing field {field_name} in {recycle_obj.record_name()}: {str(e)}"
+                                    "Error processing field %s in %s: %s",
+                                    field_name,
+                                    recycle_obj.record_name(),
+                                    e,
                                 )
+
                                 if field.null:
                                     field_value = None
                                 else:
@@ -228,7 +246,7 @@ def restore_recycle_bin_records(request, recycle_objs):
                 restored_count += 1
         except Exception as e:
             failed_records.append(f"{recycle_obj.record_name()}: {str(e)}")
-            logger.error(f"Failed to restore {recycle_obj.record_name()}: {str(e)}")
+            logger.error("Failed to restore %s: %s", recycle_obj.record_name(), e)
 
     return restored_count, failed_records
 
@@ -268,7 +286,7 @@ def delete_recycle_bin_records(request, recycle_objs):
                 deleted_count += 1
         except Exception as e:
             failed_records.append(f"{recycle_obj.record_name()}: {str(e)}")
-            logger.error(f"Failed to delete {recycle_obj.record_name()}: {str(e)}")
+            logger.error("Failed to delete %s: %s", recycle_obj.record_name(), e)
 
     return deleted_count, failed_records
 

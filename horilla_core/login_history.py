@@ -4,10 +4,10 @@ from login_history.models import LoginHistory
 
 
 def user_status(self):
+    """Return 'Login' or 'Logout' based on is_logged_in status."""
     if self.is_logged_in == True:
         return "Login"
-    else:
-        return "Logout"
+    return "Logout"
 
 
 def short_user_agent(self):
@@ -22,6 +22,7 @@ def short_user_agent(self):
 
 
 def formatted_datetime(self):
+    """Return formatted local date-time string."""
     local_dt = localtime(self.date_time)
     return (
         local_dt.strftime("%d %b %Y, %I:%M %p")
@@ -32,16 +33,16 @@ def formatted_datetime(self):
 
 
 def is_login_icon(self):
+    """Return HTML for login/logout icon based on is_logged_in status."""
     if self.is_logged_in:
         # Green check icon
         return format_html(
             '<span class="flex justify-center items-center inline-block text-green-600"><i class="fas fa-check-circle fa-lg"></i></span>'
         )
-    else:
-        # Red cross icon
-        return format_html(
-            '<span class=" flex justify-center items-center inline-block text-red-600"><i class="fas fa-times-circle fa-lg"></i></span>'
-        )
+    # Red cross icon
+    return format_html(
+        '<span class=" flex justify-center items-center inline-block text-red-600"><i class="fas fa-times-circle fa-lg"></i></span>'
+    )
 
 
 LoginHistory.user_status = user_status

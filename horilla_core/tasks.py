@@ -1,14 +1,17 @@
+# Standard library imports
 import csv
 import io
 import logging
 import zipfile
-from datetime import datetime, timedelta
+from datetime import timedelta
 from io import BytesIO
 
+# Third-party imports
 from celery import shared_task
+
+# Third-party imports (Django)
 from django.apps import apps
-from django.conf import settings
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import get_connection
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -18,6 +21,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
+# First-party / Horilla imports
 from horilla_utils.middlewares import _thread_local
 
 logger = logging.getLogger(__name__)
@@ -35,30 +39,34 @@ def process_scheduled_exports():
     current_date = now.date()
     current_weekday = now.strftime("%A").lower()
 
-    logger.info(f"=== process_scheduled_exports running at {now} ===")
-    logger.info(f"Current: date={current_date}, weekday={current_weekday}")
+    logger.info("=== process_scheduled_exports running at %s ===", now)
+    logger.info("Current: date=%s, weekday=%s", current_date, current_weekday)
 
     # Get all active schedules
     schedules = ExportSchedule.objects.filter(start_date__lte=current_date).filter(
         models.Q(end_date__isnull=True) | models.Q(end_date__gte=current_date)
     )
 
-    logger.info(f"Found {schedules.count()} active schedules")
+    logger.info("Found %s active schedules", schedules.count())
 
     for schedule in schedules:
         try:
             logger.info(
-                f"Checking schedule {schedule.id}: frequency={schedule.frequency}, last_run={schedule.last_run}"
+                "Checking schedule %s: frequency=%s, last_run=%s",
+                schedule.id,
+                schedule.frequency,
+                schedule.last_run,
             )
             if should_run_schedule(schedule, current_date, current_weekday):
                 logger.info(
-                    f"✓ Schedule {schedule.id} should run - triggering execute_scheduled_export"
+                    "✓ Schedule %s should run - triggering execute_scheduled_export",
+                    schedule.id,
                 )
                 execute_scheduled_export.delay(schedule.id)
             else:
-                logger.info(f"✗ Schedule {schedule.id} should NOT run yet")
+                logger.info("✗ Schedule %s should NOT run yet", schedule.id)
         except Exception as e:
-            logger.error(f"Error checking schedule {schedule.id}: {str(e)}")
+            logger.error("Error checking schedule %s: %s", schedule.id, e)
             logger.exception(e)
 
     return f"Processed {schedules.count()} schedules"
@@ -72,40 +80,48 @@ def should_run_schedule(schedule, current_date, current_weekday):
     last_run = schedule.last_run
 
     if last_run is None:
-        logger.info(f"  Schedule has never run before")
+        logger.info("Schedule has never run before")
         return check_frequency_match(schedule, current_date, current_weekday)
 
     days_since_last_run = (current_date - last_run).days
-    logger.info(f"  Days since last run: {days_since_last_run}")
+    logger.info("Days since last run: %s", days_since_last_run)
 
     if schedule.frequency == "daily":
         should_run = days_since_last_run >= 1
         logger.info(
-            f"  Daily schedule: days_since_last_run={days_since_last_run}, should_run={should_run}"
+            "  Daily schedule: days_since_last_run=%s, should_run=%s",
+            days_since_last_run,
+            should_run,
         )
         return should_run and check_frequency_match(
             schedule, current_date, current_weekday
         )
 
-    elif schedule.frequency == "weekly":
+    if schedule.frequency == "weekly":
         should_run = days_since_last_run >= 7 and current_weekday == schedule.weekday
         logger.info(
-            f"  Weekly schedule: days_since_last_run={days_since_last_run}, weekday_match={current_weekday == schedule.weekday}, should_run={should_run}"
+            "  Weekly schedule: days_since_last_run=%s, weekday_match=%s, should_run=%s",
+            days_since_last_run,
+            current_weekday == schedule.weekday,
+            should_run,
         )
         return should_run
 
-    elif schedule.frequency == "monthly":
+    if schedule.frequency == "monthly":
         month_changed = current_date.year > last_run.year or (
             current_date.year == last_run.year and current_date.month > last_run.month
         )
         day_matches = current_date.day == schedule.day_of_month
         should_run = month_changed and day_matches
         logger.info(
-            f"  Monthly schedule: month_changed={month_changed}, day_matches={day_matches}, should_run={should_run}"
+            "  Monthly schedule: month_changed=%s, day_matches=%s, should_run=%s",
+            month_changed,
+            day_matches,
+            should_run,
         )
         return should_run
 
-    elif schedule.frequency == "yearly":
+    if schedule.frequency == "yearly":
         year_changed = current_date.year > last_run.year
         date_matches = (
             current_date.day == schedule.yearly_day_of_month
@@ -113,11 +129,14 @@ def should_run_schedule(schedule, current_date, current_weekday):
         )
         should_run = year_changed and date_matches
         logger.info(
-            f"  Yearly schedule: year_changed={year_changed}, date_matches={date_matches}, should_run={should_run}"
+            "  Yearly schedule: year_changed=%s, date_matches=%s, should_run=%s",
+            year_changed,
+            date_matches,
+            should_run,
         )
         return should_run
 
-    logger.info(f"  ✗ Unknown frequency: {schedule.frequency}")
+    logger.info("  ✗ Unknown frequency: %s", schedule.frequency)
     return False
 
 
@@ -127,30 +146,41 @@ def check_frequency_match(schedule, current_date, current_weekday):
     Used for first-time runs.
     """
     if schedule.frequency == "daily":
-        logger.info(f"  ✓ Daily schedule - will run")
+        logger.info("  ✓ Daily schedule - will run")
         return True
 
-    elif schedule.frequency == "weekly":
+    if schedule.frequency == "weekly":
         match = current_weekday == schedule.weekday
         logger.info(
-            f"  Weekly: current={current_weekday}, required={schedule.weekday}, match={match}"
+            "  Weekly: current=%s, required=%s, match=%s",
+            current_weekday,
+            schedule.weekday,
+            match,
         )
         return match
 
-    elif schedule.frequency == "monthly":
+    if schedule.frequency == "monthly":
         match = current_date.day == schedule.day_of_month
         logger.info(
-            f"  Monthly: current_day={current_date.day}, required={schedule.day_of_month}, match={match}"
+            "  Monthly: current_day=%s, required=%s, match=%s",
+            current_date.day,
+            schedule.day_of_month,
+            match,
         )
         return match
 
-    elif schedule.frequency == "yearly":
+    if schedule.frequency == "yearly":
         match = (
             current_date.day == schedule.yearly_day_of_month
             and current_date.month == schedule.yearly_month
         )
         logger.info(
-            f"  Yearly: current={current_date.month}/{current_date.day}, required={schedule.yearly_month}/{schedule.yearly_day_of_month}, match={match}"
+            "  Yearly: current=%s/%s, required=%s/%s, match=%s",
+            current_date.month,
+            current_date.day,
+            schedule.yearly_month,
+            schedule.yearly_day_of_month,
+            match,
         )
         return match
 
@@ -166,29 +196,33 @@ def execute_scheduled_export(schedule_id):
     from .models import ExportSchedule
 
     logger.info(
-        f"=== Starting execute_scheduled_export for schedule_id: {schedule_id} ==="
+        "=== Starting execute_scheduled_export for schedule_id: %s ===",
+        schedule_id,
     )
 
     try:
         schedule = ExportSchedule.objects.get(id=schedule_id)
         logger.info(
-            f"Found schedule: user={schedule.user.email}, company={schedule.company}, modules={schedule.modules}"
+            "Found schedule: user=%s, company=%s, modules=%s",
+            schedule.user.email,
+            schedule.company,
+            schedule.modules,
         )
     except ExportSchedule.DoesNotExist:
-        logger.error(f"ExportSchedule {schedule_id} not found")
+        logger.error("ExportSchedule %s not found", schedule_id)
         return
 
     try:
-        logger.info(f"Generating export files for {len(schedule.modules)} modules")
+        logger.info("Generating export files for %s modules", len(schedule.modules))
         export_files = generate_export_files(schedule.modules, schedule.export_format)
 
         if not export_files:
-            logger.error(f"No files generated for schedule {schedule_id}")
+            logger.error("No files generated for schedule %s", schedule_id)
             return
 
-        logger.info(f"Generated {len(export_files)} export files")
+        logger.info("Generated %s export files", len(export_files))
 
-        logger.info(f"Sending email to {schedule.user.email}")
+        logger.info("Sending email to %s", schedule.user.email)
         send_export_email(
             user=schedule.user,
             export_format=schedule.export_format,
@@ -199,12 +233,12 @@ def execute_scheduled_export(schedule_id):
 
         schedule.last_run = timezone.now().date()
         schedule.save(update_fields=["last_run"])
-        logger.info(f"Updated last_run to {schedule.last_run}")
+        logger.info("Updated last_run to %s", schedule.last_run)
 
-        logger.info(f"=== Successfully executed schedule {schedule_id} ===")
+        logger.info("=== Successfully executed schedule %s ===", schedule_id)
 
     except Exception as e:
-        logger.error(f"=== Error executing schedule {schedule_id}: {str(e)} ===")
+        logger.error("=== Error executing schedule %s: %s ===", schedule_id, e)
         logger.exception(e)
 
 
@@ -219,14 +253,14 @@ def generate_export_files(module_names, export_format):
         try:
             model = get_model_by_name(model_name)
             if not model:
-                logger.warning(f"Model {model_name} not found")
+                logger.warning("Model %s not found", model_name)
                 continue
 
             filename, data = export_model_data(model, export_format)
             if filename and data:
                 export_files.append((filename, data))
         except Exception as e:
-            logger.error(f"Error exporting model {model_name}: {str(e)}")
+            logger.error("Error exporting model %s: %s", model_name, e)
             continue
 
     return export_files
@@ -262,9 +296,9 @@ def export_model_data(model, export_format):
 
     if export_format == "csv":
         return export_to_csv(model, column_headers, data)
-    elif export_format == "xlsx":
+    if export_format == "xlsx":
         return export_to_xlsx(model, column_headers, data)
-    elif export_format == "pdf":
+    if export_format == "pdf":
         return export_to_pdf(model, column_headers, data)
 
     return None, None
@@ -462,7 +496,7 @@ def send_export_email(user, export_format, export_files, modules, company=None):
     """
     Send email with export files attached using HorillaDefaultMailBackend.
     """
-    logger.info(f"Starting email send for user: {user.email}, company: {company}")
+    logger.info("Starting email send for user: %s, company: %s", user.email, company)
 
     subject = _("Scheduled Export - {}").format(
         timezone.now().strftime("%Y-%m-%d %H:%M")
@@ -558,10 +592,10 @@ def send_export_email(user, export_format, export_files, modules, company=None):
             email.attach(zip_filename, zip_buffer.getvalue(), "application/zip")
 
         email.send(fail_silently=False)
-        logger.info(f"Export email sent successfully to {user.email}")
+        logger.info("Export email sent successfully to %s", user.email)
 
     except Exception as e:
-        logger.error(f"Failed to send export email to {user.email}: {str(e)}")
+        logger.error("Failed to send export email to %s: %s", user.email, e)
         logger.exception(e)
         raise
     finally:
@@ -592,5 +626,5 @@ def cleanup_old_schedules():
 
     deleted_count = ExportSchedule.objects.filter(end_date__lt=cutoff_date).delete()[0]
 
-    logger.info(f"Cleaned up {deleted_count} expired schedules")
+    logger.info("Cleaned up %s expired schedules", deleted_count)
     return f"Deleted {deleted_count} expired schedules"

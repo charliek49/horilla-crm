@@ -1,13 +1,20 @@
+"""
+Forms for Horilla Core application.
+
+This module contains Django form classes used across the Horilla Core app
+"""
+
+# Standard library imports
 import logging
 
+# Third-party imports
 import pycountry
 from django import forms
-from django.apps import apps
-from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
+# First-party / Horilla imports
 from horilla.auth.models import User
 from horilla_core.mixins import OwnerQuerysetMixin
 from horilla_generics.forms import (
@@ -17,6 +24,7 @@ from horilla_generics.forms import (
 )
 from horilla_utils.middlewares import _thread_local
 
+# Local / relative imports
 from .models import (
     BusinessHour,
     Company,
@@ -31,7 +39,11 @@ logger = logging.getLogger(__name__)
 
 
 class FiscalYearForm(HorillaModelForm):
+    """Form class for FiscalYear model."""
+
     class Meta:
+        """Meta options for FiscalYearForm."""
+
         model = FiscalYear
         fields = [
             "fiscal_year_type",
@@ -87,7 +99,11 @@ class FiscalYearForm(HorillaModelForm):
 
 
 class HolidayForm(HorillaModelForm):
+    """Form class for Holiday model."""
+
     class Meta:
+        """Meta options for HolidayForm."""
+
         model = Holiday
         fields = "__all__"
         exclude = [
@@ -314,6 +330,8 @@ class HolidayForm(HorillaModelForm):
 
 
 class CurrencyForm(forms.Form):
+    """Form to add a new currency for the company."""
+
     currency = forms.ModelChoiceField(
         queryset=MultipleCurrency.objects.none(),
         empty_label="Select a currency",
@@ -332,6 +350,8 @@ class CurrencyForm(forms.Form):
 
 
 class ConversionRateForm(forms.Form):
+    """Form to update conversion rates and change default currency."""
+
     new_default_currency = forms.ModelChoiceField(
         queryset=MultipleCurrency.objects.none(),
         empty_label="Select a new default currency",
@@ -366,6 +386,8 @@ class ConversionRateForm(forms.Form):
 
 
 class DatedConversionRateForm(forms.Form):
+    """Form to add dated conversion rates for multiple currencies."""
+
     start_date = forms.DateField(
         label=_("Start Date"),
         help_text=_("Effective date for these conversion rates"),
@@ -426,7 +448,11 @@ class DatedConversionRateForm(forms.Form):
 
 
 class BusinessHourForm(HorillaModelForm):
+    """Form class for BusinessHour model."""
+
     class Meta:
+        """Meta options for BusinessHourForm."""
+
         model = BusinessHour
         fields = [
             "company",
@@ -500,7 +526,7 @@ class BusinessHourForm(HorillaModelForm):
             if name in self.fields:
                 self.fields[name].widget.attrs["hx-get"] = base_url
 
-        has_existing_default = (
+        _has_existing_default = (
             BusinessHour.objects.filter(is_default=True)
             .exclude(pk=instance.pk if instance.pk else None)
             .exists()
@@ -644,7 +670,11 @@ class BusinessHourForm(HorillaModelForm):
 
 
 class UserFormClass(HorillaMultiStepForm):
+    """Form class for User model with password fields."""
+
     class Meta:
+        """Meta options for UserFormClass."""
+
         model = User
         fields = "__all__"
         # exclude = ['profile']
@@ -717,6 +747,7 @@ class UserFormClass(HorillaMultiStepForm):
             )
 
     def get_subdivision_choices(self, country_code):
+        """Get subdivisions for a given country code."""
         try:
             subdivisions = list(
                 pycountry.subdivisions.get(country_code=country_code.upper())
@@ -727,7 +758,11 @@ class UserFormClass(HorillaMultiStepForm):
 
 
 class UserFormSingle(HorillaModelForm):
+    """Form class for User model."""
+
     class Meta:
+        """Meta options for UserFormSingle."""
+
         model = User
         fields = [
             "profile",
@@ -783,6 +818,7 @@ class UserFormSingle(HorillaModelForm):
             )
 
     def get_subdivision_choices(self, country_code):
+        """Get subdivisions for a given country code."""
         try:
             subdivisions = list(
                 pycountry.subdivisions.get(country_code=country_code.upper())
@@ -793,6 +829,8 @@ class UserFormSingle(HorillaModelForm):
 
 
 class UserFormClassSingle(HorillaModelForm):
+    """Form class for User model with password fields."""
+
     # Add password fields that are not part of the model
     password = forms.CharField(
         widget=PasswordInputWithEye(),
@@ -809,6 +847,8 @@ class UserFormClassSingle(HorillaModelForm):
     )
 
     class Meta:
+        """Meta options for UserFormClassSingle."""
+
         model = User
         fields = [
             "profile",
@@ -848,6 +888,7 @@ class UserFormClassSingle(HorillaModelForm):
             )
 
     def clean_username(self):
+        """Validate that username is unique & required."""
         username = self.cleaned_data.get("username")
         if not username:
             raise ValidationError(_("Username is required."))
@@ -862,6 +903,7 @@ class UserFormClassSingle(HorillaModelForm):
         return username
 
     def clean_confirm_password(self):
+        """Validate that password and confirm_password match."""
         password = self.cleaned_data.get("password")
         confirm_password = self.cleaned_data.get("confirm_password")
 
@@ -872,6 +914,7 @@ class UserFormClassSingle(HorillaModelForm):
         return confirm_password
 
     def clean_password(self):
+        """Validate password strength."""
         password = self.cleaned_data.get("password")
 
         if not self.instance or not self.instance.pk:
@@ -884,6 +927,7 @@ class UserFormClassSingle(HorillaModelForm):
         return password
 
     def save(self, commit=True):
+        """Override save method to handle password setting."""
         user = super().save(commit=False)
 
         # Handle password
@@ -902,7 +946,7 @@ class CompanyMultistepFormClass(OwnerQuerysetMixin, HorillaMultiStepForm):
     """Form class for company model"""
 
     class Meta:
-        """Meta class for FormClass"""
+        """Meta options for CompanyMultistepFormClass."""
 
         model = Company
         fields = "__all__"
@@ -968,6 +1012,7 @@ class CompanyMultistepFormClass(OwnerQuerysetMixin, HorillaMultiStepForm):
             )
 
     def get_subdivision_choices(self, country_code):
+        """Get subdivisions for a given country code."""
         try:
             subdivisions = list(
                 pycountry.subdivisions.get(country_code=country_code.upper())
@@ -978,7 +1023,11 @@ class CompanyMultistepFormClass(OwnerQuerysetMixin, HorillaMultiStepForm):
 
 
 class CompanyFormClass(HorillaModelForm):
+    """Form class for Company model."""
+
     class Meta:
+        """Meta options for CompanyFormClass."""
+
         model = Company
         fields = [
             "name",
@@ -994,7 +1043,11 @@ class CompanyFormClass(HorillaModelForm):
 
 
 class CompanyFormClassSingle(HorillaModelForm):
+    """Form class for Company model with all fields."""
+
     class Meta:
+        """Meta options for CompanyFormClassSingle."""
+
         model = Company
         fields = [
             "name",
@@ -1047,6 +1100,7 @@ class CompanyFormClassSingle(HorillaModelForm):
             )
 
     def get_subdivision_choices(self, country_code):
+        """Get subdivisions for a given country code."""
         try:
             subdivisions = list(
                 pycountry.subdivisions.get(country_code=country_code.upper())
@@ -1057,6 +1111,8 @@ class CompanyFormClassSingle(HorillaModelForm):
 
 
 class AddUsersToRoleForm(forms.Form):
+    """Form to add users to a specific role."""
+
     role = forms.ModelChoiceField(
         queryset=Role.objects.all(),
         label=_("Role"),
@@ -1129,6 +1185,7 @@ class AddUsersToRoleForm(forms.Form):
         return cleaned_data
 
     def save(self, commit=True):
+        """Assign the selected role to the selected users."""
         role = self.cleaned_data["role"]
         users = self.cleaned_data["users"]
         if commit:
@@ -1139,7 +1196,11 @@ class AddUsersToRoleForm(forms.Form):
 
 
 class RegionalFormattingForm(HorillaModelForm):
+    """Form class for updating user's regional formatting settings."""
+
     class Meta:
+        """Meta options for RegionalFormattingForm."""
+
         model = User
         fields = [
             "date_format",
@@ -1190,6 +1251,7 @@ class ChangePasswordForm(forms.Form):
         super().__init__(*args, **kwargs)
 
     def clean_current_password(self):
+        """Validate that the current password is correct."""
         current_password = self.cleaned_data.get("current_password")
         if not self.user.check_password(current_password):
             self.add_error("current_password", _("Current password is incorrect."))

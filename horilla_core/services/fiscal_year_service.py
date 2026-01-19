@@ -1,11 +1,16 @@
+# Standard library imports
 from datetime import datetime, timedelta
 
+# Third-party imports (Others)
 from dateutil.relativedelta import relativedelta
+
+# Third-party imports (Django)
 from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
-from horilla_core.models import FiscalYear, Quarter
+# Local application imports
+from horilla_core.models import FiscalYear
 
 
 class FiscalYearService:
@@ -341,16 +346,7 @@ class FiscalYearService:
         Get the number of periods for a specific quarter
         """
         # Use the property methods or direct calculation
-        if quarter_number == 1:
-            return periods_info["quarter_1_periods"]
-        elif quarter_number == 2:
-            return periods_info["quarter_2_periods"]
-        elif quarter_number == 3:
-            return periods_info["quarter_3_periods"]
-        elif quarter_number == 4:
-            return periods_info["quarter_4_periods"]
-        else:
-            return 3  # Default fallback
+        return periods_info.get(f"quarter_{quarter_number}_periods", 3)
 
     @staticmethod
     def get_current_fiscal_year(company):

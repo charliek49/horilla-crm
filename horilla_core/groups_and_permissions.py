@@ -1,5 +1,11 @@
+""" "
+Views and utilities for managing groups and permissions in Horilla.
+"""
+
+# Standard library imports
 from functools import cached_property
 
+# Third-party imports (Django)
 from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -16,6 +22,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import TemplateView
 
+# First-party / Horilla imports
 from horilla.auth.models import User
 from horilla.registry.permission_registry import PERMISSION_EXEMPT_MODELS
 from horilla_core.decorators import htmx_required, permission_required_or_denied
@@ -338,6 +345,7 @@ class SaveBulkFieldPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request, *args, **kwargs):
+        """Save field permissions for multiple users in bulk."""
 
         user_ids_str = request.POST.get("user_ids", "")
         if not user_ids_str:
@@ -449,7 +457,7 @@ class UpdateFieldPermissionView(LoginRequiredMixin, View):
     """
 
     def post(self, request, *args, **kwargs):
-
+        """Update field permission for a user or role."""
         role_id = kwargs.get("role_id")
         user_id = kwargs.get("user_id")
         app_label = kwargs.get("app_label")
@@ -471,7 +479,7 @@ class UpdateFieldPermissionView(LoginRequiredMixin, View):
         try:
             if role_id:
                 role = get_object_or_404(Role, id=role_id)
-                field_perm, created = FieldPermission.objects.update_or_create(
+                _field_perm, created = FieldPermission.objects.update_or_create(
                     role=role,
                     content_type=content_type,
                     field_name=field_name,
@@ -480,7 +488,7 @@ class UpdateFieldPermissionView(LoginRequiredMixin, View):
                 target_name = role.role_name
             elif user_id:
                 user = get_object_or_404(User, id=user_id)
-                field_perm, created = FieldPermission.objects.update_or_create(
+                _field_perm, created = FieldPermission.objects.update_or_create(
                     user=user,
                     content_type=content_type,
                     field_name=field_name,
@@ -525,7 +533,7 @@ class SaveAllFieldPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request, *args, **kwargs):
-
+        """Save all field permissions at once."""
         role_id = kwargs.get("role_id")
         user_id = kwargs.get("user_id")
         app_label = request.POST.get("app_label")
@@ -599,6 +607,10 @@ class SaveAllFieldPermissionsView(LoginRequiredMixin, View):
     name="dispatch",
 )
 class GroupPermissionView(LoginRequiredMixin, TemplateView):
+    """
+    View to display group and permission management interface
+    """
+
     template_name = "permissions/group_perm_view.html"
 
 
@@ -623,6 +635,7 @@ class GroupPermissionTabView(LoginRequiredMixin, HorillaTabView):
 
     @cached_property
     def tabs(self):
+        """Define tabs for groups and permissions."""
         if self.request.user.has_perm("horilla_core.view_company"):
             return [
                 {
@@ -660,6 +673,10 @@ class GroupPermissionTabView(LoginRequiredMixin, HorillaTabView):
     name="dispatch",
 )
 class GroupTab(LoginRequiredMixin, TemplateView):
+    """
+    Tab view for groups
+    """
+
     template_name = "permissions/group.html"
 
     def get_context_data(self, **kwargs):
@@ -682,12 +699,16 @@ class GroupTab(LoginRequiredMixin, TemplateView):
     name="dispatch",
 )
 class RolePermissionsView(LoginRequiredMixin, TemplateView):
+    """
+    View to display and manage permissions for a specific role
+    """
+
     template_name = "permissions/group_role_detail.html"
 
     def get(self, request, *args, **kwargs):
         role_id = kwargs.get("role_id")
         try:
-            role = get_object_or_404(Role, id=role_id)
+            _role = get_object_or_404(Role, id=role_id)
         except:
             messages.error(request, _("Role does not exist"))
             return HttpResponse("<script>$('#reloadButton').click();</script>")
@@ -830,12 +851,14 @@ class SearchAssignModelsView(LoginRequiredMixin, TemplateView):
     name="dispatch",
 )
 class RoleMembersView(LoginRequiredMixin, TemplateView):
+    """View to display members of a specific role"""
+
     template_name = "permissions/role_members.html"
 
     def get(self, request, *args, **kwargs):
         role_id = kwargs.get("role_id")
         try:
-            role = get_object_or_404(Role, id=role_id)
+            _role = get_object_or_404(Role, id=role_id)
         except:
             messages.error(request, _("Role does not exist"))
             return HttpResponse("<script>$('#reloadButton').click();</script>")
@@ -956,6 +979,7 @@ class UpdateUserPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request, user_id):
+        """Toggle permission for a specific user."""
         try:
             user = get_object_or_404(User, id=user_id)
         except:
@@ -1009,6 +1033,7 @@ class LoadUserPermissionsView(LoginRequiredMixin, TemplateView):
     template_name = "permissions/user_permissions.html"
 
     def get(self, request, user_id, *args, **kwargs):
+        """Load permissions for a specific user."""
         try:
             user = get_object_or_404(User, id=user_id)
         except:
@@ -1091,6 +1116,7 @@ class UpdateRolePermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request, role_id):
+        """Toggle permission for a specific role."""
         role = get_object_or_404(Role, id=role_id)
         perm_id = request.POST.get("permission_id")
         checked = request.POST.get("checked") == "true"
@@ -1135,6 +1161,7 @@ class AssignUsersView(LoginRequiredMixin, View):
     template_name = "permissions/assign_perm_form.html"
 
     def get(self, request, *args, **kwargs):
+        """Render the assign permissions form."""
         context = {
             "all_models": PermissionUtils.get_all_models_data(
                 user=None,  # Optionally pass user if you want pre-check
@@ -1145,6 +1172,7 @@ class AssignUsersView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
+        """Handle assigning permissions to selected users."""
         user_ids = request.POST.getlist("users")
         permission_ids = request.POST.getlist("permissions")
 
@@ -1208,6 +1236,7 @@ class UpdateRoleModelPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request, role_id):
+        """Toggle all permissions for a specific model for a role."""
         try:
             role = get_object_or_404(Role, id=role_id)
         except:
@@ -1272,6 +1301,7 @@ class UpdateRoleAllPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request, role_id):
+        """Toggle ALL permissions for a role."""
         try:
             role = get_object_or_404(Role, id=role_id)
         except:
@@ -1338,6 +1368,7 @@ class UpdateUserModelPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request, user_id):
+        """Toggle all permissions for a specific model for a user."""
         try:
             user = get_object_or_404(User, id=user_id)
         except:
@@ -1404,6 +1435,7 @@ class UpdateUserAllPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request, user_id):
+        """Toggle ALL permissions for a user."""
         try:
             user = get_object_or_404(User, id=user_id)
         except:
@@ -1467,6 +1499,7 @@ class BulkUpdateUserModelPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request):
+        """Toggle all permissions for a specific model for multiple users."""
         user_ids = request.POST.getlist("users")
         model_name = request.POST.get("model_name")
         app_label = request.POST.get("app_label")
@@ -1539,6 +1572,7 @@ class BulkUpdateUserAllPermissionsView(LoginRequiredMixin, View):
     """
 
     def post(self, request):
+        """Toggle ALL permissions for multiple users."""
         user_ids = request.POST.getlist("users")
         checked = request.POST.get("checked") == "true"
 
@@ -1638,6 +1672,7 @@ class ToggleSuperuserView(LoginRequiredMixin, View):
     """
 
     def post(self, request, *args, **kwargs):
+        """Toggle superuser status for a user."""
         user_id = kwargs.get("pk")
         try:
             user = get_object_or_404(User, pk=user_id)

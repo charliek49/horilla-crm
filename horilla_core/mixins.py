@@ -6,7 +6,10 @@ from horilla.auth.models import User
 
 
 class CompanyFilterMixin:
+    """Mixin to filter queryset by active company in request."""
+
     def get_queryset(self):
+        """Filter queryset by active company if set in request."""
         qs = super().get_queryset()
         company = getattr(self.request, "active_company", None)
         if company:
@@ -15,6 +18,8 @@ class CompanyFilterMixin:
 
 
 class FiscalYearCalendarMixin:
+    """Mixin to generate fiscal year calendar data based on configuration."""
+
     def get_calendar_data(
         self,
         fiscal_year_data,
@@ -23,6 +28,7 @@ class FiscalYearCalendarMixin:
         week_start_day,
         current_year=None,
     ):
+        """Generate fiscal year calendar data."""
         if current_year is None:
             current_year = datetime.now().year
 

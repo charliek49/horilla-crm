@@ -1,3 +1,8 @@
+"""
+Custom decorators used across Horilla for permission handling,
+HTMX validation, and database initialization checks.
+"""
+
 from functools import wraps
 
 from django.conf import settings
@@ -79,6 +84,11 @@ def permission_required(perms, require_all=False):
 
 
 def htmx_required(view_func=None, login=True):
+    """
+    Ensure the request is an HTMX request.
+    Optionally enforce authentication before allowing access.
+    """
+
     def decorator(func):
         @wraps(func)
         def _wrapped_view(request, *args, **kwargs):

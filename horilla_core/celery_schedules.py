@@ -1,6 +1,11 @@
-from datetime import timedelta
+"""
+Celery beat schedules for the Horilla Core app.
 
-from celery.schedules import crontab
+Defines periodic tasks used by the core system,
+such as processing scheduled exports.
+"""
+
+from datetime import timedelta
 
 HORILLA_BEAT_SCHEDULE = {
     "process-scheduled-exports": {

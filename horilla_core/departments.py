@@ -2,14 +2,15 @@
 This view handles the methods for department view
 """
 
-from django.contrib import messages
+# Third-party imports (Django)
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
+# First-party imports (Horilla)
 from horilla_core.decorators import (
     htmx_required,
     permission_required,
@@ -24,7 +25,6 @@ from horilla_generics.views import (
     HorillaSingleFormView,
     HorillaView,
 )
-from horilla_notifications.models import Notification
 
 
 class DepartmentView(LoginRequiredMixin, HorillaView):
@@ -60,6 +60,10 @@ class DepartmentNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
+        """
+        Return the configuration for the 'Create Department' button
+        if the user has add permission.
+        """
         if self.request.user.has_perm("horilla_core.add_department"):
             return {
                 "url": f"""{ reverse_lazy('horilla_core:department_create_form')}?new=true""",
@@ -68,6 +72,9 @@ class DepartmentNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def actions(self):
+        """
+        Return navbar actions available for the department list.
+        """
         if self.request.user.has_perm("horilla_core.view_department"):
             return [
                 {
@@ -151,6 +158,9 @@ class DepartmentFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """
+        Resolve the form submission URL for create or update operation.
+        """
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy(
@@ -165,6 +175,11 @@ class DepartmentFormView(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class DepartmentDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    Delete view for Department. Handles deletion and returns an HTMX
+    response to reload the department list.
+    """
+
     model = Department
 
     def get_post_delete_response(self):

@@ -2,6 +2,7 @@
 This view handles the methods for team role view
 """
 
+# Third-party imports (Django)
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
@@ -10,6 +11,7 @@ from django.utils.decorators import method_decorator
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
+# First-party imports (Horilla core & apps)
 from horilla_core.decorators import (
     htmx_required,
     permission_required,
@@ -62,6 +64,10 @@ class CustomerRoleNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
+        """
+        Return configuration for the 'Create Customer Role' button
+        if the user has add permission.
+        """
         if self.request.user.has_perm("horilla_core.add_customerrole"):
             return {
                 "url": f"""{ reverse_lazy('horilla_core:customer_role_create_form')}?new=true""",
@@ -70,6 +76,9 @@ class CustomerRoleNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def actions(self):
+        """
+        Return navbar actions available for the customer role list.
+        """
         if self.request.user.has_perm("horilla_core.view_customerrole"):
             return [
                 {
@@ -154,6 +163,9 @@ class CustomerRoleFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """
+        Resolve form submission URL for create or update operation.
+        """
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy(
@@ -172,7 +184,7 @@ class CustomerRoleFormView(LoginRequiredMixin, HorillaSingleFormView):
                 url=reverse_lazy("horilla_core:customer_role_view"),
             )
 
-        response = super().form_valid(form)
+        _response = super().form_valid(form)
 
         return HttpResponse("<script>$('#reloadButton').click();closeModal();</script>")
 
@@ -197,6 +209,10 @@ class CustomerRoleFormView(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class CustomerRoleDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    Delete view for customer role.
+    """
+
     model = CustomerRole
 
     def get_post_delete_response(self):

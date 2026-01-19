@@ -2,16 +2,19 @@
 This view handles the methods for user view
 """
 
+# Standard library imports
+from functools import cached_property
 from urllib.parse import urlencode
 
+# Third-party imports (Django)
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
-from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import TemplateView
 
+# First-party / Horilla imports
 from horilla.auth.models import User
 from horilla_core.decorators import (
     htmx_required,
@@ -68,6 +71,9 @@ class UserNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
+        """
+        Get the configuration for the "New" button in the navbar.
+        """
         if self.request.user.has_perm(
             f"{User._meta.app_label}.add_{User._meta.model_name}"
         ):
@@ -101,6 +107,9 @@ class UserListView(LoginRequiredMixin, HorillaListView):
     table_height_as_class = "h-[calc(_100vh_-_310px_)]"
 
     def no_record_add_button(self):
+        """
+        Get the configuration for the "Add" button when no record exist.
+        """
         if self.request.user.has_perm(
             f"{User._meta.app_label}.add_{User._meta.model_name}"
         ):
@@ -164,6 +173,9 @@ class UserListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """
+        Get the column attributes for the list view.
+        """
         query_params = self.request.GET.dict()
         query_params = {}
         if "section" in self.request.GET:
@@ -186,9 +198,12 @@ class UserListView(LoginRequiredMixin, HorillaListView):
         ]
 
     def get_queryset(self):
+        """
+        Get the queryset for the list view, filtered by active company.
+        """
         queryset = super().get_queryset()
         company = getattr(self.request, "active_company", None)
-        queryset = queryset.filter(company=company)
+        queryset = queryset.filter(company=company, is_active=True)
         return queryset
 
 
@@ -247,6 +262,9 @@ class UserFormView(LoginRequiredMixin, HorillaMultiStepFormView):
 
     @cached_property
     def form_url(self):
+        """
+        Get the form URL for create or edit actions.
+        """
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_core:user_edit_form", kwargs={"pk": pk})
@@ -262,16 +280,19 @@ class UserFormView(LoginRequiredMixin, HorillaMultiStepFormView):
         if pk:
             if int(pk) == user.pk:
                 return user.has_perm("horilla_core.can_change_profile")
-            else:
-                return user.has_perm(
-                    f"{User._meta.app_label}.change_{User._meta.model_name}"
-                )
-        else:
-            return user.has_perm(f"{User._meta.app_label}.add_{User._meta.model_name}")
+
+            return user.has_perm(
+                f"{User._meta.app_label}.change_{User._meta.model_name}"
+            )
+
+        return user.has_perm(f"{User._meta.app_label}.add_{User._meta.model_name}")
 
 
 @method_decorator(htmx_required, name="dispatch")
 class UserFormViewSingle(LoginRequiredMixin, HorillaSingleFormView):
+    """
+    Single form view for user create and update
+    """
 
     model = User
     view_id = "user-form-view"
@@ -285,6 +306,9 @@ class UserFormViewSingle(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """
+        Get the URL for form submission based on whether it's a create or update action.
+        """
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_core:user_edit_single_form", kwargs={"pk": pk})
@@ -300,12 +324,12 @@ class UserFormViewSingle(LoginRequiredMixin, HorillaSingleFormView):
         if pk:
             if int(pk) == user.pk:
                 return user.has_perm("horilla_core.can_change_profile")
-            else:
-                return user.has_perm(
-                    f"{User._meta.app_label}.change_{User._meta.model_name}"
-                )
-        else:
-            return user.has_perm(f"{User._meta.app_label}.add_{User._meta.model_name}")
+
+            return user.has_perm(
+                f"{User._meta.app_label}.change_{User._meta.model_name}"
+            )
+
+        return user.has_perm(f"{User._meta.app_label}.add_{User._meta.model_name}")
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -316,9 +340,14 @@ class UserFormViewSingle(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class UserDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    View to delete a User
+    """
+
     model = User
 
     def get_post_delete_response(self):
+        """Get the response after deleting a user."""
         return HttpResponse("<script>htmx.trigger('#reloadButton','click');</script>")
 
 

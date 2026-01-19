@@ -2,31 +2,44 @@
 A generic class-based view for rendering the home page.
 """
 
+# Standard library imports
 import json
 import logging
 import os
 from datetime import datetime, timedelta
 from urllib.parse import urlencode, urlparse
 
+# Third-party imports (other)
 import pycountry
+
+# Third-party imports (Django)
 from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils.decorators import method_decorator
 from django.utils.functional import cached_property  # type: ignore
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import TemplateView
 from django.views.generic.base import RedirectView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.tokens import UntypedToken
 
+# First-party / Horilla imports
 from horilla import settings
 from horilla.auth.models import User
 from horilla.exceptions import HorillaHttp404
 from horilla.utils.branding import load_branding
+from horilla_core.decorators import htmx_required, permission_required_or_denied
 from horilla_core.forms import (
     BusinessHourForm,
     CompanyFormClassSingle,
@@ -53,22 +66,13 @@ from horilla_generics.views import (
 )
 from horilla_mail.models import HorillaMailConfiguration
 
-logger = logging.getLogger(__name__)
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.utils.decorators import method_decorator
-from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.generic import TemplateView
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.tokens import UntypedToken
-
-from horilla_core.decorators import htmx_required, permission_required_or_denied
-
 from .signals import company_created, pre_login_render_signal, pre_logout_signal
+
+logger = logging.getLogger(__name__)
 
 
 def is_jwt_token_valid(auth_header):
+    """Check if the provided JWT token is valid and return the associated user."""
     if not auth_header or not auth_header.startswith("Bearer "):
         return None  # No token
 
@@ -83,6 +87,7 @@ def is_jwt_token_valid(auth_header):
 
 
 def protected_media(request, path):
+    """Serve protected media files with access control."""
     public_pages = [
         "/login",
         "/sign-up-user",
@@ -126,7 +131,15 @@ def protected_media(request, path):
 
 
 class HomePageView(LoginRequiredMixin, View):
+    """
+    Redirect to default home page
+    """
+
     def get(self, request, *args, **kwargs):
+        """
+        Redirect to default home page
+        """
+
         return redirect(settings.DEFAULT_HOME_REDIRECT)
 
 
@@ -139,12 +152,23 @@ class ReloadMessages(LoginRequiredMixin, TemplateView):
     template_name = "messages.html"
 
     def get_context_data(self, **kwargs):
+        """
+        Get context data for reloading messages.
+        """
+
         context = super().get_context_data(**kwargs)
         return context
 
 
 class SaveActiveTabView(LoginRequiredMixin, View):
+    """
+    View to save the active tab for a user.
+    """
+
     def post(self, request, *args, **kwargs):
+        """
+        Save the active tab for the user.
+        """
         tab_target = request.POST.get("tab_target")
         path = request.POST.get("path")
         user = request.user if request.user.is_authenticated else None
@@ -162,12 +186,19 @@ class SaveActiveTabView(LoginRequiredMixin, View):
         return JsonResponse({"status": "error", "message": "Invalid data"}, status=400)
 
     def get(self, request, *args, **kwargs):
+        """
+        Handle GET requests with an error response.
+        """
+
         return JsonResponse(
             {"status": "error", "message": "Invalid method"}, status=405
         )
 
 
 class LoginUserView(View):
+    """
+    Class-based view to handle user login.
+    """
 
     def get(self, request):
         """
@@ -190,7 +221,7 @@ class LoginUserView(View):
             "show_forgot_password": show_forgot_password,
         }
 
-        responses = pre_login_render_signal.send(
+        _responses = pre_login_render_signal.send(
             sender=self.__class__, request=request, context=context
         )
 
@@ -249,13 +280,17 @@ class LogoutView(View):
     """
 
     def get(self, request, *args, **kwargs):
+        """
+        Logout the user and clear local storage.
+        """
+
         # Collect data from all registered signal receivers
         storage_data = {}
 
         if request.user.is_authenticated:
             responses = pre_logout_signal.send(sender=self.__class__, request=request)
 
-            for receiver, response in responses:
+            for _receiver, response in responses:
                 if response and isinstance(response, tuple) and len(response) == 2:
                     storage_key, data = response
                     if storage_key and data:
@@ -303,6 +338,9 @@ class ConmpanyInformationTabView(LoginRequiredMixin, HorillaTabView):
 
     @cached_property
     def tabs(self):
+        """
+        Get the list of tabs for the company information view.
+        """
         tabs = []
 
         # Company Details Tab
@@ -398,6 +436,9 @@ class ConmpanyInformationView(LoginRequiredMixin, TemplateView):
     template_name = "settings/company_information.html"
 
     def get_context_data(self, **kwargs):
+        """
+        Get context data for company information view.
+        """
         context = super().get_context_data(**kwargs)
         company = getattr(self.request, "active_company", None)
         context["has_company"] = bool(company)
@@ -435,6 +476,10 @@ class CompanyMultiFormView(LoginRequiredMixin, HorillaMultiStepFormView):
         return reverse_lazy("horilla_core:create_company_multi_step")
 
     def form_valid(self, form):
+        """
+        Handle valid form submission.
+        """
+
         step = self.get_initial_step()
 
         if step < self.total_steps:
@@ -451,7 +496,7 @@ class CompanyMultiFormView(LoginRequiredMixin, HorillaMultiStepFormView):
         }
         responses = company_created.send(sender=self.__class__, **signal_kwargs)
 
-        for receiver, response in responses:
+        for _receiver, response in responses:
             if isinstance(response, HttpResponse):
                 wrapped_response = HttpResponse(
                     f'<div id="{self.view_id}-container">{response.content.decode()}</div>'
@@ -485,6 +530,9 @@ class CompanyMultiFormView(LoginRequiredMixin, HorillaMultiStepFormView):
     }
 
     def get_form_kwargs(self):
+        """
+        Get form kwargs for company multi-step form.
+        """
         kwargs = super().get_form_kwargs()
         kwargs["request"] = self.request
         return kwargs
@@ -492,6 +540,9 @@ class CompanyMultiFormView(LoginRequiredMixin, HorillaMultiStepFormView):
 
 @method_decorator(htmx_required, name="dispatch")
 class CompanyFormView(LoginRequiredMixin, HorillaSingleFormView):
+    """
+    compnay Create/Update View
+    """
 
     model = Company
     view_id = "company-form-view"
@@ -512,12 +563,16 @@ class CompanyFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Form URL for company"""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_core:edit_company", kwargs={"pk": pk})
         return reverse_lazy("horilla_core:create_company")
 
     def form_valid(self, form):
+        """
+        Handle valid form submission.
+        """
         super().form_valid(form)
         custom_kwargs = self.get_signal_kwargs()
         signal_kwargs = {
@@ -529,7 +584,7 @@ class CompanyFormView(LoginRequiredMixin, HorillaSingleFormView):
         }
         responses = company_created.send(sender=self.__class__, **signal_kwargs)
 
-        for receiver, response in responses:
+        for _receiver, response in responses:
             if isinstance(response, HttpResponse):
                 wrapped_response = HttpResponse(
                     f'<div id="{self.view_id}-container">{response.content.decode()}</div>'
@@ -560,7 +615,14 @@ class CompanyFormView(LoginRequiredMixin, HorillaSingleFormView):
     permission_required_or_denied("horilla_core.can_switch_company"), name="dispatch"
 )
 class SwitchCompanyView(LoginRequiredMixin, View):
+    """
+    View to switch active company for the user.
+    """
+
     def post(self, request, company_id):
+        """
+        Switch the active company for the user.
+        """
         if request.user.is_authenticated and (
             request.user.has_perm("horilla_core.can_switch_company")
             or request.user.company_id == company_id
@@ -574,10 +636,16 @@ class SwitchCompanyView(LoginRequiredMixin, View):
     permission_required_or_denied("horilla_core.view_company"), name="dispatch"
 )
 class CompanyDetailsTab(LoginRequiredMixin, TemplateView):
+    """
+    TemplateView for company details tab.
+    """
 
     template_name = "settings/company_details_tab.html"
 
     def get_context_data(self, **kwargs):
+        """
+        Get context data for company details tab.
+        """
         context = super().get_context_data(**kwargs)
         company = getattr(self.request, "active_company", None)
         if company:
@@ -593,10 +661,16 @@ class CompanyDetailsTab(LoginRequiredMixin, TemplateView):
     permission_required_or_denied("horilla_core.view_company"), name="dispatch"
 )
 class CompanyFiscalYearTab(LoginRequiredMixin, TemplateView):
+    """
+    TemplateView for fiscal year tab.
+    """
 
     template_name = "settings/fiscal_year.html"
 
     def get_context_data(self, **kwargs):
+        """
+        Get context data for fiscal year tab.
+        """
         context = super().get_context_data(**kwargs)
         company = getattr(self.request, "active_company", None)
         if company:
@@ -651,6 +725,9 @@ class HolidayListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """
+        Get the column attributes for the list view.
+        """
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
@@ -710,9 +787,17 @@ class HolidayListView(LoginRequiredMixin, HorillaListView):
     name="dispatch",
 )
 class HolidayDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    Delete View for Holiday
+    """
+
     model = Holiday
 
     def get_post_delete_response(self):
+        """
+        Get the response after deleting a holiday.
+        """
+
         return HttpResponse(
             "<script>$('#reloadButton').click();closeDeleteModeModal();</script>"
         )
@@ -720,6 +805,10 @@ class HolidayDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
 
 @method_decorator(htmx_required, name="dispatch")
 class HolidayFormView(LoginRequiredMixin, HorillaSingleFormView):
+    """
+    Holiday Create/Update View
+    """
+
     model = Holiday
     form_class = HolidayForm
     view_id = "holiday-form-view"
@@ -729,12 +818,18 @@ class HolidayFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Form URL for holiday"""
+
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_core:holiday_update_form", kwargs={"pk": pk})
         return reverse_lazy("horilla_core:holiday_create_form")
 
     def get_initial(self):
+        """
+        Get initial data for holiday form.
+        """
+
         initial = super().get_initial()
 
         toggle = self.request.GET.get("toggle_all_users")
@@ -776,6 +871,9 @@ class HolidayFormView(LoginRequiredMixin, HorillaSingleFormView):
         return initial
 
     def form_invalid(self, form):
+        """
+        Handle invalid form submission.
+        """
         response = super().form_invalid(form)
         return response
 
@@ -842,10 +940,16 @@ class HolidayDetailView(LoginRequiredMixin, HorillaModalDetailView):
     permission_required_or_denied("horilla_core.view_multiplecurrency"), name="dispatch"
 )
 class CompanyMultipleCurrency(LoginRequiredMixin, TemplateView):
+    """
+    TemplateView for multiple currency view.
+    """
 
     template_name = "settings/multiple_currency.html"
 
     def get_context_data(self, **kwargs):
+        """
+        Get context data for multiple currency view.
+        """
         context = super().get_context_data(**kwargs)
         company = getattr(self.request, "active_company", None)
         if company:
@@ -953,6 +1057,9 @@ class BusinessHourListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """
+        Get the column attributes for the list view.
+        """
         query_params = {}
         if "section" in self.request.GET:
             query_params["section"] = self.request.GET.get("section")
@@ -1007,6 +1114,10 @@ class BusinessHourListView(LoginRequiredMixin, HorillaListView):
 
 @method_decorator(htmx_required, name="dispatch")
 class BusinessHourFormView(LoginRequiredMixin, HorillaSingleFormView):
+    """
+    Business Hour Create/Update View
+    """
+
     model = BusinessHour
     form_class = BusinessHourForm
     view_id = "business-hour-form-view"
@@ -1015,6 +1126,7 @@ class BusinessHourFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Form URL for business hour"""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy(
@@ -1023,6 +1135,9 @@ class BusinessHourFormView(LoginRequiredMixin, HorillaSingleFormView):
         return reverse_lazy("horilla_core:business_hour_create_form")
 
     def get_initial(self):
+        """
+        Get initial data for business hour form.
+        """
         initial = super().get_initial()
         toggle = self.request.GET.get("toggle_data")
         company = getattr(self.request, "active_company", None)
@@ -1053,9 +1168,16 @@ class BusinessHourFormView(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class BusinessHourDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    Delete View for Business Hour
+    """
+
     model = BusinessHour
 
     def get_post_delete_response(self):
+        """
+        Get the response after deleting a business hour.
+        """
         return HttpResponse(
             "<script>$('#reloadButton').click();closeDeleteModeModal();</script>"
         )
@@ -1121,6 +1243,10 @@ class BusinessHourDetailView(LoginRequiredMixin, HorillaModalDetailView):
 
 @method_decorator(htmx_required, name="dispatch")
 class GetCountrySubdivisionsView(LoginRequiredMixin, View):
+    """
+    View to get country subdivisions (states/provinces) based on country code.
+    """
+
     def get(self, request, *args, **kwargs):
         country_code = request.GET.get("country")
         options = '<option value="">Select State</option>'

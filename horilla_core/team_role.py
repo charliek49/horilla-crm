@@ -2,14 +2,18 @@
 This view handles the methods for team role view
 """
 
+# Standard library imports
+from functools import cached_property
+
+# Third-party imports (Django)
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
-from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
+# First-party / Horilla imports
 from horilla_core.decorators import (
     htmx_required,
     permission_required,
@@ -59,6 +63,9 @@ class TeamRoleNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
+        """
+        Get the configuration for the "New" button in the navbar.
+        """
         if self.request.user.has_perm("horilla_core.add_teamrole"):
             return {
                 "url": f"""{ reverse_lazy('horilla_core:team_role_create_form')}?new=true""",
@@ -67,6 +74,9 @@ class TeamRoleNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def actions(self):
+        """
+        Get the list of actions available in the navbar.
+        """
         if self.request.user.has_perm("horilla_core.view_teamrole"):
             return [
                 {
@@ -150,12 +160,18 @@ class TeamRoleFormView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """
+        Get the URL for form submission based on whether it's a create or update action.
+        """
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_core:team_role_update_form", kwargs={"pk": pk})
         return reverse_lazy("horilla_core:team_role_create_form")
 
     def get(self, request, *args, **kwargs):
+        """
+        Handle GET requests to ensure the requested TeamRole exists for editing.
+        """
         pk = kwargs.get("pk")
         if pk:
             try:
@@ -173,6 +189,10 @@ class TeamRoleFormView(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class TeamRoleDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    View to delete a Team Role
+    """
+
     model = TeamRole
 
     def get_post_delete_response(self):

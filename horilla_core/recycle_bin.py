@@ -2,18 +2,21 @@
 This view handles the methods for recycle bin view
 """
 
+# Standard library imports
 import json
+from functools import cached_property
 
+# Third-party imports (Django)
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
-from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
+# First-party / Horilla imports
 from horilla_core.decorators import (
     htmx_required,
     permission_required,
@@ -131,7 +134,10 @@ class RecycleBinListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def columns(self):
-        instance = self.model()
+        """
+        Returns the list of columns to display in the recycle bin list view.
+        """
+        _instance = self.model()
         return [
             (_("Record Name"), "record_name"),
             (_("Type"), "get_model_display_name"),
@@ -180,6 +186,10 @@ class RecycleDeleteView(LoginRequiredMixin, View):
     """
 
     def post(self, request, pk, *args, **kwargs):
+        """
+        Handle POST request to delete a RecycleBin record.
+        """
+
         try:
             recycle_obj = get_object_or_404(RecycleBin, pk=pk)
         except:
@@ -209,6 +219,9 @@ class BulkDeleteRecycleBinView(LoginRequiredMixin, View):
     """
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to bulk delete RecycleBin records.
+        """
         record_ids = json.loads(request.POST.get("selected_ids", "[]"))
         if not record_ids:
             messages.error(request, "No records selected for deletion.")
@@ -241,8 +254,14 @@ class BulkDeleteRecycleBinView(LoginRequiredMixin, View):
     permission_required_or_denied("horilla_core.change_recyclebin"), name="dispatch"
 )
 class RecycleRestoreView(LoginRequiredMixin, View):
+    """
+    View to handle restoration of a single RecycleBin record
+    """
 
     def post(self, request, pk, *args, **kwargs):
+        """
+        Handle POST request to restore a RecycleBin record.
+        """
         try:
             recycle_obj = get_object_or_404(RecycleBin, pk=pk)
         except:
@@ -274,6 +293,9 @@ class BulkRestoreRecycleView(LoginRequiredMixin, View):
     """
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to bulk restore RecycleBin records.
+        """
         record_ids = json.loads(request.POST.get("selected_ids", "[]"))
         if not record_ids:
             messages.error(request, "No records selected for restoration.")
@@ -311,6 +333,9 @@ class EmptyRecycleBinView(LoginRequiredMixin, View):
     """
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to empty the recycle bin.
+        """
         deleted_count, _ = RecycleBin.objects.all().delete()
 
         messages.success(
@@ -335,6 +360,9 @@ class BinPolicyView(LoginRequiredMixin, View):
     template_name = "settings/recycle_bin/bin_policy.html"
 
     def get(self, request, *args, **kwargs):
+        """
+        Handle GET request to display the recycle bin policy.
+        """
         company = request.active_company
         policy = RecycleBinPolicy.objects.filter(company=company).first()
         context = {
@@ -344,6 +372,10 @@ class BinPolicyView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to update the recycle bin policy.
+        """
+
         days = request.POST.get("days")
         company = request.active_company
 

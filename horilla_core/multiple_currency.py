@@ -1,16 +1,22 @@
+"""Views for managing multiple currencies and conversion rates."""
+
+# Standard library imports
 import logging
 from decimal import Decimal
 from functools import cached_property
 
+# Third-party imports (Django)
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic.edit import FormView
 
+# First-party / Horilla imports
 from horilla_core.decorators import htmx_required, permission_required_or_denied
 from horilla_core.forms import ConversionRateForm, CurrencyForm, DatedConversionRateForm
 from horilla_generics.views import (
@@ -19,10 +25,10 @@ from horilla_generics.views import (
     HorillaSingleFormView,
 )
 
+# Local app imports
 from .models import DatedConversionRate, MultipleCurrency
 
 logger = logging.getLogger(__name__)
-from django.utils.decorators import method_decorator
 
 
 @method_decorator(htmx_required, name="dispatch")
@@ -50,6 +56,9 @@ class CurrencyListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def columns(self):
+        """
+        Define columns for the currency list view.
+        """
         instance = self.model()
         return [
             (_("Currency Code"), "get_currency_code"),
@@ -104,6 +113,7 @@ class ChangeDefaultCurrencyView(LoginRequiredMixin, View):
     """
 
     def post(self, request, *args, **kwargs):
+        """Handle the POST request to change the default currency."""
         currency_id = kwargs.get("pk")
         if not currency_id:
             return HttpResponseBadRequest("Currency ID is required.")
@@ -204,7 +214,7 @@ class ChangeDefaultCurrencyView(LoginRequiredMixin, View):
             )
             return HttpResponse("<script>$('#reloadButton').click();</script>")
         except ValueError as e:
-            messages.error(self.request, "Failed to update conversion rates")
+            messages.error(self.request, f"Failed to update conversion rates: {e}")
             return HttpResponse("<script>$('#reloadButton').click();</script>")
 
 
@@ -333,7 +343,7 @@ class ChangeDefaultCurrencyFormView(LoginRequiredMixin, FormView):
                 "Invalid currency ID or currency doesn't belong to your company."
             )
         except ValueError as e:
-            logger.error(f"Error updating DatedConversionRate: {e}")
+            logger.error("Error updating DatedConversionRate: %s", e)
             return HttpResponseBadRequest(f"Failed to update conversion rates: {e}")
 
     def form_invalid(self, form):
@@ -384,6 +394,7 @@ class AddCurrencyView(LoginRequiredMixin, HorillaSingleFormView):
 
     @cached_property
     def form_url(self):
+        """Determine the form URL for adding or editing a currency."""
         pk = self.kwargs.get("pk") or self.request.GET.get("id")
         if pk:
             return reverse_lazy("horilla_core:edit_currency", kwargs={"pk": pk})
@@ -396,6 +407,10 @@ class AddCurrencyView(LoginRequiredMixin, HorillaSingleFormView):
     name="dispatch",
 )
 class ConversionRateFormView(LoginRequiredMixin, FormView):
+    """
+    HTMX endpoint to update conversion rates for multiple currencies.
+    """
+
     template_name = "settings/conversion_rates.html"
     form_class = ConversionRateForm
     success_url = reverse_lazy("settings:currency_list")
@@ -459,6 +474,10 @@ class ConversionRateFormView(LoginRequiredMixin, FormView):
     name="dispatch",
 )
 class DatedConversionRateFormView(LoginRequiredMixin, FormView):
+    """
+    HTMX endpoint to add dated conversion rates for multiple currencies.
+    """
+
     template_name = "settings/dated_conversion_rates.html"
     form_class = DatedConversionRateForm
     success_url = reverse_lazy("settings:dated_conversion_rate_list")
@@ -476,7 +495,7 @@ class DatedConversionRateFormView(LoginRequiredMixin, FormView):
         start_date = form.cleaned_data["start_date"]
 
         # Save dated conversion rates for each non-default currency
-        current_default = MultipleCurrency.objects.filter(
+        _current_default = MultipleCurrency.objects.filter(
             company=company, is_default=True
         ).first()
         for currency in MultipleCurrency.objects.filter(company=company).exclude(
@@ -534,6 +553,9 @@ class DatedCurrencyListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def columns(self):
+        """
+        Define columns for the dated currency list view.
+        """
         instance = self.model()
         return [
             (_("Currency Code"), "currency__currency"),
@@ -561,6 +583,10 @@ class DatedCurrencyListView(LoginRequiredMixin, HorillaListView):
 
 @method_decorator(htmx_required, name="dispatch")
 class CurrencyDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    HTMX endpoint to delete a currency.
+    """
+
     model = MultipleCurrency
 
     def delete(self, request, *args, **kwargs):

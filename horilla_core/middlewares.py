@@ -6,14 +6,17 @@ This module provides middleware for:
 - Handling custom Horilla exceptions.
 """
 
+# Standard library imports
 import logging
 
+# Django imports
 from django.http import HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import redirect, render
 from django.urls import Resolver404, resolve
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 
+# Local application imports
 from horilla.exceptions import HorillaHttp404
 from horilla.menu.sub_section_menu import sub_section_menu as menu_registry
 
@@ -95,12 +98,15 @@ class Horilla405Middleware:
         response = self.get_response(request)
 
         if isinstance(response, HttpResponseNotAllowed):
+            """Render a custom 405 error page."""
             return render(request, "error/405.html", status=405)
 
         return response
 
 
 class SVGSecurityMiddleware:
+    """Middleware to add security headers for SVG files."""
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -176,7 +182,10 @@ class HTMXRedirectMiddleware:
 
 
 class EnsureSectionMiddleware(MiddlewareMixin):
+    """Middleware to ensure 'section' parameter is present and valid in URLs."""
+
     def process_request(self, request):
+        """Check and enforce 'section' parameter in GET requests."""
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:
             return None
@@ -244,7 +253,7 @@ class EnsureSectionMiddleware(MiddlewareMixin):
                 if section:
                     valid_sections.add(section)
         except Exception as e:
-            logger.warning(f"Error getting valid sections: {e}")
+            logger.warning("Error getting valid sections: %s", e)
 
         return valid_sections
 
@@ -276,6 +285,6 @@ class EnsureSectionMiddleware(MiddlewareMixin):
                 pass
 
         except Exception as e:
-            logger.warning(f"Error in get_section_from_path: {e}")
+            logger.warning("Error in get_section_from_path: %s", e)
 
         return None

@@ -1,3 +1,22 @@
+"""
+Views for initial database setup and onboarding workflow.
+
+This module handles the step-by-step initialization process required
+when Horilla is first installed. It includes:
+
+- Checking whether database initialization is required
+- Secured database initialization using a setup password
+- Superuser creation and authentication
+- Company creation and assignment
+- Initial role creation and hierarchy setup
+- Progress tracking across initialization steps
+- HTMX-based partial rendering and navigation
+
+These views are intended to run only during the first-time setup
+and are protected using custom initialization guards and decorators.
+"""
+
+# Third-party imports (Django)
 from django.conf import settings
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -8,6 +27,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
+# First-party / Horilla imports
 from horilla.auth.models import User
 from horilla_core.decorators import db_initialization, htmx_required
 from horilla_core.forms import CompanyFormClass, UserFormClassSingle
@@ -22,15 +42,20 @@ class InitializeDatabaseConditionView(View):
     """
 
     def get_initialize_condition(self):
+        """Check if the database needs initialization."""
         initialize_database = not User.objects.exists()
         return initialize_database
 
 
 class InitializeDatabase(View, ProgressStepsMixin):
+    """
+    View to handle the initial database setup process.
+    """
 
     current_step = 1
 
     def get(self, request, *args, **kwargs):
+        """Handle GET requests for database initialization."""
         condition_view = InitializeDatabaseConditionView()
         initialize_database = condition_view.get_initialize_condition()
         next_url = request.GET.get("next", "/")
@@ -44,10 +69,14 @@ class InitializeDatabase(View, ProgressStepsMixin):
 
 
 class InitializeDatabaseUser(View, ProgressStepsMixin):
+    """
+    View to handle user creation during database initialization.
+    """
 
     current_step = 2
 
     def get(self, request, *args, **kwargs):
+        """Handle GET requests for user creation during database initialization."""
         condition_view = InitializeDatabaseConditionView()
         initialize_database = condition_view.get_initialize_condition()
         next_url = request.GET.get("next", "/")
@@ -63,6 +92,7 @@ class InitializeDatabaseUser(View, ProgressStepsMixin):
         return redirect(next_url)
 
     def post(self, request, *args, **kwargs):
+        """Handle POST requests for user creation during database initialization."""
         password = self.request.POST.get("db_password")
 
         if settings.DB_INIT_PASSWORD == password:
@@ -81,10 +111,14 @@ class InitializeDatabaseUser(View, ProgressStepsMixin):
 
 
 class InitializeDatabaseCompany(LoginRequiredMixin, View, ProgressStepsMixin):
+    """
+    View to handle company creation during database initialization.
+    """
 
     current_step = 3
 
     def get(self, request, *args, **kwargs):
+        """Handle GET requests for company creation during database initialization."""
         next_url = request.GET.get("next", "/")
         if request.session.get("db_password") == settings.DB_INIT_PASSWORD:
             context = {
@@ -100,6 +134,7 @@ class InitializeDatabaseCompany(LoginRequiredMixin, View, ProgressStepsMixin):
 @method_decorator(db_initialization(model=User), name="dispatch")
 @method_decorator(htmx_required(login=False), name="dispatch")
 class SignUpFormView(HorillaSingleFormView, ProgressStepsMixin):
+    """View to handle user sign-up during database initialization."""
 
     model = User
     view_id = "user-form-view"
@@ -156,6 +191,7 @@ class SignUpFormView(HorillaSingleFormView, ProgressStepsMixin):
 class InitializeCompanyFormView(
     LoginRequiredMixin, HorillaSingleFormView, ProgressStepsMixin
 ):
+    """View to handle company creation during database initialization."""
 
     model = Company
     view_id = "user-form-view"
@@ -206,6 +242,10 @@ class InitializeCompanyFormView(
 
 @method_decorator(csrf_exempt, name="dispatch")
 class InitializeRoleView(LoginRequiredMixin, View, ProgressStepsMixin):
+    """
+    View to handle the initial role setup process.
+    """
+
     template_name = "initialize_database/initialize_role.html"
     current_step = 4
     response_template = None
@@ -213,6 +253,7 @@ class InitializeRoleView(LoginRequiredMixin, View, ProgressStepsMixin):
     select_id = None
 
     def get(self, request, *args, **kwargs):
+        """Handle GET requests for role creation during database initialization."""
         next_url = request.GET.get("next", "/")
         company_id = request.GET.get("company_id") or request.session.get("company_id")
         edit_role_id = request.GET.get("edit_role")
@@ -241,6 +282,7 @@ class InitializeRoleView(LoginRequiredMixin, View, ProgressStepsMixin):
         return redirect(next_url)
 
     def post(self, request, *args, **kwargs):
+        """Handle POST requests for role creation during database initialization."""
         next_step = request.POST.get("next_step")
         company_id = request.POST.get("company_id") or request.session.get("company_id")
         role_name = request.POST.get("role_name")

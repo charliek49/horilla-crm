@@ -2,8 +2,10 @@
 This view handles the methods for user view
 """
 
+# Standard library imports
 from urllib.parse import urlencode
 
+# Django imports
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import redirect_to_login
@@ -15,6 +17,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
+# Horilla first-party imports
 from horilla.exceptions import HorillaHttp404
 from horilla_core.decorators import (
     htmx_required,
@@ -63,6 +66,11 @@ class BranchNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def new_button(self):
+        """
+        Return configuration for the "New Branch" button.
+
+        The button is shown only if the user has permission to add a company.
+        """
         if self.request.user.has_perm("horilla_core.add_company"):
             return {
                 "url": f"""{ reverse_lazy('horilla_core:create_company_multi_step')}?new=true""",
@@ -71,6 +79,11 @@ class BranchNavbar(LoginRequiredMixin, HorillaNavView):
 
     @cached_property
     def actions(self):
+        """
+        Return available action configurations for the branch navbar view.
+
+        Actions are displayed only if the user has permission to view companies.
+        """
         if self.request.user.has_perm("horilla_core.view_company"):
             return [
                 {
@@ -142,6 +155,12 @@ class BranchListView(LoginRequiredMixin, HorillaListView):
 
     @cached_property
     def col_attrs(self):
+        """
+        Return column-level HTMX attributes for branch list rows.
+
+        Enables row click navigation to the branch detail view
+        when the user has view company permission.
+        """
         query_params = self.request.GET.dict()
         query_params = {}
         if "section" in self.request.GET:
@@ -200,6 +219,13 @@ class BranchDetailView(LoginRequiredMixin, DetailView):
     name="dispatch",
 )
 class BranchDeleteView(LoginRequiredMixin, HorillaSingleDeleteView):
+    """
+    HTMX-enabled delete view for branches.
+
+    Handles branch deletion and refreshes the branches list
+    and company dropdown after successful deletion.
+    """
+
     model = Company
     reassign_all_visibility = False
     reassign_individual_visibility = False
