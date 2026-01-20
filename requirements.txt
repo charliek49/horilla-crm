@@ -11,3 +11,4 @@ drf-yasg
 celery
 redis
 django-environ==0.11.2
+django-environ==0.11.2
