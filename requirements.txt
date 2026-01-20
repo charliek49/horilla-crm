@@ -11,3 +11,4 @@ drf-yasg
 django-rest-passwordreset
 celery==5.3.6
 redis==5.0.1
+daphne==4.1.2
